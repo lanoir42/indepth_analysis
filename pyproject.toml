@@ -1,10 +1,25 @@
 [project]
 name = "indepth-analysis"
 version = "0.1.0"
-description = "Add your description here"
+description = "Full-spectrum investment analysis CLI tool"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "google-api-python-client>=2.190.0",
+    "google-auth>=2.48.0",
+    "httpx>=0.28.1",
+    "ib-async>=2.1.0",
+    "matplotlib>=3.10.8",
+    "numpy>=2.4.2",
+    "pandas>=3.0.1",
+    "pydantic>=2.12.5",
+    "rich>=14.3.3",
+    "ta>=0.11.0",
+    "yfinance>=1.2.0",
+]
+
+[project.scripts]
+indepth = "indepth_analysis.cli:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -13,6 +28,7 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
     "ruff>=0.15.2",
 ]
 
