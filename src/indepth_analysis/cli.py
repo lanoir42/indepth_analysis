@@ -1,6 +1,7 @@
 import argparse
 import asyncio
 import logging
+import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
@@ -23,34 +24,53 @@ def build_parser() -> argparse.ArgumentParser:
         prog="indepth",
         description="Full-spectrum investment analysis",
     )
-    p.add_argument("ticker", help="Stock ticker symbol")
-    p.add_argument(
+    sub = p.add_subparsers(dest="command")
+
+    # --- analyze (default) ---
+    analyze = sub.add_parser("analyze", help="Run investment analysis")
+    analyze.add_argument("ticker", help="Stock ticker symbol")
+    analyze.add_argument(
         "--ibkr-host",
         default="127.0.0.1",
         help="IBKR TWS/Gateway host",
     )
-    p.add_argument(
+    analyze.add_argument(
         "--ibkr-port",
         type=int,
         default=7497,
         help="IBKR TWS/Gateway port",
     )
-    p.add_argument(
+    analyze.add_argument(
         "--sheets-id",
         default=None,
         help="Google Sheets ID for portfolio",
     )
-    p.add_argument(
+    analyze.add_argument(
         "--credentials",
         default=None,
         help="Path to Google service account JSON",
     )
-    p.add_argument(
+    analyze.add_argument(
         "-v",
         "--verbose",
         action="store_true",
         help="Enable verbose logging",
     )
+
+    # --- publish ---
+    publish = sub.add_parser("publish", help="Publish a markdown report to Notion")
+    publish.add_argument(
+        "md_path",
+        type=Path,
+        help="Path to the markdown report file",
+    )
+    publish.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging",
+    )
+
     return p
 
 
@@ -202,13 +222,8 @@ async def run_analysis(
     return report, report_data
 
 
-def main() -> None:
-    parser = build_parser()
-    args = parser.parse_args()
-
-    level = logging.DEBUG if args.verbose else logging.WARNING
-    logging.basicConfig(level=level, format="%(levelname)s: %(message)s")
-
+def _run_analyze(args: argparse.Namespace) -> None:
+    """Execute the analyze subcommand."""
     config = AnalysisConfig(
         ibkr_host=args.ibkr_host,
         ibkr_port=args.ibkr_port,
@@ -216,39 +231,90 @@ def main() -> None:
         credentials_path=args.credentials,
     )
 
-    try:
-        report, report_data = asyncio.run(run_analysis(args.ticker, config))
-        renderer = ReportRenderer()
-        renderer.render(report)
+    report, report_data = asyncio.run(run_analysis(args.ticker, config))
+    renderer = ReportRenderer()
+    renderer.render(report)
 
-        # Generate charts
-        from indepth_analysis.output.charts import generate_all_charts
+    # Generate charts
+    from indepth_analysis.output.charts import generate_all_charts
 
-        reports_dir = Path("reports")
-        charts_dir = reports_dir / "charts"
-        chart_paths = generate_all_charts(report_data, report.ticker, charts_dir)
+    reports_dir = Path("reports")
+    charts_dir = reports_dir / "charts"
+    chart_paths = generate_all_charts(report_data, report.ticker, charts_dir)
 
-        if chart_paths:
-            console.print(
-                f"\n[green]Generated {len(chart_paths)} chart(s)"
-                f" in {charts_dir}[/green]"
-            )
-
-        # Generate markdown report
-        from indepth_analysis.output.markdown_renderer import MarkdownRenderer
-
-        md_renderer = MarkdownRenderer()
-        md_content = md_renderer.render(
-            report,
-            report_data=report_data,
-            chart_paths=chart_paths,
-            charts_rel_dir="charts",
+    if chart_paths:
+        console.print(
+            f"\n[green]Generated {len(chart_paths)} chart(s) in {charts_dir}[/green]"
         )
-        reports_dir.mkdir(exist_ok=True)
-        filename = f"{report.ticker}_{date.today().isoformat()}.md"
-        filepath = reports_dir / filename
-        filepath.write_text(md_content)
-        console.print(f"[green]Report saved to {filepath}[/green]")
+
+    # Generate markdown report
+    from indepth_analysis.output.markdown_renderer import MarkdownRenderer
+
+    md_renderer = MarkdownRenderer()
+    md_content = md_renderer.render(
+        report,
+        report_data=report_data,
+        chart_paths=chart_paths,
+        charts_rel_dir="charts",
+    )
+    reports_dir.mkdir(exist_ok=True)
+    filename = f"{report.ticker}_{date.today().isoformat()}.md"
+    filepath = reports_dir / filename
+    filepath.write_text(md_content)
+    console.print(f"[green]Report saved to {filepath}[/green]")
+
+
+def _run_publish(args: argparse.Namespace) -> None:
+    """Execute the publish subcommand."""
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    token = os.environ.get("NOTION_TOKEN")
+    parent_id = os.environ.get("NOTION_PAGE_ID")
+
+    if not token:
+        console.print("[red]NOTION_TOKEN not set in environment or .env[/red]")
+        sys.exit(1)
+    if not parent_id:
+        console.print("[red]NOTION_PAGE_ID not set in environment or .env[/red]")
+        sys.exit(1)
+
+    md_path: Path = args.md_path
+    if not md_path.exists():
+        console.print(f"[red]File not found: {md_path}[/red]")
+        sys.exit(1)
+
+    from indepth_analysis.output.notion_publisher import publish_to_notion
+
+    with console.status("[cyan]Publishing report to Notion..."):
+        url = publish_to_notion(md_path, token, parent_id)
+
+    console.print(f"[green]Published to Notion:[/green] {url}")
+
+
+def main() -> None:
+    parser = build_parser()
+
+    # Backward compatibility: if first arg is not a known subcommand,
+    # treat it as a ticker for the analyze subcommand
+    if len(sys.argv) > 1 and sys.argv[1] not in ("analyze", "publish", "-h", "--help"):
+        sys.argv.insert(1, "analyze")
+
+    args = parser.parse_args()
+
+    if args.command is None:
+        parser.print_help()
+        sys.exit(1)
+
+    level = logging.DEBUG if args.verbose else logging.WARNING
+    logging.basicConfig(level=level, format="%(levelname)s: %(message)s")
+
+    try:
+        if args.command == "analyze":
+            _run_analyze(args)
+        elif args.command == "publish":
+            _run_publish(args)
     except KeyboardInterrupt:
         console.print("\n[yellow]Cancelled.[/yellow]")
         sys.exit(1)
