@@ -92,6 +92,43 @@ class TestParseNews:
     def test_empty_input(self):
         assert parse_news([]) == []
 
+    def test_nested_content_format(self):
+        """yfinance >= 0.2.36 nests data under 'content'."""
+        raw = [
+            {
+                "id": "abc-123",
+                "content": {
+                    "title": "Nested Article",
+                    "pubDate": "2026-02-23T19:10:31Z",
+                    "thumbnail": {
+                        "resolutions": [
+                            {
+                                "url": "https://img.com/pic.jpg",
+                                "width": 600,
+                                "height": 400,
+                                "tag": "original",
+                            },
+                        ]
+                    },
+                    "provider": {"displayName": "Yahoo Finance"},
+                    "canonicalUrl": {
+                        "url": "https://finance.yahoo.com/news/article.html",
+                    },
+                },
+            }
+        ]
+        articles = parse_news(raw)
+        assert len(articles) == 1
+        assert articles[0].title == "Nested Article"
+        assert articles[0].publisher == "Yahoo Finance"
+        assert "finance.yahoo.com" in articles[0].link
+        assert articles[0].thumbnail is not None
+        assert "UTC" in articles[0].published
+
+    def test_skips_items_without_title(self):
+        raw = [{"content": {}}]
+        assert parse_news(raw) == []
+
     def test_published_timestamp(self):
         raw = [
             {

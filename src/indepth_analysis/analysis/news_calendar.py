@@ -12,18 +12,46 @@ def parse_news(raw: list[dict], max_articles: int = 10) -> list[NewsArticle]:
     articles: list[NewsArticle] = []
     for item in raw[:max_articles]:
         try:
-            thumbnail = _pick_thumbnail(item.get("thumbnail", {}))
+            # yfinance >= 0.2.36 nests data under "content"
+            content = item.get("content", item)
+
+            thumbnail = _pick_thumbnail(
+                content.get("thumbnail", item.get("thumbnail", {}))
+            )
+
             published = ""
-            ts = item.get("providerPublishTime")
-            if ts:
-                published = datetime.fromtimestamp(ts, tz=UTC).strftime(
-                    "%Y-%m-%d %H:%M UTC"
-                )
+            pub_date = content.get("pubDate")
+            if pub_date and isinstance(pub_date, str):
+                published = pub_date.replace("T", " ").replace("Z", " UTC")
+            else:
+                ts = item.get("providerPublishTime")
+                if ts:
+                    published = datetime.fromtimestamp(ts, tz=UTC).strftime(
+                        "%Y-%m-%d %H:%M UTC"
+                    )
+
+            # Extract link from nested canonicalUrl or flat "link"
+            link = item.get("link", "")
+            canonical = content.get("canonicalUrl")
+            if canonical and isinstance(canonical, dict):
+                link = canonical.get("url", link)
+
+            # Extract publisher from nested provider or flat "publisher"
+            publisher = item.get("publisher", "")
+            provider = content.get("provider")
+            if provider and isinstance(provider, dict):
+                publisher = provider.get("displayName", publisher)
+
+            title = content.get("title", item.get("title", ""))
+
+            if not title:
+                continue
+
             articles.append(
                 NewsArticle(
-                    title=item.get("title", ""),
-                    publisher=item.get("publisher", ""),
-                    link=item.get("link", ""),
+                    title=title,
+                    publisher=publisher,
+                    link=link,
                     published=published,
                     thumbnail=thumbnail,
                 )
