@@ -1,3 +1,8 @@
+---
+name: enrich-findings
+description: Enrich euro macro findings JSON with WebSearch results
+---
+
 # Enrich Euro Macro Findings with Web Search
 
 Given the findings JSON at: $ARGUMENTS
