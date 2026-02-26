@@ -5,6 +5,7 @@ description = "Full-spectrum investment analysis CLI tool"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "anthropic>=0.84.0",
     "beautifulsoup4>=4.14.3",
     "google-api-python-client>=2.190.0",
     "google-auth>=2.48.0",
@@ -38,6 +39,7 @@ search-gemini = [
     "google-generativeai>=0.8.6",
 ]
 search-local = [
+    "einops>=0.8.2",
     "sentence-transformers>=5.2.3",
 ]
 

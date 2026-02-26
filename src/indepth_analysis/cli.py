@@ -144,6 +144,45 @@ def build_parser() -> argparse.ArgumentParser:
         "-v", "--verbose", action="store_true", help="Enable verbose logging"
     )
 
+    # --- report ---
+    report = sub.add_parser("report", help="Generate research reports")
+    report_sub = report.add_subparsers(dest="report_type")
+
+    euro = report_sub.add_parser("euro-macro", help="Monthly European macro report")
+    today = date.today()
+    euro.add_argument("--year", type=int, default=today.year, help="Report year")
+    euro.add_argument("--month", type=int, default=today.month, help="Report month")
+    euro.add_argument(
+        "--model",
+        default="claude-sonnet-4-20250514",
+        help="Claude model for synthesis",
+    )
+    euro.add_argument(
+        "--skip-update",
+        action="store_true",
+        help="Skip KCIF scrape/download",
+    )
+    euro.add_argument(
+        "--collect-only",
+        action="store_true",
+        help="Run KCIF agent and save findings JSON (no synthesis)",
+    )
+    euro.add_argument(
+        "--from-findings",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Load findings JSON and synthesize report",
+    )
+    euro.add_argument(
+        "--legacy-agents",
+        action="store_true",
+        help="Include broken httpx web agents (Media, Institutional, Data)",
+    )
+    euro.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable verbose logging"
+    )
+
     return p
 
 
@@ -631,6 +670,38 @@ def _run_status(args: argparse.Namespace) -> None:
     db.close()
 
 
+def _run_report(args: argparse.Namespace) -> None:
+    """Execute the report subcommand."""
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    if args.report_type == "euro-macro":
+        collect_only = getattr(args, "collect_only", False)
+        from_findings = getattr(args, "from_findings", None)
+        if collect_only and from_findings:
+            console.print(
+                "[red]--collect-only and --from-findings are mutually exclusive.[/red]"
+            )
+            sys.exit(1)
+
+        from indepth_analysis.skills.euro_macro import run_euro_macro
+
+        run_euro_macro(
+            year=args.year,
+            month=args.month,
+            model=args.model,
+            skip_update=args.skip_update,
+            verbose=getattr(args, "verbose", False),
+            collect_only=collect_only,
+            from_findings=from_findings,
+            legacy_agents=getattr(args, "legacy_agents", False),
+        )
+    else:
+        console.print("[red]Unknown report type. Use 'euro-macro'.[/red]")
+        sys.exit(1)
+
+
 KNOWN_COMMANDS = (
     "analyze",
     "publish",
@@ -638,6 +709,7 @@ KNOWN_COMMANDS = (
     "process",
     "search",
     "status",
+    "report",
     "-h",
     "--help",
 )
@@ -673,6 +745,8 @@ def main() -> None:
             _run_search(args)
         elif args.command == "status":
             _run_status(args)
+        elif args.command == "report":
+            _run_report(args)
     except KeyboardInterrupt:
         console.print("\n[yellow]Cancelled.[/yellow]")
         sys.exit(1)

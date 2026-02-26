@@ -2,25 +2,22 @@ import hashlib
 import logging
 import re
 from pathlib import Path
+from urllib.parse import unquote
 
 import httpx
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from indepth_analysis.data.scraper_base import ScraperResult
 
 logger = logging.getLogger(__name__)
 
 KCIF_BASE_URL = "https://www.kcif.or.kr"
-KCIF_LIST_URL = f"{KCIF_BASE_URL}/front/board/boardList.do"
-KCIF_VIEW_URL = f"{KCIF_BASE_URL}/front/board/boardView.do"
+KCIF_LIST_URL = f"{KCIF_BASE_URL}/report/reportList"
+KCIF_DOWNLOAD_URL = f"{KCIF_BASE_URL}/common/file/reportFileDownload"
+KCIF_AUTH_URL = f"{KCIF_BASE_URL}/comm/AuthCheck"
 
-# KCIF board IDs for different report categories
-BOARD_IDS = {
-    "focus": "3",  # KCIF Focus (주요 분석 보고서)
-    "weekly": "5",  # Weekly (주간 보고서)
-    "daily": "4",  # Daily (일일 보고서)
-    "special": "6",  # Special (특별 보고서)
-}
+# Report link URL patterns (section → view path)
+VIEW_PATTERNS = ("reportView", "financeView", "economyView")
 
 DEFAULT_TIMEOUT = 30.0
 DEFAULT_HEADERS = {
@@ -29,9 +26,11 @@ DEFAULT_HEADERS = {
         "AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/120.0.0.0 Safari/537.36"
     ),
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept": ("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"),
     "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
 }
+
+ITEMS_PER_PAGE = 100  # max pp the site honors
 
 
 class KCIFScraper:
@@ -40,13 +39,8 @@ class KCIFScraper:
     source_name: str = "KCIF"
     base_url: str = KCIF_BASE_URL
 
-    def __init__(
-        self,
-        timeout: float = DEFAULT_TIMEOUT,
-        board_ids: list[str] | None = None,
-    ) -> None:
+    def __init__(self, timeout: float = DEFAULT_TIMEOUT) -> None:
         self._timeout = timeout
-        self._board_ids = board_ids or list(BOARD_IDS.values())
         self._client: httpx.Client | None = None
 
     @property
@@ -57,6 +51,8 @@ class KCIFScraper:
                 headers=DEFAULT_HEADERS,
                 follow_redirects=True,
             )
+            # Establish session cookies
+            self._client.get(KCIF_LIST_URL)
         return self._client
 
     def close(self) -> None:
@@ -70,156 +66,135 @@ class KCIFScraper:
         month: int | None = None,
         limit: int | None = None,
     ) -> list[ScraperResult]:
-        """Scrape report metadata from KCIF listing pages."""
+        """Scrape report metadata from the KCIF listing page."""
         all_results: list[ScraperResult] = []
+        page = 1
+        max_pages = 50  # safety cap
 
-        for board_id in self._board_ids:
-            try:
-                results = self._scrape_board(
-                    board_id, year=year, month=month, limit=limit
-                )
-                all_results.extend(results)
-                logger.info("Scraped %d results from board %s", len(results), board_id)
-            except Exception:
-                logger.warning("Failed to scrape board %s", board_id, exc_info=True)
-
-            if limit and len(all_results) >= limit:
-                all_results = all_results[:limit]
-                break
-
-        return all_results
-
-    def _scrape_board(
-        self,
-        board_id: str,
-        year: int | None = None,
-        month: int | None = None,
-        limit: int | None = None,
-        max_pages: int = 10,
-    ) -> list[ScraperResult]:
-        results: list[ScraperResult] = []
-        category = next((k for k, v in BOARD_IDS.items() if v == board_id), board_id)
-
-        for page in range(1, max_pages + 1):
+        while page <= max_pages:
             params: dict[str, str | int] = {
-                "boardId": board_id,
-                "page": page,
+                "pg": page,
+                "pp": ITEMS_PER_PAGE,
             }
             if year:
-                params["searchYear"] = year
+                params["year"] = year
             if month:
-                params["searchMonth"] = f"{month:02d}"
+                params["month"] = f"{month:02d}"
 
             try:
                 resp = self.client.get(KCIF_LIST_URL, params=params)
                 resp.raise_for_status()
             except httpx.HTTPError:
-                logger.warning(
-                    "HTTP error fetching board %s page %d",
-                    board_id,
-                    page,
-                    exc_info=True,
-                )
+                logger.warning("HTTP error fetching page %d", page, exc_info=True)
                 break
 
-            page_results = self._parse_listing_page(resp.text, category)
+            page_results = self._parse_listing_page(resp.text)
             if not page_results:
                 break
 
-            results.extend(page_results)
+            all_results.extend(page_results)
+            logger.info(
+                "Page %d: scraped %d reports (total: %d)",
+                page,
+                len(page_results),
+                len(all_results),
+            )
 
-            if limit and len(results) >= limit:
-                results = results[:limit]
+            if limit and len(all_results) >= limit:
+                all_results = all_results[:limit]
                 break
 
-        return results
+            # If we got fewer than a full page, we're done
+            if len(page_results) < ITEMS_PER_PAGE:
+                break
 
-    def _parse_listing_page(self, html: str, category: str) -> list[ScraperResult]:
+            page += 1
+
+        return all_results
+
+    def _parse_listing_page(self, html: str) -> list[ScraperResult]:
         soup = BeautifulSoup(html, "html.parser")
         results: list[ScraperResult] = []
+        seen_ids: set[str] = set()
 
-        # Look for typical board list table rows
-        rows = soup.select("table tbody tr")
-        if not rows:
-            # Try alternative: div-based listing
-            rows = soup.select(".board-list li, .bbs-list li, .list-item")
-
-        for row in rows:
-            try:
-                result = self._parse_row(row, category)
-                if result:
-                    results.append(result)
-            except Exception:
-                logger.debug("Failed to parse row", exc_info=True)
+        for li in soup.select("li"):
+            # Must have a report view link
+            link = li.select_one("a[href]")
+            if not link:
                 continue
+            href = str(link.get("href", ""))
+            if not any(vp in href for vp in VIEW_PATTERNS):
+                continue
+
+            # Must have author/date info (filters out sidebar duplicates)
+            txt_wrap = li.select_one("div.txt_wrap")
+            if not txt_wrap:
+                continue
+
+            result = self._parse_item(li, link, href, txt_wrap)
+            if result and result.external_id not in seen_ids:
+                seen_ids.add(result.external_id)
+                results.append(result)
 
         return results
 
-    def _parse_row(self, row: BeautifulSoup, category: str) -> ScraperResult | None:
-        # Find the link element
-        link = row.select_one("a[href]")
-        if not link:
-            return None
-
+    def _parse_item(
+        self,
+        li: Tag,
+        link: Tag,
+        href: str,
+        txt_wrap: Tag,
+    ) -> ScraperResult | None:
         title = link.get_text(strip=True)
         if not title:
             return None
 
-        href = link.get("href", "")
-
-        # Extract board content ID from href
-        content_id = self._extract_content_id(str(href))
-        if not content_id:
+        # Extract rpt_no as external ID
+        rpt_match = re.search(r"rpt_no=(\d+)", href)
+        if not rpt_match:
             return None
+        rpt_no = rpt_match.group(1)
 
-        # Build view URL
-        bid = self._extract_board_id(str(href))
-        url = f"{KCIF_VIEW_URL}?boardId={bid}&contentId={content_id}"
+        # Build full view URL
+        url = f"{KCIF_BASE_URL}{href}" if href.startswith("/") else href
 
-        # Extract date
-        date_text = self._extract_date(row)
+        # Category from h5.tit_bar
+        category = ""
+        h5 = li.select_one("h5.tit_bar")
+        if h5:
+            raw = h5.get_text(strip=True)
+            # Clean "정기보고서 > 국제금융속보" → "국제금융속보"
+            parts = raw.split(">")
+            category = parts[-1].strip() if parts else raw
 
-        # Extract author
-        author = ""
-        author_el = row.select_one(".writer, .author, td:nth-of-type(3)")
-        if author_el:
-            author = author_el.get_text(strip=True)
+        # Author and date from div.txt_wrap spans
+        spans = txt_wrap.select("span")
+        author = spans[0].get_text(strip=True) if spans else ""
+        date_text = spans[1].get_text(strip=True) if len(spans) > 1 else ""
+        published_date = self._parse_date(date_text)
+
+        # Download file number (fno) from reportdownload onclick
+        file_url = None
+        dl_btn = li.select_one("[onclick*='reportdownload']")
+        if dl_btn:
+            onclick = str(dl_btn.get("onclick", ""))
+            fno_match = re.search(r"reportdownload\('([^']+)'\)", onclick)
+            if fno_match:
+                fno = fno_match.group(1)
+                file_url = f"{KCIF_DOWNLOAD_URL}?atch_no={fno}&lang=KR"
 
         return ScraperResult(
-            external_id=content_id,
+            external_id=rpt_no,
             title=title,
             category=category,
             author=author,
-            published_date=date_text,
+            published_date=published_date,
             url=url,
-            file_url=None,
+            file_url=file_url,
         )
 
-    def _extract_content_id(self, href: str) -> str | None:
-        """Extract contentId from href."""
-        match = re.search(r"contentId[=,](\d+)", href)
-        if match:
-            return match.group(1)
-        # Try numeric-only patterns
-        match = re.search(r"(\d{4,})", href)
-        return match.group(1) if match else None
-
-    def _extract_board_id(self, href: str) -> str:
-        match = re.search(r"boardId[=,](\d+)", href)
-        return match.group(1) if match else "3"
-
-    def _extract_date(self, row: BeautifulSoup) -> str | None:
-        """Try to find a date in the row."""
-        date_el = row.select_one(".date, .reg-date, td:nth-of-type(4)")
-        if date_el:
-            text = date_el.get_text(strip=True)
-            # Try YYYY.MM.DD or YYYY-MM-DD
-            match = re.search(r"(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})", text)
-            if match:
-                y, m, d = match.group(1), match.group(2), match.group(3)
-                return f"{y}-{int(m):02d}-{int(d):02d}"
-        # Try anywhere in the row
-        text = row.get_text()
+    def _parse_date(self, text: str) -> str | None:
+        """Parse date from '2026.02.26' format to '2026-02-26'."""
         match = re.search(r"(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})", text)
         if match:
             y, m, d = match.group(1), match.group(2), match.group(3)
@@ -230,13 +205,13 @@ class KCIFScraper:
         """Download report PDF. Returns local path or None if restricted."""
         dest_dir.mkdir(parents=True, exist_ok=True)
 
-        # First, visit the view page to find the actual download link
         file_url = result.file_url
         if not file_url:
+            # Try to find download link on the view page
             file_url = self._find_file_url(result.url)
 
         if not file_url:
-            logger.info("No downloadable file found for: %s", result.title)
+            logger.info("No downloadable file for: %s", result.title)
             return None
 
         # Ensure absolute URL
@@ -247,7 +222,7 @@ class KCIFScraper:
             resp = self.client.get(file_url)
 
             if resp.status_code in (401, 403):
-                logger.info("Restricted access for: %s", result.title)
+                logger.info("Restricted: %s", result.title)
                 return None
 
             resp.raise_for_status()
@@ -256,7 +231,15 @@ class KCIFScraper:
                 return None
             raise
 
-        # Determine filename
+        # Verify we got actual file content
+        if len(resp.content) < 100:
+            logger.warning(
+                "Tiny response for %s (%d bytes), skipping",
+                result.title,
+                len(resp.content),
+            )
+            return None
+
         filename = self._get_filename(resp, result)
         filepath = dest_dir / filename
 
@@ -265,34 +248,24 @@ class KCIFScraper:
         return filepath
 
     def _find_file_url(self, view_url: str) -> str | None:
-        """Visit a report view page and find the PDF download link."""
+        """Visit a report view page and find the download link."""
         try:
             resp = self.client.get(view_url)
             resp.raise_for_status()
         except httpx.HTTPError:
-            logger.warning("Failed to fetch view page: %s", view_url)
+            logger.warning("Failed to fetch: %s", view_url)
             return None
 
         soup = BeautifulSoup(resp.text, "html.parser")
 
-        # Look for download links (PDF, HWP, etc.)
-        for link in soup.select("a[href]"):
-            href = str(link.get("href", ""))
-            text = link.get_text(strip=True).lower()
-
-            # Check for file download patterns
-            exts = [".pdf", ".hwp", "download", "fileDown"]
-            if any(ext in href.lower() for ext in exts):
-                return href
-            if any(kw in text for kw in ["다운로드", "download", "pdf", "첨부"]):
-                return href
-
-        # Check for onclick handlers with file download
-        for el in soup.select("[onclick]"):
-            onclick = str(el.get("onclick", ""))
-            match = re.search(r"((?:/[^'\"]+)?fileDown[^'\"]*)", onclick)
+        # Look for reportdownload onclick
+        dl_btn = soup.select_one("[onclick*='reportdownload']")
+        if dl_btn:
+            onclick = str(dl_btn.get("onclick", ""))
+            match = re.search(r"reportdownload\('([^']+)'\)", onclick)
             if match:
-                return match.group(1)
+                fno = match.group(1)
+                return f"{KCIF_DOWNLOAD_URL}?atch_no={fno}&lang=KR"
 
         return None
 
@@ -302,16 +275,17 @@ class KCIFScraper:
         if cd:
             match = re.search(r'filename[*]?="?([^";\n]+)"?', cd)
             if match:
-                return match.group(1).strip()
+                name = match.group(1).strip()
+                # Decode URL-encoded filenames
+                if "%" in name:
+                    name = unquote(name)
+                return name
 
         # Generate a safe filename
-        safe_title = re.sub(r"[^\w\s가-힣-]", "", result.title)[:60].strip()
+        safe_title = re.sub(r"[^\w\s가-힣-]", "", result.title)
+        safe_title = safe_title[:60].strip()
         safe_title = re.sub(r"\s+", "_", safe_title)
-        ext = ".pdf"
-        content_type = resp.headers.get("content-type", "")
-        if "hwp" in content_type:
-            ext = ".hwp"
-        return f"{result.external_id}_{safe_title}{ext}"
+        return f"{result.external_id}_{safe_title}.pdf"
 
 
 def file_hash(filepath: Path) -> str:
