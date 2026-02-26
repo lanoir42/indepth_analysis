@@ -37,3 +37,16 @@ class AnalysisConfig(BaseModel):
     history_interval: str = "1d"
 
     weights: dict[str, float] = Field(default_factory=lambda: DEFAULT_WEIGHTS.copy())
+
+
+class ReferenceConfig(BaseModel):
+    db_path: str = "references/references.db"
+    download_dir: str = "references"
+    embedding_provider: str = "local"  # "local" or "gemini"
+    embedding_model_local: str = "nomic-ai/nomic-embed-text-v2-moe"
+    embedding_model_gemini: str = "text-embedding-004"
+    chunk_target_tokens: int = 320
+    chunk_min_tokens: int = 256
+    chunk_max_tokens: int = 384
+    cost_limit_usd: float = 0.0  # 0 = unlimited
+    session_cost_limit_usd: float = 0.0
