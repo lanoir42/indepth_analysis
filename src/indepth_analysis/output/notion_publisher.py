@@ -137,7 +137,12 @@ def _parse_inline(text: str) -> list[dict]:
         if m.group(1):  # bold
             elements.append(_rich_text(m.group(2), bold=True))
         elif m.group(3):  # link
-            elements.append(_rich_text(m.group(4), link=m.group(5)))
+            url = m.group(5)
+            # Notion requires absolute URLs — render anchors/fragments as plain text
+            if url.startswith(("http://", "https://")):
+                elements.append(_rich_text(m.group(4), link=url))
+            else:
+                elements.append(_rich_text(m.group(4)))
         elif m.group(6):  # plain
             elements.append(_rich_text(m.group(6)))
     return elements or [_rich_text(text)]
