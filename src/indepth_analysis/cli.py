@@ -180,6 +180,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Include broken httpx web agents (Media, Institutional, Data)",
     )
     euro.add_argument(
+        "--slide",
+        action="store_true",
+        help="Generate one-page PowerPoint dashboard slide",
+    )
+    euro.add_argument(
         "-v", "--verbose", action="store_true", help="Enable verbose logging"
     )
 
@@ -696,6 +701,7 @@ def _run_report(args: argparse.Namespace) -> None:
             collect_only=collect_only,
             from_findings=from_findings,
             legacy_agents=getattr(args, "legacy_agents", False),
+            slide=getattr(args, "slide", False),
         )
     else:
         console.print("[red]Unknown report type. Use 'euro-macro'.[/red]")

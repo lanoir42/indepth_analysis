@@ -25,6 +25,7 @@ def run_euro_macro(
     collect_only: bool = False,
     from_findings: str | None = None,
     legacy_agents: bool = False,
+    slide: bool = False,
 ) -> None:
     """Generate a monthly European macroeconomic report.
 
@@ -69,6 +70,11 @@ def run_euro_macro(
         print_summary(report, console)
         filepath = save_report(report)
         console.print(f"\n[green]보고서 저장: {filepath}[/green]")
+        if slide:
+            from indepth_analysis.skills.euro_macro.slide_renderer import save_slide
+
+            slide_path = save_slide(report)
+            console.print(f"\n[green]슬라이드 저장: {slide_path}[/green]")
         return
 
     # Default: end-to-end pipeline (backward compatible)
@@ -90,6 +96,11 @@ def run_euro_macro(
     print_summary(report, console)
     filepath = save_report(report)
     console.print(f"\n[green]보고서 저장: {filepath}[/green]")
+    if slide:
+        from indepth_analysis.skills.euro_macro.slide_renderer import save_slide
+
+        slide_path = save_slide(report)
+        console.print(f"\n[green]슬라이드 저장: {slide_path}[/green]")
 
 
 def _require_api_key() -> str:
