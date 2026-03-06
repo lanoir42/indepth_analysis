@@ -66,6 +66,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to the markdown report file",
     )
     publish.add_argument(
+        "--attach",
+        type=Path,
+        nargs="+",
+        default=None,
+        help="File(s) to attach to the Notion page (e.g. .pptx, .pdf)",
+    )
+    publish.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -404,8 +411,10 @@ def _run_publish(args: argparse.Namespace) -> None:
 
     from indepth_analysis.output.notion_publisher import publish_to_notion
 
+    attachments = getattr(args, "attach", None)
+
     with console.status("[cyan]Publishing report to Notion..."):
-        url = publish_to_notion(md_path, token, parent_id)
+        url = publish_to_notion(md_path, token, parent_id, attachments=attachments)
 
     console.print(f"[green]Published to Notion:[/green] {url}")
 

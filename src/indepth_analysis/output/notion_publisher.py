@@ -19,6 +19,12 @@ _MIME_TYPES = {
     ".gif": "image/gif",
     ".svg": "image/svg+xml",
     ".webp": "image/webp",
+    ".pptx": (
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    ),
+    ".pdf": "application/pdf",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
 
 
@@ -204,6 +210,20 @@ def _image_block_upload(file_upload_id: str, caption: str = "") -> dict:
     return block
 
 
+def _file_block_upload(file_upload_id: str, caption: str = "") -> dict:
+    """Build a file attachment block from an uploaded file."""
+    block: dict = {
+        "type": "file",
+        "file": {
+            "type": "file_upload",
+            "file_upload": {"id": file_upload_id},
+        },
+    }
+    if caption:
+        block["file"]["caption"] = [_rich_text(caption)]
+    return block
+
+
 def _table_block(rows: list[list[str]]) -> dict:
     """Build a table block with table_row children."""
     if not rows:
@@ -344,13 +364,19 @@ def _extract_local_images(md_text: str) -> list[str]:
     return paths
 
 
-def publish_to_notion(md_path: Path, token: str, parent_id: str) -> str:
+def publish_to_notion(
+    md_path: Path,
+    token: str,
+    parent_id: str,
+    attachments: list[Path] | None = None,
+) -> str:
     """Publish a markdown report to Notion as a child page.
 
     Args:
         md_path: Path to the markdown file.
         token: Notion API integration token.
         parent_id: Notion page ID to create the child page under.
+        attachments: Optional list of file paths to attach (e.g. .pptx, .pdf).
 
     Returns:
         The URL of the created Notion page.
@@ -377,8 +403,24 @@ def publish_to_notion(md_path: Path, token: str, parent_id: str) -> str:
             else:
                 logger.warning("Chart file not found: %s", abs_path)
 
+        # Upload file attachments
+        attachment_blocks: list[dict] = []
+        for att_path in attachments or []:
+            if att_path.exists():
+                logger.info("Uploading attachment %s", att_path.name)
+                upload_id = client.upload_file(att_path)
+                caption = f"Download: {att_path.name}"
+                attachment_blocks.append(_file_block_upload(upload_id, caption))
+                logger.info("Uploaded attachment %s -> %s", att_path.name, upload_id)
+            else:
+                logger.warning("Attachment file not found: %s", att_path)
+
         # Parse markdown into blocks
         blocks = markdown_to_blocks(md_text, upload_map)
+
+        # Prepend attachment blocks (file downloads at the top)
+        if attachment_blocks:
+            blocks = attachment_blocks + [_divider_block()] + blocks
 
         # Create the page
         page = client.create_page(parent_id, title)
