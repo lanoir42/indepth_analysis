@@ -1,7 +1,6 @@
 """Euro Macro report skill — entry point."""
 
 import asyncio
-import os
 from pathlib import Path
 
 from rich.console import Console
@@ -37,7 +36,6 @@ def run_euro_macro(
     config = ReferenceConfig()
 
     if collect_only:
-        # Phase 1: collect only — no API key needed
         orchestrator = EuroMacroOrchestrator(config, legacy_agents=legacy_agents)
         with console.status("[cyan]리서치 에이전트 실행 중..."):
             agent_results = asyncio.run(
@@ -49,9 +47,7 @@ def run_euro_macro(
         return
 
     if from_findings:
-        # Phase 3: synthesize from pre-collected findings
-        anthropic_key = _require_api_key()
-        orchestrator = EuroMacroOrchestrator(config, anthropic_key)
+        orchestrator = EuroMacroOrchestrator(config)
         findings_path = Path(from_findings)
         if not findings_path.exists():
             console.print(f"[red]파일 없음: {findings_path}[/red]")
@@ -63,7 +59,7 @@ def run_euro_macro(
             f"[cyan]Loaded {sum(len(ar.findings) for ar in agent_results)} "
             f"findings from {findings_path}[/cyan]"
         )
-        with console.status("[cyan]Claude API 합성 중..."):
+        with console.status("[cyan]Claude CLI 합성 중..."):
             report = orchestrator.synthesize_from_findings(
                 agent_results, f_year, f_month, model
             )
@@ -77,11 +73,8 @@ def run_euro_macro(
             console.print(f"\n[green]슬라이드 저장: {slide_path}[/green]")
         return
 
-    # Default: end-to-end pipeline (backward compatible)
-    anthropic_key = _require_api_key()
-    orchestrator = EuroMacroOrchestrator(
-        config, anthropic_key, legacy_agents=legacy_agents
-    )
+    # Default: end-to-end pipeline
+    orchestrator = EuroMacroOrchestrator(config, legacy_agents=legacy_agents)
 
     with console.status("[cyan]리서치 에이전트 실행 중..."):
         report = asyncio.run(
@@ -101,15 +94,3 @@ def run_euro_macro(
 
         slide_path = save_slide(report)
         console.print(f"\n[green]슬라이드 저장: {slide_path}[/green]")
-
-
-def _require_api_key() -> str:
-    """Get ANTHROPIC_API_KEY or exit."""
-    key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not key:
-        console.print(
-            "[red]ANTHROPIC_API_KEY not set in environment. "
-            "Set it via .env or export.[/red]"
-        )
-        raise SystemExit(1)
-    return key

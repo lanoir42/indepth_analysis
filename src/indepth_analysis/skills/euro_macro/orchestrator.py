@@ -1,13 +1,12 @@
-"""Orchestrator — dispatches agents in parallel and synthesizes via Claude API."""
+"""Orchestrator — dispatches agents in parallel and synthesizes via Claude CLI."""
 
 import asyncio
 import json
 import logging
 import re
+import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
-
-import anthropic
 
 from indepth_analysis.config import ReferenceConfig
 from indepth_analysis.models.euro_macro import (
@@ -37,12 +36,11 @@ def default_findings_path(year: int, month: int) -> Path:
 
 
 class EuroMacroOrchestrator:
-    """Runs research agents in parallel and synthesizes findings via Claude."""
+    """Runs research agents in parallel and synthesizes findings via Claude CLI."""
 
     def __init__(
         self,
         config: ReferenceConfig,
-        anthropic_key: str = "",
         *,
         legacy_agents: bool = False,
     ) -> None:
@@ -50,17 +48,6 @@ class EuroMacroOrchestrator:
         self.agents: list = [KCIFAgent(config)]
         if legacy_agents:
             self.agents.extend([MediaAgent(), InstitutionalAgent(), DataAgent()])
-        self._anthropic_key = anthropic_key
-        self._client: anthropic.Anthropic | None = None
-
-    @property
-    def client(self) -> anthropic.Anthropic:
-        """Lazy-init the Anthropic client (only needed for synthesis)."""
-        if self._client is None:
-            if not self._anthropic_key:
-                raise RuntimeError("ANTHROPIC_API_KEY required for synthesis")
-            self._client = anthropic.Anthropic(api_key=self._anthropic_key)
-        return self._client
 
     async def run(
         self,
@@ -181,7 +168,7 @@ class EuroMacroOrchestrator:
         month: int,
         model: str,
     ) -> EuroMacroReport:
-        """Call Claude API to synthesize findings into a report."""
+        """Call Claude CLI (claude code max) to synthesize findings into a report."""
         context = self._build_context(agent_results)
         total_findings = sum(len(r.findings) for r in agent_results)
 
@@ -202,21 +189,24 @@ class EuroMacroOrchestrator:
                 generated_at=datetime.now(UTC).isoformat(),
             )
 
-        response = self.client.messages.create(
-            model=model,
-            max_tokens=8192,
-            system=SYNTHESIS_SYSTEM_PROMPT,
-            messages=[
-                {
-                    "role": "user",
-                    "content": SYNTHESIS_USER_PROMPT.format(
-                        year=year, month=month, context=context
-                    ),
-                }
-            ],
+        prompt = (
+            f"<system>\n{SYNTHESIS_SYSTEM_PROMPT}\n</system>\n\n"
+            + SYNTHESIS_USER_PROMPT.format(year=year, month=month, context=context)
         )
 
-        body = response.content[0].text
+        result = subprocess.run(
+            ["claude", "-p", prompt, "--model", model, "--output-format", "text"],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Claude CLI failed (exit {result.returncode}): {result.stderr}"
+            )
+
+        body = result.stdout.strip()
         sections = self._parse_sections(body)
 
         return EuroMacroReport(

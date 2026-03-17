@@ -60,65 +60,6 @@ class LocalEmbedder(BaseEmbedder):
         return [self.to_bytes(a) for a in arrs], 0.0  # local = free
 
 
-class GeminiEmbedder(BaseEmbedder):
-    """Cloud embeddings using Google Gemini text-embedding-004."""
-
-    # Gemini embedding pricing: free tier is very generous
-    # ~$0.00001 per 1000 chars as rough estimate
-    COST_PER_1K_CHARS = 0.00001
-
-    def __init__(self, model_name: str) -> None:
-        self.model_name = model_name
-        self._client = None
-
-    @property
-    def client(self):
-        if self._client is None:
-            import google.generativeai as genai
-
-            genai.configure()  # uses GOOGLE_API_KEY env var
-            self._client = genai
-        return self._client
-
-    def embed(self, text: str) -> bytes:
-        result = self.client.embed_content(
-            model=f"models/{self.model_name}",
-            content=text,
-            task_type="RETRIEVAL_DOCUMENT",
-        )
-        arr = np.array(result["embedding"], dtype=np.float32)
-        arr = arr / np.linalg.norm(arr)
-        return self.to_bytes(arr)
-
-    def embed_batch(self, texts: list[str]) -> tuple[list[bytes], float]:
-        if not texts:
-            return [], 0.0
-
-        results: list[bytes] = []
-        total_chars = 0
-
-        # Process in batches of 100 (Gemini limit)
-        batch_size = 100
-        for i in range(0, len(texts), batch_size):
-            batch = texts[i : i + batch_size]
-            total_chars += sum(len(t) for t in batch)
-
-            resp = self.client.embed_content(
-                model=f"models/{self.model_name}",
-                content=batch,
-                task_type="RETRIEVAL_DOCUMENT",
-            )
-            for emb in resp["embedding"]:
-                arr = np.array(emb, dtype=np.float32)
-                arr = arr / np.linalg.norm(arr)
-                results.append(self.to_bytes(arr))
-
-        cost = (total_chars / 1000) * self.COST_PER_1K_CHARS
-        return results, cost
-
-
-def get_embedder(provider: str, config: ReferenceConfig) -> BaseEmbedder:
-    """Factory function to create the appropriate embedder."""
-    if provider == "gemini":
-        return GeminiEmbedder(config.embedding_model_gemini)
+def get_embedder(config: ReferenceConfig) -> BaseEmbedder:
+    """Factory function to create the local embedder."""
     return LocalEmbedder(config.embedding_model_local)

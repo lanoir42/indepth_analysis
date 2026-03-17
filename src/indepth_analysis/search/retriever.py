@@ -42,7 +42,7 @@ def search_and_display(
 
     # Embed query
     with console.status("[cyan]Embedding query..."):
-        embedder = get_embedder(config.embedding_provider, config)
+        embedder = get_embedder(config)
         query_bytes = embedder.embed(query)
         query_vec = np.frombuffer(query_bytes, dtype=np.float32)
 

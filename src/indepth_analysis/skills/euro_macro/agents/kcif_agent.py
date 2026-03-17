@@ -68,7 +68,7 @@ class KCIFAgent(BaseResearchAgent):
                 error="No embedded documents in KCIF database",
             )
 
-        embedder = get_embedder(self.config.embedding_provider, self.config)
+        embedder = get_embedder(self.config)
 
         # Date window: target month ± 1 month
         target = date(year, month, 1)

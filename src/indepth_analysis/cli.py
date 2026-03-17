@@ -103,15 +103,9 @@ def build_parser() -> argparse.ArgumentParser:
     process.add_argument("--source", default=None, help="Process specific source only")
     process.add_argument(
         "--embedding-provider",
-        choices=["local", "gemini"],
+        choices=["local"],
         default="local",
         help="Embedding provider (default: local)",
-    )
-    process.add_argument(
-        "--cost-limit",
-        type=float,
-        default=0.0,
-        help="Max cost in USD (0 = unlimited)",
     )
     process.add_argument(
         "--dry-run",
@@ -137,7 +131,7 @@ def build_parser() -> argparse.ArgumentParser:
     search.add_argument("--source", default=None, help="Filter by source name")
     search.add_argument(
         "--embedding-provider",
-        choices=["local", "gemini"],
+        choices=["local"],
         default="local",
         help="Embedding provider for query (default: local)",
     )
@@ -545,10 +539,7 @@ def _run_process(args: argparse.Namespace) -> None:
     )
     from indepth_analysis.processing import process_reports
 
-    config = ReferenceConfig(
-        embedding_provider=args.embedding_provider,
-        cost_limit_usd=args.cost_limit,
-    )
+    config = ReferenceConfig()
     db = ReferenceDB(Path(config.db_path))
 
     # Get downloaded but unprocessed reports
@@ -589,11 +580,7 @@ def _run_process(args: argparse.Namespace) -> None:
             pages = r.page_count or 30  # estimate
             total_pages += pages
         console.print(f"Estimated pages: ~{total_pages}")
-        if config.embedding_provider == "local":
-            console.print("Estimated cost: $0.00 (all local)")
-        else:
-            est = total_pages * 0.001  # rough gemini estimate
-            console.print(f"Estimated embedding cost: ~${est:.4f}")
+        console.print("Estimated cost: $0.00 (local embeddings)")
         db.close()
         return
 
@@ -607,7 +594,7 @@ def _run_search(args: argparse.Namespace) -> None:
     from indepth_analysis.db import ReferenceDB
     from indepth_analysis.search.retriever import search_and_display
 
-    config = ReferenceConfig(embedding_provider=args.embedding_provider)
+    config = ReferenceConfig()
     db = ReferenceDB(Path(config.db_path))
 
     search_and_display(

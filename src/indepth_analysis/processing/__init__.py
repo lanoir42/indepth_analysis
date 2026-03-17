@@ -20,7 +20,7 @@ def process_reports(
     console: Console,
 ) -> None:
     """Process reports through extract → chunk → embed pipeline."""
-    embedder = get_embedder(config.embedding_provider, config)
+    embedder = get_embedder(config)
     total_cost = 0.0
 
     for i, report in enumerate(reports, 1):
@@ -115,8 +115,4 @@ def process_reports(
             f" ({len(chunks_to_embed)} chunks)"
         )
 
-        if config.cost_limit_usd > 0 and total_cost >= config.cost_limit_usd:
-            console.print(f"[yellow]Cost limit reached: ${total_cost:.4f}[/yellow]")
-            break
-
-    console.print(f"\nProcessed {len(reports)} reports. Total cost: ${total_cost:.4f}")
+    console.print(f"\nProcessed {len(reports)} reports.")
