@@ -268,15 +268,14 @@ class ReferenceDB:
         report_id: int | None = None,
         with_embeddings: bool = False,
     ) -> list[Chunk]:
-        cols = (
-            "*"
-            if with_embeddings
-            else (
-                "id, report_id, chunk_index, content, page_start, page_end, "
-                "token_count, is_table, embedding_model"
+        if with_embeddings:
+            query = "SELECT * FROM chunks"
+        else:
+            query = (
+                "SELECT id, report_id, chunk_index, content, page_start,"
+                " page_end, token_count, is_table, embedding_model"
+                " FROM chunks"
             )
-        )
-        query = f"SELECT {cols} FROM chunks"
         params: list = []
         if report_id is not None:
             query += " WHERE report_id = ?"

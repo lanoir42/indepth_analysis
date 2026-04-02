@@ -151,8 +151,25 @@ def build_parser() -> argparse.ArgumentParser:
 
     euro = report_sub.add_parser("euro-macro", help="Monthly European macro report")
     today = date.today()
-    euro.add_argument("--year", type=int, default=today.year, help="Report year")
-    euro.add_argument("--month", type=int, default=today.month, help="Report month")
+
+    def _validate_year(v: str) -> int:
+        y = int(v)
+        if not 2000 <= y <= 2100:
+            raise argparse.ArgumentTypeError("year must be 2000-2100")
+        return y
+
+    def _validate_month(v: str) -> int:
+        m = int(v)
+        if not 1 <= m <= 12:
+            raise argparse.ArgumentTypeError("month must be 1-12")
+        return m
+
+    euro.add_argument(
+        "--year", type=_validate_year, default=today.year, help="Report year"
+    )
+    euro.add_argument(
+        "--month", type=_validate_month, default=today.month, help="Report month"
+    )
     euro.add_argument(
         "--model",
         default="claude-sonnet-4-20250514",

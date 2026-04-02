@@ -12,6 +12,16 @@ wheels/
 # Environment secrets
 .env
 
+# Credentials and keys
+credentials.json
+oauth.json
+token.json
+*.pem
+*.key
+
+# macOS
+.DS_Store
+
 # Generated reports
 reports/
 

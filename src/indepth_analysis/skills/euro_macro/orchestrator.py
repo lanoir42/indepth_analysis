@@ -27,6 +27,16 @@ from indepth_analysis.skills.euro_macro.prompts import (
 
 logger = logging.getLogger(__name__)
 
+_ALLOWED_MODELS = frozenset(
+    {
+        "claude-sonnet-4-20250514",
+        "claude-opus-4-20250514",
+        "claude-haiku-4-5-20251001",
+        "claude-sonnet-4-6-20260401",
+        "claude-opus-4-6-20260401",
+    }
+)
+
 PIPELINE_VERSION = "2.0"
 
 
@@ -193,6 +203,11 @@ class EuroMacroOrchestrator:
             f"<system>\n{SYNTHESIS_SYSTEM_PROMPT}\n</system>\n\n"
             + SYNTHESIS_USER_PROMPT.format(year=year, month=month, context=context)
         )
+
+        if model not in _ALLOWED_MODELS:
+            raise ValueError(
+                f"Model {model!r} not in allowed list: {sorted(_ALLOWED_MODELS)}"
+            )
 
         result = subprocess.run(
             ["claude", "-p", prompt, "--model", model, "--output-format", "text"],
