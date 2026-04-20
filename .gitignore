@@ -27,3 +27,10 @@ reports/
 
 # Reference materials (institutional reports, PDFs)
 references/
+requests/
+
+# Session journal (contains confidential portfolio details, NAVs, decisions)
+journal/
+
+# Presentations (CEO-facing slides with confidential portfolio details)
+presentations/
