@@ -73,6 +73,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="File(s) to attach to the Notion page (e.g. .pptx, .pdf)",
     )
     publish.add_argument(
+        "--target",
+        choices=["indepth-analysis", "jeg-report"],
+        default="indepth-analysis",
+        help="Notion publish target (default: indepth-analysis)",
+    )
+    publish.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -204,6 +210,44 @@ def build_parser() -> argparse.ArgumentParser:
     )
     euro.add_argument(
         "-v", "--verbose", action="store_true", help="Enable verbose logging"
+    )
+
+    # --- dev-welfare ---
+    dw = report_sub.add_parser(
+        "dev-welfare", help="Development & welfare report"
+    )
+    dw.add_argument(
+        "--year", type=_validate_year, default=today.year, help="Report year"
+    )
+    dw.add_argument(
+        "--month", type=_validate_month, default=today.month, help="Report month"
+    )
+    dw.add_argument(
+        "--week", type=int, default=None, help="Week of month (1-5)"
+    )
+    dw.add_argument(
+        "--model",
+        default="claude-sonnet-4-20250514",
+        help="Claude model for synthesis",
+    )
+    dw.add_argument(
+        "--type",
+        dest="dw_report_type",
+        choices=["weekly", "monthly"],
+        default="weekly",
+        help="Report type (weekly or monthly)",
+    )
+    dw.add_argument(
+        "--collect-only",
+        action="store_true",
+        help="Run agents and save findings JSON (no synthesis)",
+    )
+    dw.add_argument(
+        "--from-findings",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="Load findings JSON and synthesize report",
     )
 
     return p
@@ -405,14 +449,23 @@ def _run_publish(args: argparse.Namespace) -> None:
 
     load_dotenv()
 
+    target = getattr(args, "target", "indepth-analysis")
+    _ENV_MAP = {
+        "indepth-analysis": "NOTION_PAGE_ID_INDEPTH_ANALYSIS",
+        "jeg-report": "NOTION_PAGE_ID_JEG_REPORT",
+    }
+    page_id_key = _ENV_MAP[target]
+
     token = os.environ.get("NOTION_TOKEN")
-    parent_id = os.environ.get("NOTION_PAGE_ID")
+    parent_id = os.environ.get(page_id_key)
 
     if not token:
         console.print("[red]NOTION_TOKEN not set in environment or .env[/red]")
         sys.exit(1)
     if not parent_id:
-        console.print("[red]NOTION_PAGE_ID not set in environment or .env[/red]")
+        console.print(
+            f"[red]{page_id_key} not set in environment or .env[/red]"
+        )
         sys.exit(1)
 
     md_path: Path = args.md_path
@@ -716,8 +769,30 @@ def _run_report(args: argparse.Namespace) -> None:
             legacy_agents=getattr(args, "legacy_agents", False),
             slide=getattr(args, "slide", False),
         )
+    elif args.report_type == "dev-welfare":
+        collect_only = getattr(args, "collect_only", False)
+        from_findings = getattr(args, "from_findings", None)
+        if collect_only and from_findings:
+            console.print(
+                "[red]--collect-only and --from-findings are mutually exclusive.[/red]"
+            )
+            sys.exit(1)
+
+        from indepth_analysis.skills.dev_welfare import run_dev_welfare
+
+        run_dev_welfare(
+            year=args.year,
+            month=args.month,
+            model=args.model,
+            report_type=getattr(args, "dw_report_type", "weekly"),
+            week=getattr(args, "week", None),
+            collect_only=collect_only,
+            from_findings=from_findings,
+        )
     else:
-        console.print("[red]Unknown report type. Use 'euro-macro'.[/red]")
+        console.print(
+            "[red]Unknown report type. Use 'euro-macro' or 'dev-welfare'.[/red]"
+        )
         sys.exit(1)
 
 
