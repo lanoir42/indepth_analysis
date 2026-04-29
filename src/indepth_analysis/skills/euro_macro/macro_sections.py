@@ -217,8 +217,6 @@ class MacroSectionsBuilder:
 
         title = "C. 리뷰 권고: KCIF 보고서 검증 필요 항목"
         lines: list[str] = [
-            f"## {title}",
-            "",
             "아래 지표는 최근 24개월 역사적 분포에서 통계적으로 유의미한 "
             "서프라이즈가 발생한 항목입니다.",
             "동일 기간 KCIF 보고서의 관련 수치를 교차 검토하시기 바랍니다.",
@@ -360,7 +358,7 @@ class MacroSectionsBuilder:
         rows = self._collect_window_rows(ff_result)
         title = "A. ForexFactory 향후 거시 캘린더 (다음 14일)"
 
-        body_lines: list[str] = [f"## {title}", ""]
+        body_lines: list[str] = []
         if not rows:
             body_lines.append("향후 14일 내 발표 예정 주요 지표 없음.")
             body_lines.append("")
@@ -410,7 +408,7 @@ class MacroSectionsBuilder:
         rows = self._collect_surprise_rows(ff_result)
         title = "B. ForexFactory 주요 지표 서프라이즈 (최근 30일)"
 
-        body_lines: list[str] = [f"## {title}", ""]
+        body_lines: list[str] = []
         if not rows:
             body_lines.append("해당 기간 발표된 주요 유럽 지표가 없습니다.")
             body_lines.append("")
