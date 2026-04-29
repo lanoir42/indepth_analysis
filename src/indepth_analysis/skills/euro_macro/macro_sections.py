@@ -532,9 +532,22 @@ class MacroSectionsBuilder:
         Window: [anchor_start − 30d, anchor_start + 7d] where anchor_start
         is the first day of the report month (UTC). Sorted by absolute
         surprise magnitude, descending.
+
+        Sources (in priority order):
+        1. DB released events queried by ForexFactoryAgent (authoritative,
+           covers the full lookback window even when "lastweek" JSON 404s).
+        2. events_by_period["lastweek"/"thisweek"] as a fallback supplement.
         """
-        events_by_period = (ff_result.extra or {}).get("events_by_period", {})
+        extra = ff_result.extra or {}
         candidates: list[dict] = []
+
+        # Primary: DB-backed released events (already filtered for the window).
+        for d in extra.get("released_events_db", []) or []:
+            candidates.append(d)
+
+        # Supplement with any released events from the JSON feeds that might
+        # not have been persisted to DB yet (e.g. same-day fetches).
+        events_by_period = extra.get("events_by_period", {})
         for period in ("lastweek", "thisweek"):
             for d in events_by_period.get(period, []) or []:
                 candidates.append(d)

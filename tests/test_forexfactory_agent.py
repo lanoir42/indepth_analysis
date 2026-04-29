@@ -124,6 +124,81 @@ def test_research_serializes_real_event(tmp_path, monkeypatch):
     assert thisweek[0]["datetime_utc"] == "2026-05-01T12:30:00+00:00"
 
 
+def test_released_events_db_populated_from_store(tmp_path, monkeypatch):
+    """released_events_db in extra contains released events queried from DB."""
+    from bgilib.macro.models import CalendarEvent
+    from bgilib.macro.storage import MacroStore
+
+    db_path = tmp_path / "macro.db"
+    store = MacroStore(db_path)
+
+    # Insert a released European event in the 30-day window for April 2026
+    released_event = CalendarEvent(
+        event_id="evt-released",
+        country="EUR",
+        title="CPI Flash y/y",
+        impact="High",
+        datetime_utc=datetime(2026, 3, 28, 10, 0, tzinfo=UTC),
+        forecast=2.3,
+        previous=2.4,
+        actual=2.2,
+        is_released=True,
+        source="html",
+        raw_time="10:00am",
+        raw_date="03-28-2026",
+    )
+    store.upsert_event(released_event)
+
+    def mock_fetch(self, period, *, force_refresh=False, countries=None, min_impact="Low"):
+        return []
+
+    monkeypatch.setattr(ForexFactoryClient, "fetch_calendar", mock_fetch)
+
+    agent = ForexFactoryAgent(db_path=db_path)
+    result = asyncio.run(agent.research(2026, 4))
+
+    db_events = result.extra["released_events_db"]
+    assert len(db_events) >= 1
+    ids = [e["event_id"] for e in db_events]
+    assert "evt-released" in ids
+
+
+def test_released_events_db_excludes_unreleased(tmp_path, monkeypatch):
+    """released_events_db only contains events with is_released=True."""
+    from bgilib.macro.models import CalendarEvent
+    from bgilib.macro.storage import MacroStore
+
+    db_path = tmp_path / "macro.db"
+    store = MacroStore(db_path)
+
+    pending = CalendarEvent(
+        event_id="evt-pending",
+        country="GBP",
+        title="Official Bank Rate",
+        impact="High",
+        datetime_utc=datetime(2026, 3, 20, 12, 0, tzinfo=UTC),
+        forecast=4.75,
+        previous=5.0,
+        actual=None,
+        is_released=False,
+        source="json",
+        raw_time=None,
+        raw_date=None,
+    )
+    store.upsert_event(pending)
+
+    def mock_fetch(self, period, *, force_refresh=False, countries=None, min_impact="Low"):
+        return []
+
+    monkeypatch.setattr(ForexFactoryClient, "fetch_calendar", mock_fetch)
+
+    agent = ForexFactoryAgent(db_path=db_path)
+    result = asyncio.run(agent.research(2026, 4))
+
+    ids = [e["event_id"] for e in result.extra["released_events_db"]]
+    assert "evt-pending" not in ids
+
+
 def test_force_refresh_propagates(tmp_path, monkeypatch):
     """force_refresh=True is passed through to fetch_calendar."""
 

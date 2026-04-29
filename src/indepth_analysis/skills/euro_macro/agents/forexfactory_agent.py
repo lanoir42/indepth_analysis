@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from bgilib.errors import MacroDataError
@@ -78,6 +78,26 @@ class ForexFactoryAgent:
                 periods_failed.append(period)
                 errors.append(f"{period}: {exc}")
 
+        # Query DB for released European events in the 30-day lookback window
+        # (JSON "lastweek" endpoint returns 404, so DB is the authoritative source).
+        released_events_db: list[dict] = []
+        try:
+            anchor_start = datetime(year, month, 1, tzinfo=UTC)
+            window_start = anchor_start - timedelta(days=30)
+            window_end = anchor_start + timedelta(days=7)
+            for country in self._countries:
+                db_events = client.store.query_events(
+                    country=country,
+                    since=window_start,
+                    until=window_end,
+                    min_impact="Medium",
+                )
+                released_events_db.extend(
+                    e.to_dict() for e in db_events if e.is_released
+                )
+        except Exception as exc:
+            logger.warning("DB released-events query failed: %s", exc)
+
         # Compute sigma alerts from the now-populated MacroStore (M4).
         sigma_alerts_raw: list[dict] = []
         try:
@@ -107,6 +127,7 @@ class ForexFactoryAgent:
 
         extra: dict = {
             "events_by_period": events_by_period,
+            "released_events_db": released_events_db,
             "fetched_at_utc": datetime.now(UTC).isoformat(),
             "periods_failed": periods_failed,
             "force_refresh": self._force_refresh,

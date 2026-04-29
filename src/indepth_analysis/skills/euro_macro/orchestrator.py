@@ -276,29 +276,60 @@ class EuroMacroOrchestrator:
                 generated_at=datetime.now(UTC).isoformat(),
             )
 
-        prompt = (
-            f"<system>\n{SYNTHESIS_SYSTEM_PROMPT}\n</system>\n\n"
-            + SYNTHESIS_USER_PROMPT.format(year=year, month=month, context=context)
-        )
+        user_prompt = SYNTHESIS_USER_PROMPT.format(year=year, month=month, context=context)
 
         if model not in _ALLOWED_MODELS:
             raise ValueError(
                 f"Model {model!r} not in allowed list: {sorted(_ALLOWED_MODELS)}"
             )
 
-        result = subprocess.run(
-            ["claude", "-p", prompt, "--model", model, "--output-format", "text"],
-            capture_output=True,
+        proc = subprocess.Popen(
+            [
+                "claude", "-p", user_prompt,
+                "--append-system-prompt", SYNTHESIS_SYSTEM_PROMPT,
+                "--output-format", "stream-json",
+                "--verbose",
+                "--model", model,
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=300,
+            cwd=str(Path("/tmp")),
         )
+        try:
+            stdout, stderr = proc.communicate(timeout=300)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            raise RuntimeError("Claude CLI timed out after 300s")
 
-        if result.returncode != 0:
+        if proc.returncode != 0:
             raise RuntimeError(
-                f"Claude CLI failed (exit {result.returncode}): {result.stderr}"
+                f"Claude CLI failed (exit {proc.returncode}): {stderr[:500]}"
             )
 
-        body = result.stdout.strip()
+        # Parse stream-json: collect text from assistant message blocks.
+        # This reliably captures output even when the model also calls tools.
+        text_parts: list[str] = []
+        result_text = ""
+        for line in stdout.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            t = obj.get("type", "")
+            if t == "assistant":
+                for block in obj.get("message", {}).get("content", []):
+                    if block.get("type") == "text":
+                        text_parts.append(block["text"])
+            elif t == "result" and obj.get("subtype") == "success":
+                r = (obj.get("result") or "").strip()
+                if r:
+                    result_text = r
+
+        body = result_text or "".join(text_parts)
         sections = self._parse_sections(body)
         sections.extend(macro_sections)
 
