@@ -12,6 +12,8 @@ from datetime import datetime, timezone
 from statistics import pstdev
 from typing import TYPE_CHECKING
 
+from bgilib.macro.constants import ALL_TRACKED_COUNTRIES
+
 if TYPE_CHECKING:
     from bgilib.macro.storage import MacroStore
 
@@ -46,7 +48,7 @@ def compute_sigma_alerts(
     *,
     year: int,
     month: int,
-    countries: tuple[str, ...] = ("EUR", "GBP"),
+    countries: tuple[str, ...] = tuple(sorted(ALL_TRACKED_COUNTRIES)),
     min_impact: str = "High",
     z_threshold: float = _DEFAULT_Z_THRESHOLD,
     history_months: int = _DEFAULT_HISTORY_MONTHS,

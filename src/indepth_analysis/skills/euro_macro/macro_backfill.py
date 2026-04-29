@@ -8,6 +8,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from bgilib.errors import MacroDataError
+from bgilib.macro.constants import ALL_TRACKED_COUNTRIES
 from bgilib.macro.html_scraper import HTMLCalendarScraper
 from bgilib.macro.storage import MacroStore
 
@@ -65,7 +66,7 @@ def backfill_history(
     *,
     weeks_back: int,
     db_path: Path = Path("data/macro_calendar.db"),
-    countries: tuple[str, ...] = ("EUR", "GBP", "CHF", "SEK"),
+    countries: tuple[str, ...] = tuple(sorted(ALL_TRACKED_COUNTRIES)),
     min_impact: str = "Medium",
     rate_limit_seconds: float = 5.0,
     browser_cookie: str | None = None,

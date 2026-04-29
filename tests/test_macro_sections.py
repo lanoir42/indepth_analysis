@@ -242,14 +242,26 @@ class TestSectionA:
         assert "일시 (KST)" in a.content
         assert "중요도" in a.content
 
-    def test_section_a_no_usd_events(self) -> None:
-        """USD events must be excluded from EUR-focused table."""
-        ff = _make_ff_result()
+    def test_section_a_includes_upcoming_usd_events(self) -> None:
+        """Upcoming USD events must appear in Section A when in the 14-day window."""
+        from datetime import UTC, datetime
+        upcoming_usd = [
+            _ev(
+                "Core PCE Price Index m/m",
+                "USD",
+                "High",
+                False,
+                forecast=0.2,
+                previous=0.3,
+                dt_str="2026-05-03T12:30:00+00:00",
+            ),
+        ]
+        ff = _make_ff_result(upcoming=upcoming_usd)
         builder = MacroSectionsBuilder(year=2026, month=5)
         sections = builder.build(ff)
         a = next(s for s in sections if "캘린더" in s.heading)
-        assert "USD" not in a.content
-        assert "PCE" not in a.content
+        assert "PCE" in a.content
+        assert "미국" in a.content
 
 
 # ----------------------------------------------------------------------
@@ -271,14 +283,14 @@ class TestSectionB:
         assert b is not None
         assert "Ifo" in b.content or "독일" in b.content
 
-    def test_section_b_excludes_usd(self) -> None:
+    def test_section_b_includes_usd(self) -> None:
+        """USD is now tracked; Core PCE surprise must appear in Section B."""
         ff = _make_ff_result()
         builder = MacroSectionsBuilder(year=2026, month=5)
         sections = builder.build(ff)
         b = next((s for s in sections if "서프라이즈" in s.heading), None)
         assert b is not None
-        # USD Core PCE event must not appear
-        assert "PCE" not in b.content
+        assert "PCE" in b.content
 
     def test_section_b_surprise_direction(self) -> None:
         """Up/down arrows reflect the sign of (actual - forecast)."""

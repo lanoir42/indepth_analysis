@@ -9,6 +9,7 @@ from pathlib import Path
 
 from bgilib.errors import MacroDataError
 from bgilib.macro.client import ForexFactoryClient
+from bgilib.macro.constants import ALL_TRACKED_COUNTRIES
 
 from indepth_analysis.models.euro_macro import AgentResult
 
@@ -32,7 +33,7 @@ class ForexFactoryAgent:
         *,
         db_path: Path = Path("data/macro_calendar.db"),
         force_refresh: bool = False,
-        countries: tuple[str, ...] = ("EUR", "GBP", "CHF", "SEK"),
+        countries: tuple[str, ...] = tuple(sorted(ALL_TRACKED_COUNTRIES)),
     ) -> None:
         self._db_path = db_path
         self._force_refresh = force_refresh
@@ -78,8 +79,9 @@ class ForexFactoryAgent:
                 periods_failed.append(period)
                 errors.append(f"{period}: {exc}")
 
-        # Query DB for released European events in the 30-day lookback window
-        # (JSON "lastweek" endpoint returns 404, so DB is the authoritative source).
+        # Query DB for released events in the 30-day lookback window for all
+        # tracked countries (JSON "lastweek" endpoint returns 404 so DB is
+        # the authoritative source for historical actuals).
         released_events_db: list[dict] = []
         try:
             anchor_start = datetime(year, month, 1, tzinfo=UTC)
@@ -98,7 +100,48 @@ class ForexFactoryAgent:
         except Exception as exc:
             logger.warning("DB released-events query failed: %s", exc)
 
-        # Compute sigma alerts from the now-populated MacroStore (M4).
+        # Fetch FX snapshot (EUR vs USD/GBP/JPY/CNY/CHF + KRW via yfinance).
+        fx_snapshot_raw: list[dict] = []
+        try:
+            from bgilib.macro.fx_fetcher import FXFetcher
+            fx_fetcher = FXFetcher(client.store)
+            fx_rates = await asyncio.to_thread(fx_fetcher.fetch_latest)
+            fx_snapshot_raw = [r.to_dict() for r in fx_rates]
+            logger.info("FX snapshot: %d rates fetched", len(fx_snapshot_raw))
+        except Exception as exc:
+            logger.warning("FX fetch failed (non-fatal): %s", exc)
+
+        # Fetch central bank rate history from FRED for all trackable countries.
+        rate_history_raw: dict[str, list[dict]] = {}
+        try:
+            from bgilib.macro.rate_fetcher import CentralBankRateFetcher
+            from bgilib.macro.constants import FRED_SERIES_IDS
+            from datetime import date
+
+            today = date.today()
+            lookback_start = date(today.year - 2, today.month, 1)
+            rate_fetcher = CentralBankRateFetcher(client.store)
+            for country in FRED_SERIES_IDS:
+                decisions = await asyncio.to_thread(
+                    rate_fetcher.fetch_series, country, lookback_start, today
+                )
+                if decisions:
+                    rate_history_raw[country] = [d.to_dict() for d in decisions]
+                else:
+                    # Fall back to what is already in DB
+                    existing = client.store.get_rate_history(
+                        country, since=lookback_start
+                    )
+                    if existing:
+                        rate_history_raw[country] = [d.to_dict() for d in existing]
+            logger.info(
+                "Rate history: %d countries loaded",
+                len(rate_history_raw),
+            )
+        except Exception as exc:
+            logger.warning("Rate history fetch failed (non-fatal): %s", exc)
+
+        # Compute sigma alerts from the now-populated MacroStore.
         sigma_alerts_raw: list[dict] = []
         try:
             from indepth_analysis.skills.euro_macro.macro_alerts import (
@@ -128,6 +171,8 @@ class ForexFactoryAgent:
         extra: dict = {
             "events_by_period": events_by_period,
             "released_events_db": released_events_db,
+            "fx_snapshot": fx_snapshot_raw,
+            "rate_history": rate_history_raw,
             "fetched_at_utc": datetime.now(UTC).isoformat(),
             "periods_failed": periods_failed,
             "force_refresh": self._force_refresh,

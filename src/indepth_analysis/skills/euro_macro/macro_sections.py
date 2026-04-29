@@ -1,16 +1,20 @@
 """Deterministic post-synthesis builder for ForexFactory macro sections.
 
-Section A: upcoming 14-day calendar table.
-Section B: 30-day surprise table (M2).
-Section C: stub (M4).
+Section A: upcoming 14-day calendar table (all tracked countries).
+Section B: 30-day surprise table (all tracked countries).
+Section C: sigma alerts.
+Section G: FX rate snapshot table.
+Section H: central bank rate history table.
 """
 
 from __future__ import annotations
 
 import logging
 import re
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
+
+from bgilib.macro.constants import ALL_TRACKED_COUNTRIES, CB_NAMES, COUNTRY_LABELS_KOR
 
 from indepth_analysis.models.euro_macro import AgentResult, ReportSection
 
@@ -19,14 +23,10 @@ logger = logging.getLogger(__name__)
 KST = ZoneInfo("Asia/Seoul")
 KOR_WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"]
 EXCLUDED_IMPACTS = frozenset({"Holiday"})
-EURO_COUNTRY_LABELS = {
-    "EUR": "유로존",
-    "GBP": "영국",
-    "CHF": "스위스",
-    "SEK": "스웨덴",
-    "NOK": "노르웨이",
-    "DKK": "덴마크",
-}
+
+# Retained for backwards-compatibility; new code uses COUNTRY_LABELS_KOR from bgilib.
+EURO_COUNTRY_LABELS = COUNTRY_LABELS_KOR
+
 TITLE_COUNTRY_PREFIXES = {
     "German": "독일",
     "French": "프랑스",
@@ -35,6 +35,10 @@ TITLE_COUNTRY_PREFIXES = {
     "Dutch": "네덜란드",
     "Greek": "그리스",
     "Euro": "유로존",
+    "US ": "미국",
+    "Japan": "일본",
+    "Chinese": "중국",
+    "Korean": "한국",
 }
 SPECIAL_RAW_TIMES = {
     "all day": "종일",
@@ -43,13 +47,24 @@ SPECIAL_RAW_TIMES = {
 }
 IMPACT_LABELS_KOR = {"High": "높음", "Medium": "중간", "Low": "낮음"}
 ALLOWED_IMPACTS = frozenset({"Medium", "High"})
+
+# All countries tracked in Section A/B/G/H.
+TRACKED_COUNTRIES = ALL_TRACKED_COUNTRIES
+# Backwards-compatible alias used in older tests / external code.
 EUROPE_FOCUS_COUNTRIES = frozenset({"EUR", "GBP", "CHF", "SEK"})
+
 MAX_ROWS = 30
 WINDOW_DAYS = 14
 SECTION_B_LOOKBACK_DAYS = 30
 SECTION_B_LOOKAHEAD_DAYS = 7
 SECTION_B_MAX_ROWS = 15
 DIGEST_SURPRISE_TOP_N = 8
+
+# FX snapshot window for Section G.
+SECTION_G_DAYS = 7
+
+# Rate history depth for Section H.
+SECTION_H_MONTHS = 12
 
 # Heuristic mapping: indicator title keyword -> unit suffix.
 # Used when the raw forecast/previous/actual string is unavailable
@@ -64,21 +79,30 @@ _TITLE_UNIT_HINTS: dict[str, str] = {
     "Unemployment": "%",
     "GDP": "%",
     "Interest Rate": "%",
+    "Refinancing Rate": "%",
     "Deposit Rate": "%",
     "Bank Rate": "%",
     "Cash Rate": "%",
+    "Base Rate": "%",
+    "Funds Rate": "%",
     "Wage": "%",
     "Earnings": "%",
     "Retail Sales": "%",
+    "Trade Balance": "B",
     # count-based (thousands)
     "Jobless Claims": "K",
+    "Initial Claims": "K",
+    "Continuing Claims": "K",
     "NFP": "K",
     "Nonfarm": "K",
     "Employment Change": "K",
+    "Payrolls": "K",
     # Indices / no suffix
     "PMI": "",
+    "ISM": "",
     "Ifo": "",
     "ZEW": "",
+    "Tankan": "",
     "Sentiment": "",
     "Confidence": "",
 }
@@ -113,7 +137,7 @@ def _infer_country_label(country: str, title: str) -> str:
         for prefix, label in TITLE_COUNTRY_PREFIXES.items():
             if title.startswith(prefix):
                 return label
-    return EURO_COUNTRY_LABELS.get(country, country)
+    return COUNTRY_LABELS_KOR.get(country, country)
 
 
 def _recover_suffix(raw: str | None, title: str) -> str:
@@ -184,7 +208,7 @@ class MacroSectionsBuilder:
 
     # Public entry points ------------------------------------------------
     def build(self, ff_result: AgentResult | None) -> list[ReportSection]:
-        """Return deterministic ReportSections (A, B, and C if alerts present)."""
+        """Return deterministic ReportSections (A, B, C, G, H as available)."""
         sections: list[ReportSection] = []
         if ff_result is None:
             return sections
@@ -201,6 +225,16 @@ class MacroSectionsBuilder:
         section_c = self.build_alert_section(sigma_alerts)
         if section_c is not None:
             sections.append(section_c)
+
+        fx_snapshot = (ff_result.extra or {}).get("fx_snapshot", [])
+        section_g = self._build_fx_section(fx_snapshot)
+        if section_g is not None:
+            sections.append(section_g)
+
+        rate_history = (ff_result.extra or {}).get("rate_history", {})
+        section_h = self._build_rate_section(rate_history)
+        if section_h is not None:
+            sections.append(section_h)
 
         return sections
 
@@ -501,7 +535,7 @@ class MacroSectionsBuilder:
                 continue
             if impact not in ALLOWED_IMPACTS:
                 continue
-            if country not in EUROPE_FOCUS_COUNTRIES:
+            if country not in TRACKED_COUNTRIES:
                 continue
             if not (window_start <= dt < window_end):
                 continue
@@ -577,7 +611,7 @@ class MacroSectionsBuilder:
                 continue
             if impact not in ALLOWED_IMPACTS:
                 continue
-            if country not in EUROPE_FOCUS_COUNTRIES:
+            if country not in TRACKED_COUNTRIES:
                 continue
 
             dt_raw = d.get("datetime_utc")
@@ -619,3 +653,110 @@ class MacroSectionsBuilder:
 
         rows.sort(key=lambda r: abs(r["surprise"]), reverse=True)
         return rows
+
+    # Section G — FX snapshot -------------------------------------------
+    def _build_fx_section(
+        self, fx_snapshot_raw: list[dict]
+    ) -> ReportSection | None:
+        """Build Section G: FX rate snapshot table (EUR base).
+
+        Shows the most recent rate per quote currency.
+        Returns None when no FX data is available.
+        """
+        if not fx_snapshot_raw:
+            return None
+
+        # Group by quote; take the most recent entry per quote.
+        latest: dict[str, dict] = {}
+        for row in fx_snapshot_raw:
+            quote = row.get("quote", "")
+            existing = latest.get(quote)
+            if existing is None or row.get("date_utc", "") > existing.get("date_utc", ""):
+                latest[quote] = row
+
+        # Preferred display order.
+        quote_order = ["USD", "JPY", "GBP", "CNY", "CHF", "KRW"]
+        ordered = [latest[q] for q in quote_order if q in latest]
+        ordered += [v for k, v in sorted(latest.items()) if k not in quote_order]
+
+        title = "G. FX 환율 스냅샷 (EUR 기준)"
+        body_lines: list[str] = [
+            "| 통화쌍 | 환율 | 기준일 | 출처 |",
+            "|---|---|---|---|",
+        ]
+        for row in ordered:
+            quote = row.get("quote", "")
+            rate = row.get("rate")
+            obs_date = row.get("date_utc", "")[:10]
+            source = row.get("source", "")
+            quote_label = COUNTRY_LABELS_KOR.get(quote, quote)
+            rate_fmt = f"{rate:,.4f}" if rate is not None else "–"
+            pair = f"EUR/{quote}"
+            body_lines.append(
+                f"| {pair} ({quote_label}) | {rate_fmt} | {obs_date} | {source} |"
+            )
+
+        body_lines.append("")
+        body_lines.append(
+            "*출처: frankfurter.app (ECB 기준환율) · KRW는 yfinance*"
+        )
+        return ReportSection(heading=title, content="\n".join(body_lines))
+
+    # Section H — central bank rate history -----------------------------
+    def _build_rate_section(
+        self, rate_history_raw: dict[str, list[dict]]
+    ) -> ReportSection | None:
+        """Build Section H: central bank policy rate table.
+
+        Shows current rate, previous rate, and change for each tracked
+        country that has FRED data. Returns None when no data is available.
+        """
+        if not rate_history_raw:
+            return None
+
+        # Build summary rows: latest rate per country.
+        country_order = ["USD", "EUR", "GBP", "JPY", "CNY", "KRW", "CHF"]
+        rows: list[dict] = []
+        for country in country_order:
+            history = rate_history_raw.get(country, [])
+            if not history:
+                continue
+            latest = history[-1]
+            rows.append(latest)
+
+        if not rows:
+            return None
+
+        title = "H. 주요국 중앙은행 기준금리"
+        body_lines: list[str] = [
+            "| 국가 | 중앙은행 | 기준금리 | 전회 | 변경 | 기준일 |",
+            "|---|---|---|---|---|---|",
+        ]
+        for row in rows:
+            country = row.get("country", "")
+            cb_name = row.get("cb_name") or CB_NAMES.get(country, country)
+            rate_pct = row.get("rate_pct")
+            prev_rate = row.get("prev_rate")
+            change_bp = row.get("change_bp")
+            obs_date = (row.get("date_utc") or "")[:10]
+            country_label = COUNTRY_LABELS_KOR.get(country, country)
+
+            rate_fmt = f"{rate_pct:.2f}%" if rate_pct is not None else "–"
+            prev_fmt = f"{prev_rate:.2f}%" if prev_rate is not None else "–"
+            if change_bp is not None:
+                if change_bp > 0:
+                    chg_fmt = f"▲ {change_bp}bp"
+                elif change_bp < 0:
+                    chg_fmt = f"▼ {abs(change_bp)}bp"
+                else:
+                    chg_fmt = "불변"
+            else:
+                chg_fmt = "–"
+
+            body_lines.append(
+                f"| {country_label} | {cb_name} | {rate_fmt} | {prev_fmt} | {chg_fmt} | {obs_date} |"
+            )
+
+        body_lines.append("")
+        body_lines.append("*출처: FRED (St. Louis Fed) · 월별 관측치 기준*")
+        return ReportSection(heading=title, content="\n".join(body_lines))
