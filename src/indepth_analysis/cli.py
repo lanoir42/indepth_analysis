@@ -214,6 +214,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Disable ForexFactory macro calendar (for offline use)",
     )
     euro.add_argument(
+        "--no-web",
+        action="store_true",
+        help="Disable web research agent (for offline / quick runs)",
+    )
+    euro.add_argument(
         "--force-refresh",
         action="store_true",
         help="Bypass 4-hour cache for ForexFactory JSON feeds",
@@ -841,6 +846,7 @@ def _run_report(args: argparse.Namespace) -> None:
             legacy_agents=getattr(args, "legacy_agents", False),
             slide=getattr(args, "slide", False),
             no_macro=getattr(args, "no_macro", False),
+            no_web=getattr(args, "no_web", False),
             force_refresh=getattr(args, "force_refresh", False),
             alert_abs_surprise=getattr(args, "alert_abs_surprise", None),
         )

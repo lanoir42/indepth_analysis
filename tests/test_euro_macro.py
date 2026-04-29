@@ -367,32 +367,46 @@ class TestFindingsIO:
 
 
 class TestOrchestratorInit:
-    def test_default_has_kcif_and_forexfactory(self):
+    def test_default_has_kcif_forexfactory_and_web(self):
         from indepth_analysis.config import ReferenceConfig
 
         config = ReferenceConfig()
         orch = EuroMacroOrchestrator(config)
-        # KCIF + ForexFactory (always-on unless no_macro=True)
-        assert len(orch.agents) == 2
+        # KCIF + ForexFactory + WebResearch (always-on by default)
+        assert len(orch.agents) == 3
         names = [a.name for a in orch.agents]
         assert "KCIF" in names
         assert "ForexFactory" in names
+        assert "WebResearch" in names
 
     def test_no_macro_disables_forexfactory(self):
         from indepth_analysis.config import ReferenceConfig
 
         config = ReferenceConfig()
         orch = EuroMacroOrchestrator(config, no_macro=True)
-        assert len(orch.agents) == 1
-        assert orch.agents[0].name == "KCIF"
+        assert len(orch.agents) == 2
+        names = [a.name for a in orch.agents]
+        assert "KCIF" in names
+        assert "WebResearch" in names
+
+    def test_no_web_disables_web_research(self):
+        from indepth_analysis.config import ReferenceConfig
+
+        config = ReferenceConfig()
+        orch = EuroMacroOrchestrator(config, no_web=True)
+        assert len(orch.agents) == 2
+        names = [a.name for a in orch.agents]
+        assert "KCIF" in names
+        assert "ForexFactory" in names
+        assert "WebResearch" not in names
 
     def test_legacy_agents_adds_all_four(self):
         from indepth_analysis.config import ReferenceConfig
 
         config = ReferenceConfig()
         orch = EuroMacroOrchestrator(config, legacy_agents=True)
-        # KCIF + ForexFactory + Media + Institutional + Data
-        assert len(orch.agents) == 5
+        # KCIF + ForexFactory + WebResearch + Media + Institutional + Data
+        assert len(orch.agents) == 6
         names = [a.name for a in orch.agents]
         assert "KCIF" in names
         assert "ForexFactory" in names

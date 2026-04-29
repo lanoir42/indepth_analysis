@@ -82,7 +82,7 @@ class KCIFAgent(BaseResearchAgent):
         for q in QUERIES:
             query_bytes = embedder.embed(q)
             query_vec = np.frombuffer(query_bytes, dtype=np.float32)
-            results = index.search(query_vec, top_k=5, report_id_filter=report_filter)
+            results = index.search(query_vec, top_k=8, report_id_filter=report_filter)
 
             for chunk, score in results:
                 if chunk.report_id in seen_report_ids:
@@ -97,7 +97,7 @@ class KCIFAgent(BaseResearchAgent):
                 findings.append(
                     ResearchFinding(
                         title=report.title,
-                        summary=chunk.content[:500],
+                        summary=chunk.content[:1500],
                         source_url=report.url,
                         source_name="KCIF",
                         published_date=report.published_date,

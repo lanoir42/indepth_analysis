@@ -20,11 +20,15 @@ from indepth_analysis.skills.euro_macro.agents import (
     InstitutionalAgent,
     KCIFAgent,
     MediaAgent,
+    WebResearchAgent,
 )
+from indepth_analysis.skills.euro_macro.appendix_builder import AppendixBuilder
 from indepth_analysis.skills.euro_macro.macro_sections import (
     MacroSectionsBuilder,
 )
 from indepth_analysis.skills.euro_macro.prompts import (
+    ENHANCED_SYNTHESIS_SYSTEM_PROMPT,
+    ENHANCED_SYNTHESIS_USER_PROMPT,
     SYNTHESIS_SYSTEM_PROMPT,
     SYNTHESIS_USER_PROMPT,
 )
@@ -58,6 +62,7 @@ class EuroMacroOrchestrator:
         *,
         legacy_agents: bool = False,
         no_macro: bool = False,
+        no_web: bool = False,
         force_refresh: bool = False,
         alert_abs_surprise: float | None = None,
     ) -> None:
@@ -68,6 +73,8 @@ class EuroMacroOrchestrator:
         self.agents: list = [KCIFAgent(config)]
         if not no_macro:
             self.agents.append(ForexFactoryAgent(force_refresh=force_refresh))
+        if not no_web:
+            self.agents.append(WebResearchAgent())
         if legacy_agents:
             self.agents.extend([MediaAgent(), InstitutionalAgent(), DataAgent()])
 
@@ -75,7 +82,7 @@ class EuroMacroOrchestrator:
         self,
         year: int,
         month: int,
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-opus-4-20250514",
         skip_update: bool = False,
     ) -> EuroMacroReport:
         """Execute the full research → synthesis pipeline."""
@@ -174,7 +181,7 @@ class EuroMacroOrchestrator:
         agent_results: list[AgentResult],
         year: int,
         month: int,
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-opus-4-20250514",
     ) -> EuroMacroReport:
         """Public wrapper around _synthesize for Phase 3."""
         return self._synthesize(agent_results, year, month, model)
@@ -276,7 +283,7 @@ class EuroMacroOrchestrator:
                 generated_at=datetime.now(UTC).isoformat(),
             )
 
-        user_prompt = SYNTHESIS_USER_PROMPT.format(year=year, month=month, context=context)
+        user_prompt = ENHANCED_SYNTHESIS_USER_PROMPT.format(year=year, month=month, context=context)
 
         if model not in _ALLOWED_MODELS:
             raise ValueError(
@@ -286,7 +293,7 @@ class EuroMacroOrchestrator:
         proc = subprocess.Popen(
             [
                 "claude", "-p", user_prompt,
-                "--append-system-prompt", SYNTHESIS_SYSTEM_PROMPT,
+                "--append-system-prompt", ENHANCED_SYNTHESIS_SYSTEM_PROMPT,
                 "--output-format", "stream-json",
                 "--verbose",
                 "--model", model,
@@ -297,10 +304,10 @@ class EuroMacroOrchestrator:
             cwd=str(Path("/tmp")),
         )
         try:
-            stdout, stderr = proc.communicate(timeout=300)
+            stdout, stderr = proc.communicate(timeout=600)
         except subprocess.TimeoutExpired:
             proc.kill()
-            raise RuntimeError("Claude CLI timed out after 300s")
+            raise RuntimeError("Claude CLI timed out after 600s")
 
         if proc.returncode != 0:
             raise RuntimeError(
@@ -332,6 +339,14 @@ class EuroMacroOrchestrator:
         body = result_text or "".join(text_parts)
         sections = self._parse_sections(body)
         sections.extend(macro_sections)
+
+        # Build appendix sections (best-effort, non-fatal)
+        try:
+            appendix = AppendixBuilder(year=year, month=month, model=model)
+            appendix_sections = appendix.build(agent_results)
+            sections.extend(appendix_sections)
+        except Exception as exc:
+            logger.warning("AppendixBuilder failed (non-fatal): %s", exc)
 
         return EuroMacroReport(
             year=year,

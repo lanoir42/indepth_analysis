@@ -9,6 +9,9 @@ from indepth_analysis.skills.euro_macro.agents.institutional_agent import (
 )
 from indepth_analysis.skills.euro_macro.agents.kcif_agent import KCIFAgent
 from indepth_analysis.skills.euro_macro.agents.media_agent import MediaAgent
+from indepth_analysis.skills.euro_macro.agents.web_research_agent import (
+    WebResearchAgent,
+)
 
 __all__ = [
     "KCIFAgent",
@@ -16,4 +19,5 @@ __all__ = [
     "InstitutionalAgent",
     "DataAgent",
     "ForexFactoryAgent",
+    "WebResearchAgent",
 ]

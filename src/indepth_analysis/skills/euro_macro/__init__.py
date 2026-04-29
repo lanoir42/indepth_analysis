@@ -18,7 +18,7 @@ console = Console()
 def run_euro_macro(
     year: int,
     month: int,
-    model: str = "claude-sonnet-4-20250514",
+    model: str = "claude-opus-4-20250514",
     skip_update: bool = False,
     verbose: bool = False,
     collect_only: bool = False,
@@ -26,6 +26,7 @@ def run_euro_macro(
     legacy_agents: bool = False,
     slide: bool = False,
     no_macro: bool = False,
+    no_web: bool = False,
     force_refresh: bool = False,
     alert_abs_surprise: float | None = None,
 ) -> None:
@@ -43,6 +44,7 @@ def run_euro_macro(
             config,
             legacy_agents=legacy_agents,
             no_macro=no_macro,
+            no_web=no_web,
             force_refresh=force_refresh,
             alert_abs_surprise=alert_abs_surprise,
         )
@@ -92,6 +94,7 @@ def run_euro_macro(
         config,
         legacy_agents=legacy_agents,
         no_macro=no_macro,
+        no_web=no_web,
         force_refresh=force_refresh,
         alert_abs_surprise=alert_abs_surprise,
     )
