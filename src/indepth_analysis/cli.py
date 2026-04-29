@@ -209,6 +209,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Generate one-page PowerPoint dashboard slide",
     )
     euro.add_argument(
+        "--no-macro",
+        action="store_true",
+        help="Disable ForexFactory macro calendar (for offline use)",
+    )
+    euro.add_argument(
+        "--force-refresh",
+        action="store_true",
+        help="Bypass 4-hour cache for ForexFactory JSON feeds",
+    )
+    euro.add_argument(
+        "--alert-abs-surprise",
+        type=float,
+        default=None,
+        help=(
+            "Send Telegram alert for any High-impact EUR/GBP release with "
+            "abs surprise > threshold"
+        ),
+    )
+    euro.add_argument(
         "-v", "--verbose", action="store_true", help="Enable verbose logging"
     )
 
@@ -249,6 +268,59 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="PATH",
         help="Load findings JSON and synthesize report",
     )
+
+    # --- issue-track ---
+    it = report_sub.add_parser(
+        "issue-track", help="Fast issue tracking and update report"
+    )
+    it.add_argument("--topic", type=str, required=True, help="Issue topic (natural language)")
+    it.add_argument("--slug", type=str, default=None, help="Topic slug (auto-generated if omitted)")
+    it.add_argument("--since", type=str, default=None, metavar="YYYY-MM-DD", help="Collect from date (default: 7 days ago)")
+    it.add_argument("--model", default="claude-sonnet-4-6", help="Claude model for synthesis")
+    it.add_argument("--tier-limit", type=int, default=4, choices=[1, 2, 3, 4], help="Max tier to collect (1=primary only … 4=all)")
+    it.add_argument("--collect-only", action="store_true", help="Collect evidence only, skip synthesis")
+    it.add_argument("--from-evidence", type=str, default=None, metavar="PATH", help="Synthesize from saved evidence JSON")
+    it.add_argument("--publish", action="store_true", help="Publish report to Notion after generation")
+    it.add_argument("--target", default="indepth-analysis", choices=["indepth-analysis", "jeg-report"], help="Notion publish target")
+
+    # --- macro-backfill ---
+    mb = sub.add_parser(
+        "macro-backfill",
+        help="Backfill ForexFactory historical weeks into local DB",
+    )
+    mb.add_argument(
+        "--weeks", type=int, default=12, help="Number of weeks to backfill (default 12)"
+    )
+    mb.add_argument("--countries", default="EUR,GBP,CHF,SEK")
+    mb.add_argument(
+        "--min-impact", default="Medium", choices=["Low", "Medium", "High"]
+    )
+    mb.add_argument(
+        "--db-path", type=Path, default=Path("data/macro_calendar.db")
+    )
+    mb.add_argument(
+        "--rate-limit", type=float, default=5.0, help="Seconds between requests"
+    )
+    mb.add_argument(
+        "--browser-cookie",
+        default=None,
+        help="Cookie string for Cloudflare bypass",
+    )
+    mb.add_argument("-v", "--verbose", action="store_true")
+
+    # --- issue (list/show/search) ---
+    issue_cmd = sub.add_parser("issue", help="Manage accumulated issue topics")
+    issue_sub = issue_cmd.add_subparsers(dest="issue_action")
+
+    issue_sub.add_parser("list", help="List all tracked issue topics")
+
+    issue_show = issue_sub.add_parser("show", help="Show runs and stats for a topic")
+    issue_show.add_argument("slug", help="Topic slug")
+
+    issue_search = issue_sub.add_parser("search", help="Semantic search within a topic")
+    issue_search.add_argument("slug", help="Topic slug")
+    issue_search.add_argument("query", help="Search query")
+    issue_search.add_argument("--n", type=int, default=10, help="Number of results")
 
     return p
 
@@ -768,6 +840,9 @@ def _run_report(args: argparse.Namespace) -> None:
             from_findings=from_findings,
             legacy_agents=getattr(args, "legacy_agents", False),
             slide=getattr(args, "slide", False),
+            no_macro=getattr(args, "no_macro", False),
+            force_refresh=getattr(args, "force_refresh", False),
+            alert_abs_surprise=getattr(args, "alert_abs_surprise", None),
         )
     elif args.report_type == "dev-welfare":
         collect_only = getattr(args, "collect_only", False)
@@ -789,11 +864,103 @@ def _run_report(args: argparse.Namespace) -> None:
             collect_only=collect_only,
             from_findings=from_findings,
         )
+    elif args.report_type == "issue-track":
+        collect_only = getattr(args, "collect_only", False)
+        from_evidence = getattr(args, "from_evidence", None)
+        if collect_only and from_evidence:
+            console.print(
+                "[red]--collect-only and --from-evidence are mutually exclusive.[/red]"
+            )
+            sys.exit(1)
+
+        from indepth_analysis.skills.issue_track import run_issue_track
+
+        run_issue_track(
+            topic=args.topic,
+            slug=getattr(args, "slug", None),
+            since=getattr(args, "since", None),
+            model=args.model,
+            collect_only=collect_only,
+            from_evidence_path=from_evidence,
+            tier_limit=getattr(args, "tier_limit", 4),
+        )
+
+        if getattr(args, "publish", False) and not collect_only:
+            report_files = sorted(
+                (Path("reports") / "issue_track" / (getattr(args, "slug") or "")).glob("*.md")
+            ) if getattr(args, "slug") else []
+            if report_files:
+                from indepth_analysis.output.notion_publisher import NotionPublisher
+                publisher = NotionPublisher()
+                target = getattr(args, "target", "indepth-analysis")
+                publisher.publish(report_files[-1], target=target)
+                console.print(f"[green]Published to Notion ({target})[/green]")
     else:
         console.print(
-            "[red]Unknown report type. Use 'euro-macro' or 'dev-welfare'.[/red]"
+            "[red]Unknown report type. Use 'euro-macro', 'dev-welfare', or 'issue-track'.[/red]"
         )
         sys.exit(1)
+
+
+def _run_issue(args: argparse.Namespace) -> None:
+    """Execute the issue subcommand (list/show/search)."""
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    from indepth_analysis.skills.issue_track.store import IssueStore
+
+    action = getattr(args, "issue_action", None)
+    if action is None:
+        console.print("[yellow]Usage: issue {list|show|search}[/yellow]")
+        return
+
+    store = IssueStore()
+    store.connect()
+
+    if action == "list":
+        topics = store.list_topics()
+        if not topics:
+            console.print("[yellow]No tracked topics yet.[/yellow]")
+        else:
+            from rich.table import Table as RichTable
+
+            t = RichTable(title="Tracked Issue Topics")
+            t.add_column("slug", style="cyan")
+            t.add_column("title")
+            t.add_column("last_run", justify="right")
+            for row in topics:
+                t.add_row(
+                    row["slug"],
+                    row["title"][:60],
+                    (row["last_run_at"] or "—")[:16],
+                )
+            console.print(t)
+
+    elif action == "show":
+        slug = args.slug
+        ev = store.get_evidence_for_slug(slug)
+        run_count = store.get_run_count(slug)
+        console.print(f"[cyan]{slug}[/cyan]: {run_count} runs, {len(ev)} evidence total")
+        by_tier: dict[int, int] = {}
+        for e in ev:
+            by_tier[e.tier] = by_tier.get(e.tier, 0) + 1
+        for tier, cnt in sorted(by_tier.items()):
+            console.print(f"  Tier {tier}: {cnt} items")
+
+    elif action == "search":
+        results = store.semantic_search(args.slug, args.query, n_results=args.n)
+        if not results:
+            console.print("[yellow]No results (ChromaDB may not be available).[/yellow]")
+        for i, r in enumerate(results, 1):
+            meta = r.get("metadata", {})
+            console.print(
+                f"[{i}] [{meta.get('stance', '?')}] dist={r['distance']:.3f}\n"
+                f"    {r['document'][:200]}\n"
+                f"    {meta.get('canonical_url', '')}"
+            )
+
+    store.close()
 
 
 KNOWN_COMMANDS = (
@@ -804,9 +971,55 @@ KNOWN_COMMANDS = (
     "search",
     "status",
     "report",
+    "issue",
+    "macro-backfill",
     "-h",
     "--help",
 )
+
+
+def _run_macro_backfill(args: argparse.Namespace) -> None:
+    """Execute the macro-backfill subcommand."""
+    from indepth_analysis.skills.euro_macro.macro_backfill import (
+        backfill_history,
+    )
+
+    def progress(i: int, total: int, week) -> None:
+        if args.verbose:
+            print(f"  [{i}/{total}] {week}")
+
+    countries = tuple(c.strip() for c in args.countries.split(",") if c.strip())
+    report = backfill_history(
+        weeks_back=args.weeks,
+        db_path=args.db_path,
+        countries=countries,
+        min_impact=args.min_impact,
+        rate_limit_seconds=args.rate_limit,
+        browser_cookie=args.browser_cookie,
+        progress=progress,
+    )
+
+    print(
+        f"Backfill complete: {report.weeks_succeeded}/{report.weeks_requested} "
+        f"weeks, {report.events_written} events written"
+    )
+    if report.waf_blocked:
+        print(
+            f"\nWAF blocked on {len(report.waf_blocked)} week(s): "
+            f"{[str(w) for w in report.waf_blocked]}"
+        )
+        print(
+            "To bypass: open https://www.forexfactory.com in your browser, "
+            "complete the"
+        )
+        print(
+            "Cloudflare challenge, then re-run with "
+            '--browser-cookie="cf_clearance=..."'
+        )
+    if report.weeks_failed:
+        print(f"Failed weeks: {[str(w) for w in report.weeks_failed]}")
+    for note in report.notes:
+        print(f"  note: {note}")
 
 
 def main() -> None:
@@ -841,6 +1054,10 @@ def main() -> None:
             _run_status(args)
         elif args.command == "report":
             _run_report(args)
+        elif args.command == "issue":
+            _run_issue(args)
+        elif args.command == "macro-backfill":
+            _run_macro_backfill(args)
     except KeyboardInterrupt:
         console.print("\n[yellow]Cancelled.[/yellow]")
         sys.exit(1)

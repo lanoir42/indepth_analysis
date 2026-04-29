@@ -5,9 +5,13 @@ description = "Full-spectrum investment analysis CLI tool"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "bgilib",
     "beautifulsoup4>=4.14.3",
+    "chromadb>=0.6",
+    "feedparser>=6.0",
     "google-api-python-client>=2.190.0",
     "google-auth>=2.48.0",
+    "google-genai>=1.0",
     "httpx>=0.28.1",
     "ib-async>=2.1.0",
     "matplotlib>=3.10.8",
@@ -21,6 +25,9 @@ dependencies = [
     "ta>=0.11.0",
     "yfinance>=1.2.0",
 ]
+
+[tool.uv.sources]
+bgilib = { path = "../bgilib", editable = true }
 
 [project.scripts]
 indepth = "indepth_analysis.cli:main"

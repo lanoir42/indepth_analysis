@@ -25,6 +25,9 @@ def run_euro_macro(
     from_findings: str | None = None,
     legacy_agents: bool = False,
     slide: bool = False,
+    no_macro: bool = False,
+    force_refresh: bool = False,
+    alert_abs_surprise: float | None = None,
 ) -> None:
     """Generate a monthly European macroeconomic report.
 
@@ -36,7 +39,13 @@ def run_euro_macro(
     config = ReferenceConfig()
 
     if collect_only:
-        orchestrator = EuroMacroOrchestrator(config, legacy_agents=legacy_agents)
+        orchestrator = EuroMacroOrchestrator(
+            config,
+            legacy_agents=legacy_agents,
+            no_macro=no_macro,
+            force_refresh=force_refresh,
+            alert_abs_surprise=alert_abs_surprise,
+        )
         with console.status("[cyan]리서치 에이전트 실행 중..."):
             agent_results = asyncio.run(
                 orchestrator.collect(year, month, skip_update=skip_update)
@@ -47,7 +56,12 @@ def run_euro_macro(
         return
 
     if from_findings:
-        orchestrator = EuroMacroOrchestrator(config)
+        orchestrator = EuroMacroOrchestrator(
+            config,
+            no_macro=no_macro,
+            force_refresh=force_refresh,
+            alert_abs_surprise=alert_abs_surprise,
+        )
         findings_path = Path(from_findings)
         if not findings_path.exists():
             console.print(f"[red]파일 없음: {findings_path}[/red]")
@@ -74,7 +88,13 @@ def run_euro_macro(
         return
 
     # Default: end-to-end pipeline
-    orchestrator = EuroMacroOrchestrator(config, legacy_agents=legacy_agents)
+    orchestrator = EuroMacroOrchestrator(
+        config,
+        legacy_agents=legacy_agents,
+        no_macro=no_macro,
+        force_refresh=force_refresh,
+        alert_abs_surprise=alert_abs_surprise,
+    )
 
     with console.status("[cyan]리서치 에이전트 실행 중..."):
         report = asyncio.run(

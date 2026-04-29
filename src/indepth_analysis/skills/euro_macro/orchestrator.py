@@ -16,9 +16,13 @@ from indepth_analysis.models.euro_macro import (
 )
 from indepth_analysis.skills.euro_macro.agents import (
     DataAgent,
+    ForexFactoryAgent,
     InstitutionalAgent,
     KCIFAgent,
     MediaAgent,
+)
+from indepth_analysis.skills.euro_macro.macro_sections import (
+    MacroSectionsBuilder,
 )
 from indepth_analysis.skills.euro_macro.prompts import (
     SYNTHESIS_SYSTEM_PROMPT,
@@ -53,9 +57,17 @@ class EuroMacroOrchestrator:
         config: ReferenceConfig,
         *,
         legacy_agents: bool = False,
+        no_macro: bool = False,
+        force_refresh: bool = False,
+        alert_abs_surprise: float | None = None,
     ) -> None:
         self.config = config
+        self.no_macro = no_macro
+        self.force_refresh = force_refresh
+        self.alert_abs_surprise = alert_abs_surprise
         self.agents: list = [KCIFAgent(config)]
+        if not no_macro:
+            self.agents.append(ForexFactoryAgent(force_refresh=force_refresh))
         if legacy_agents:
             self.agents.extend([MediaAgent(), InstitutionalAgent(), DataAgent()])
 
@@ -69,7 +81,36 @@ class EuroMacroOrchestrator:
         """Execute the full research → synthesis pipeline."""
         agent_results = await self.collect(year, month, skip_update=skip_update)
         report = self._synthesize(agent_results, year, month, model)
+        await self._dispatch_telegram_alerts(agent_results)
         return report
+
+    async def _dispatch_telegram_alerts(
+        self, agent_results: list[AgentResult]
+    ) -> None:
+        """Send sigma-alert notifications via Telegram (best-effort, non-fatal)."""
+        ff_result, _ = self._extract_ff_result(agent_results)
+        if ff_result is None:
+            return
+        sigma_alerts_data = (ff_result.extra or {}).get("sigma_alerts", [])
+        if not sigma_alerts_data:
+            return
+        try:
+            from bgilib.macro.storage import MacroStore
+
+            from indepth_analysis.skills.euro_macro.macro_telegram import (
+                _send_sigma_alerts_from_dicts,
+            )
+
+            store = MacroStore(Path("data/macro_calendar.db"))
+            sent = await asyncio.to_thread(
+                _send_sigma_alerts_from_dicts,
+                sigma_alerts_data,
+                store=store,
+            )
+            if sent:
+                logger.info("Telegram: %d sigma alerts sent", sent)
+        except Exception as exc:
+            logger.warning("Telegram dispatch failed (non-fatal): %s", exc)
 
     async def collect(
         self,
@@ -171,6 +212,24 @@ class EuroMacroOrchestrator:
         except Exception:
             logger.warning("KCIF update skipped due to error", exc_info=True)
 
+    @staticmethod
+    def _extract_ff_result(
+        agent_results: list[AgentResult],
+    ) -> tuple[AgentResult | None, list[AgentResult]]:
+        """Pop the ForexFactory AgentResult from the list.
+
+        Returns (ff_result, remaining_results). The remaining list excludes
+        the FF entry so its non-prose data does not pollute the LLM context.
+        """
+        ff_result: AgentResult | None = None
+        remaining: list[AgentResult] = []
+        for ar in agent_results:
+            if ar.agent_name == "ForexFactory" and ff_result is None:
+                ff_result = ar
+            else:
+                remaining.append(ar)
+        return ff_result, remaining
+
     def _synthesize(
         self,
         agent_results: list[AgentResult],
@@ -179,20 +238,38 @@ class EuroMacroOrchestrator:
         model: str,
     ) -> EuroMacroReport:
         """Call Claude CLI (claude code max) to synthesize findings into a report."""
-        context = self._build_context(agent_results)
-        total_findings = sum(len(r.findings) for r in agent_results)
+        ff_result, prose_results = self._extract_ff_result(agent_results)
+
+        context = self._build_context(prose_results)
+        total_findings = sum(len(r.findings) for r in prose_results)
+
+        # Build deterministic macro sections + LLM digest (only when FF available)
+        builder: MacroSectionsBuilder | None = None
+        macro_sections: list[ReportSection] = []
+        if ff_result is not None:
+            builder = MacroSectionsBuilder(year=year, month=month)
+            macro_sections = builder.build(ff_result)
+            digest = builder.build_llm_context_digest(ff_result)
+            if digest:
+                context = (
+                    "### ForexFactory 거시 캘린더 (참고용)\n"
+                    f"{digest}\n\n"
+                    + context
+                )
 
         if total_findings == 0:
+            base_sections: list[ReportSection] = [
+                ReportSection(
+                    heading="수집 결과 없음",
+                    content="리서치 에이전트에서 수집된 자료가 없습니다.",
+                )
+            ]
+            base_sections.extend(macro_sections)
             return EuroMacroReport(
                 year=year,
                 month=month,
                 title=f"{year}년 {month}월 월간 유럽 거시경제 현황",
-                sections=[
-                    ReportSection(
-                        heading="수집 결과 없음",
-                        content="리서치 에이전트에서 수집된 자료가 없습니다.",
-                    )
-                ],
+                sections=base_sections,
                 agent_results=agent_results,
                 model_used=model,
                 total_findings=0,
@@ -223,6 +300,7 @@ class EuroMacroOrchestrator:
 
         body = result.stdout.strip()
         sections = self._parse_sections(body)
+        sections.extend(macro_sections)
 
         return EuroMacroReport(
             year=year,

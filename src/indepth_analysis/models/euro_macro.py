@@ -1,6 +1,8 @@
 """Data models for the Euro Macro report skill."""
 
-from pydantic import BaseModel
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class ResearchFinding(BaseModel):
@@ -22,6 +24,7 @@ class AgentResult(BaseModel):
     findings: list[ResearchFinding] = []
     search_queries: list[str] = []
     error: str | None = None
+    extra: dict[str, Any] = Field(default_factory=dict)
 
 
 class ReportSection(BaseModel):

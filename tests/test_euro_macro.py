@@ -367,11 +367,22 @@ class TestFindingsIO:
 
 
 class TestOrchestratorInit:
-    def test_default_has_only_kcif(self):
+    def test_default_has_kcif_and_forexfactory(self):
         from indepth_analysis.config import ReferenceConfig
 
         config = ReferenceConfig()
         orch = EuroMacroOrchestrator(config)
+        # KCIF + ForexFactory (always-on unless no_macro=True)
+        assert len(orch.agents) == 2
+        names = [a.name for a in orch.agents]
+        assert "KCIF" in names
+        assert "ForexFactory" in names
+
+    def test_no_macro_disables_forexfactory(self):
+        from indepth_analysis.config import ReferenceConfig
+
+        config = ReferenceConfig()
+        orch = EuroMacroOrchestrator(config, no_macro=True)
         assert len(orch.agents) == 1
         assert orch.agents[0].name == "KCIF"
 
@@ -380,6 +391,8 @@ class TestOrchestratorInit:
 
         config = ReferenceConfig()
         orch = EuroMacroOrchestrator(config, legacy_agents=True)
-        assert len(orch.agents) == 4
+        # KCIF + ForexFactory + Media + Institutional + Data
+        assert len(orch.agents) == 5
         names = [a.name for a in orch.agents]
         assert "KCIF" in names
+        assert "ForexFactory" in names
