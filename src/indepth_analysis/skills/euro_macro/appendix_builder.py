@@ -12,6 +12,8 @@ from indepth_analysis.skills.euro_macro.prompts import (
     APPENDIX_COUNTRY_ANALYSIS_PROMPT,
     APPENDIX_INTRO_PROMPT,
     APPENDIX_RISK_SCENARIO_PROMPT,
+    POLITICAL_LANDSCAPE_SYSTEM_PROMPT,
+    POLITICAL_LANDSCAPE_USER_PROMPT,
 )
 
 logger = logging.getLogger(__name__)
@@ -154,6 +156,14 @@ class AppendixBuilder:
         if source_section:
             sections.append(source_section)
 
+        # Appendix V: political landscape deep-dive (LLM)
+        try:
+            political_section = self._build_political_landscape(agent_results)
+            if political_section:
+                sections.append(political_section)
+        except Exception as exc:
+            logger.warning("Appendix political landscape failed: %s", exc)
+
         return sections
 
     # ------------------------------------------------------------------
@@ -257,5 +267,62 @@ class AppendixBuilder:
             return None
         return ReportSection(
             heading=f"부록 III. 리스크 시나리오 분석 ({self.year}년 {self.month}월)",
+            content=text.strip(),
+        )
+
+    def _build_political_landscape(
+        self, agent_results: list[AgentResult]
+    ) -> ReportSection | None:
+        """Build Appendix V: European political landscape deep-dive.
+
+        Uses WebResearch political category findings as primary context,
+        supplemented by all other agent findings.
+        """
+        # Collect political-category findings first (higher priority)
+        political_categories = {"유럽 정치지형 (언론)", "유럽 정치지형 (연구기관)", "EU 정치"}
+        political_lines: list[str] = []
+        other_lines: list[str] = []
+
+        for ar in agent_results:
+            for f in ar.findings:
+                if f.title.startswith("[오류]"):
+                    continue
+                date_str = f" ({f.published_date})" if f.published_date else ""
+                src = f.source_name or ar.agent_name
+                url_str = f"\n  URL: {f.source_url}" if f.source_url else ""
+                line = f"- [{src}] **{f.title}**{date_str}: {f.summary}{url_str}"
+
+                cat = f.category or f.source_name or ""
+                if cat in political_categories:
+                    political_lines.append(line)
+                else:
+                    other_lines.append(line)
+
+        if not political_lines and not other_lines:
+            return None
+
+        # Build context: political findings first, then general macro context
+        context_parts: list[str] = []
+        if political_lines:
+            context_parts.append("### 정치지형 전문 자료 (언론·연구기관)")
+            context_parts.extend(political_lines)
+            context_parts.append("")
+        if other_lines:
+            context_parts.append("### 거시경제·시장 관련 자료 (정치 영향 분석에 활용)")
+            # Limit general context to avoid token overflow
+            context_parts.extend(other_lines[:60])
+            context_parts.append("")
+
+        context = "\n".join(context_parts)
+        prompt = POLITICAL_LANDSCAPE_USER_PROMPT.format(
+            year=self.year, month=self.month, context=context
+        )
+        text = _run_claude(
+            prompt, POLITICAL_LANDSCAPE_SYSTEM_PROMPT, self.model, timeout=self.timeout
+        )
+        if not text.strip():
+            return None
+        return ReportSection(
+            heading=f"부록 V. 유럽 정치지형 심층 분석 ({self.year}년 {self.month}월)",
             content=text.strip(),
         )

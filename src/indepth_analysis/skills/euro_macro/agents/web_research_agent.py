@@ -66,6 +66,24 @@ WEB_TOPICS: tuple[WebTopic, ...] = (
         query_ko="유럽 은행 신용 금융안정 스트레스 {year}년 {month}월",
         target_domains=("ecb.europa.eu", "reuters.com", "ft.com"),
     ),
+    WebTopic(
+        key="eu_politics_media",
+        category="유럽 정치지형 (언론)",
+        query_ko=(
+            "유럽 정치지형 극우 포퓰리즘 연립정부 선거 {year}년 {month}월 "
+            "Politico Foreign Affairs Economist 분석"
+        ),
+        target_domains=("politico.eu", "foreignaffairs.com", "economist.com", "ft.com"),
+    ),
+    WebTopic(
+        key="eu_politics_research",
+        category="유럽 정치지형 (연구기관)",
+        query_ko=(
+            "유럽 정치 리스크 지정학 민주주의 포퓰리즘 {year}년 {month}월 "
+            "ECFR Bruegel Chatham House 싱크탱크 보고서"
+        ),
+        target_domains=("ecfr.eu", "bruegel.org", "chathamhouse.org", "bertelsmann-stiftung.de"),
+    ),
 )
 
 # ---------------------------------------------------------------------------
