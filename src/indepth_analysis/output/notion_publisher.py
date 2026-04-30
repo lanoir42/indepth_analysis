@@ -130,27 +130,42 @@ def _rich_text(content: str, bold: bool = False, link: str | None = None) -> dic
     return rt
 
 
+_RE_INLINE = re.compile(
+    r"\*\*(.+?)\*\*"              # bold **text** → group 1
+    r"|\[([^\]]+)\]\(([^)]+)\)"   # link [text](url) → group 2, 3
+    r"|([^*]|\*(?!\*))"           # single char: non-* or lone * → group 4
+)
+
+
 def _parse_inline(text: str) -> list[dict]:
-    """Parse inline markdown (bold, links) into rich_text elements."""
+    """Parse inline markdown (bold, links) into Notion rich_text elements.
+
+    Handles bare square brackets like [출처: ECB, 2026-04-17] as plain text
+    instead of silently dropping the opening bracket.
+    """
     elements: list[dict] = []
-    # Pattern: **text**, [text](url), or plain text segments
-    pattern = re.compile(
-        r"(\*\*(.+?)\*\*)"  # bold
-        r"|(\[([^\]]+)\]\(([^)]+)\))"  # link
-        r"|([^*\[]+)"  # plain text
-    )
-    for m in pattern.finditer(text):
-        if m.group(1):  # bold
-            elements.append(_rich_text(m.group(2), bold=True))
-        elif m.group(3):  # link
-            url = m.group(5)
-            # Notion requires absolute URLs — render anchors/fragments as plain text
+    buf = ""
+
+    for m in _RE_INLINE.finditer(text):
+        if m.group(1) is not None:  # bold **text**
+            if buf:
+                elements.append(_rich_text(buf))
+                buf = ""
+            elements.append(_rich_text(m.group(1), bold=True))
+        elif m.group(2) is not None:  # link [text](url)
+            if buf:
+                elements.append(_rich_text(buf))
+                buf = ""
+            url = m.group(3)
             if url.startswith(("http://", "https://")):
-                elements.append(_rich_text(m.group(4), link=url))
+                elements.append(_rich_text(m.group(2), link=url))
             else:
-                elements.append(_rich_text(m.group(4)))
-        elif m.group(6):  # plain
-            elements.append(_rich_text(m.group(6)))
+                elements.append(_rich_text(m.group(2)))
+        else:  # single plain char (including [ ] that aren't part of a link)
+            buf += m.group(4)
+
+    if buf:
+        elements.append(_rich_text(buf))
     return elements or [_rich_text(text)]
 
 
