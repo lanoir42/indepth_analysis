@@ -4,6 +4,9 @@ import json
 import logging
 import subprocess
 
+from bgilib.obs import CallKind, span
+from bgilib.obs.extractors.claude_cli import parse_stream_json_text
+
 from indepth_analysis.models.euro_macro import ResearchFinding
 
 logger = logging.getLogger(__name__)
@@ -53,35 +56,56 @@ def claude_web_search(
         category=category,
     )
 
-    try:
-        result = subprocess.run(
-            [
-                "claude",
-                "-p",
-                prompt,
-                "--model",
-                model,
-                "--output-format",
-                "text",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=_TIMEOUT,
-        )
-    except subprocess.TimeoutExpired:
-        logger.warning("Claude CLI timed out for topic: %s", topic)
-        return []
+    with span(
+        project="indepth_analysis",
+        provider="anthropic",
+        model=model,
+        call_kind=CallKind.CLI_SUBPROCESS,
+        function_name="claude_web_search",
+    ) as obs_handle:
+        obs_handle.set_text_len(len(prompt))
+        try:
+            result = subprocess.run(
+                [
+                    "claude",
+                    "-p",
+                    prompt,
+                    "--model",
+                    model,
+                    "--output-format",
+                    "text",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=_TIMEOUT,
+            )
+        except subprocess.TimeoutExpired:
+            logger.warning("Claude CLI timed out for topic: %s", topic)
+            obs_handle.set_error("timeout")
+            return []
 
-    if result.returncode != 0:
-        logger.warning(
-            "Claude CLI failed (exit %d) for topic: %s — %s",
-            result.returncode,
-            topic,
-            result.stderr[:200],
-        )
-        return []
+        if result.returncode != 0:
+            logger.warning(
+                "Claude CLI failed (exit %d) for topic: %s — %s",
+                result.returncode,
+                topic,
+                result.stderr[:200],
+            )
+            obs_handle.set_error(
+                f"exit {result.returncode}: {result.stderr[:200]}"
+            )
+            return []
 
-    return _parse_findings(result.stdout, category)
+        # --output-format text doesn't carry usage; chars/4 fallback applied
+        # by parse_stream_json_text when no usage events are found. We pass
+        # the raw text so the extractor's estimator runs.
+        try:
+            cli_result = parse_stream_json_text(result.stdout)
+            obs_handle.set_usage(cli_result.usage)
+        except Exception:
+            logger.debug("usage extraction failed for claude_web_search")
+
+        return _parse_findings(result.stdout, category)
 
 
 def _parse_findings(text: str, category: str) -> list[ResearchFinding]:

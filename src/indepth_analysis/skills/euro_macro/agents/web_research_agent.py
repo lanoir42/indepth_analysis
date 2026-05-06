@@ -6,6 +6,9 @@ import logging
 import re
 from collections import namedtuple
 
+from bgilib.obs import CallKind, span
+from bgilib.obs.extractors.claude_cli import parse_stream_json_text
+
 from indepth_analysis.models.euro_macro import AgentResult, ResearchFinding
 from indepth_analysis.skills.base import BaseResearchAgent
 
@@ -325,42 +328,60 @@ class WebResearchAgent(BaseResearchAgent):
             ]
 
             logger.info("WebResearch: starting topic %s", topic.key)
-            try:
-                proc = await asyncio.create_subprocess_exec(
-                    *cmd,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
+            async with span(
+                project="indepth_analysis",
+                provider="anthropic",
+                model=self.model,
+                call_kind=CallKind.CLI_SUBPROCESS,
+                function_name="WebResearchAgent._research_topic",
+                tags={"topic": topic.key, "category": topic.category},
+            ) as obs_handle:
+                obs_handle.set_text_len(len(prompt))
                 try:
-                    stdout_bytes, stderr_bytes = await asyncio.wait_for(
-                        proc.communicate(),
-                        timeout=self.timeout_per_topic,
+                    proc = await asyncio.create_subprocess_exec(
+                        *cmd,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE,
                     )
-                except asyncio.TimeoutError:
-                    proc.kill()
-                    await proc.communicate()  # drain
+                    try:
+                        stdout_bytes, stderr_bytes = await asyncio.wait_for(
+                            proc.communicate(),
+                            timeout=self.timeout_per_topic,
+                        )
+                    except asyncio.TimeoutError:
+                        proc.kill()
+                        await proc.communicate()  # drain
+                        obs_handle.set_error("timeout")
+                        raise RuntimeError(
+                            f"Topic {topic.key!r} timed out after {self.timeout_per_topic}s"
+                        )
+                except FileNotFoundError as exc:
+                    obs_handle.set_error("claude CLI not found")
                     raise RuntimeError(
-                        f"Topic {topic.key!r} timed out after {self.timeout_per_topic}s"
+                        "claude CLI not found in PATH — is it installed?"
+                    ) from exc
+
+                stdout = stdout_bytes.decode("utf-8", errors="replace")
+                stderr = stderr_bytes.decode("utf-8", errors="replace")
+
+                if proc.returncode != 0:
+                    logger.warning(
+                        "WebResearch topic %s exited %d: %s",
+                        topic.key,
+                        proc.returncode,
+                        stderr[:300],
                     )
-            except FileNotFoundError as exc:
-                raise RuntimeError(
-                    "claude CLI not found in PATH — is it installed?"
-                ) from exc
+                    obs_handle.set_error(f"exit {proc.returncode}")
+                    raise RuntimeError(
+                        f"Claude CLI exited {proc.returncode} for topic {topic.key!r}: "
+                        f"{stderr[:200]}"
+                    )
 
-            stdout = stdout_bytes.decode("utf-8", errors="replace")
-            stderr = stderr_bytes.decode("utf-8", errors="replace")
-
-            if proc.returncode != 0:
-                logger.warning(
-                    "WebResearch topic %s exited %d: %s",
-                    topic.key,
-                    proc.returncode,
-                    stderr[:300],
-                )
-                raise RuntimeError(
-                    f"Claude CLI exited {proc.returncode} for topic {topic.key!r}: "
-                    f"{stderr[:200]}"
-                )
+                try:
+                    cli_result = parse_stream_json_text(stdout)
+                    obs_handle.set_usage(cli_result.usage)
+                except Exception:
+                    logger.debug("usage extraction failed for WebResearch %s", topic.key)
 
             text = _collect_text_from_stream(stdout)
             if not text:

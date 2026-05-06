@@ -4,6 +4,9 @@ import json
 import logging
 import subprocess
 
+from bgilib.obs import CallKind, span
+from bgilib.obs.extractors.claude_cli import parse_stream_json_text
+
 logger = logging.getLogger(__name__)
 
 _DEFAULT_MODEL = "claude-haiku-4-5-20251001"
@@ -16,34 +19,52 @@ def issue_web_search(
     timeout: int = _TIMEOUT,
 ) -> list[dict]:
     """Run a Claude CLI web search and return parsed JSON array."""
-    try:
-        result = subprocess.run(
-            [
-                "claude",
-                "-p",
-                prompt,
-                "--model",
-                model,
-                "--output-format",
-                "text",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-    except subprocess.TimeoutExpired:
-        logger.warning("Claude CLI timed out")
-        return []
+    with span(
+        project="indepth_analysis",
+        provider="anthropic",
+        model=model,
+        call_kind=CallKind.CLI_SUBPROCESS,
+        function_name="issue_web_search",
+    ) as obs_handle:
+        obs_handle.set_text_len(len(prompt))
+        try:
+            result = subprocess.run(
+                [
+                    "claude",
+                    "-p",
+                    prompt,
+                    "--model",
+                    model,
+                    "--output-format",
+                    "text",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired:
+            logger.warning("Claude CLI timed out")
+            obs_handle.set_error("timeout")
+            return []
 
-    if result.returncode != 0:
-        logger.warning(
-            "Claude CLI failed (exit %d): %s",
-            result.returncode,
-            result.stderr[:200],
-        )
-        return []
+        if result.returncode != 0:
+            logger.warning(
+                "Claude CLI failed (exit %d): %s",
+                result.returncode,
+                result.stderr[:200],
+            )
+            obs_handle.set_error(
+                f"exit {result.returncode}: {result.stderr[:200]}"
+            )
+            return []
 
-    return _parse_json_array(result.stdout)
+        try:
+            cli_result = parse_stream_json_text(result.stdout)
+            obs_handle.set_usage(cli_result.usage)
+        except Exception:
+            logger.debug("usage extraction failed for issue_web_search")
+
+        return _parse_json_array(result.stdout)
 
 
 def _parse_json_array(text: str) -> list[dict]:

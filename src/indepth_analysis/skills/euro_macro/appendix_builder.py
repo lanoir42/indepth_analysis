@@ -7,6 +7,9 @@ import logging
 import subprocess
 from pathlib import Path
 
+from bgilib.obs import CallKind, span
+from bgilib.obs.extractors.claude_cli import parse_stream_json_text
+
 from indepth_analysis.models.euro_macro import AgentResult, ReportSection, ResearchFinding
 from indepth_analysis.skills.euro_macro.prompts import (
     APPENDIX_COUNTRY_ANALYSIS_PROMPT,
@@ -54,30 +57,47 @@ def _collect_text_from_stream(stdout: str) -> str:
 
 def _run_claude(prompt: str, system: str, model: str, timeout: int = 300) -> str:
     """Run a Claude CLI subprocess and return the text output."""
-    proc = subprocess.Popen(
-        [
-            "claude", "-p", prompt,
-            "--append-system-prompt", system,
-            "--output-format", "stream-json",
-            "--verbose",
-            "--model", model,
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        cwd=str(Path("/tmp")),
-    )
-    try:
-        stdout, stderr = proc.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        raise RuntimeError(f"Claude CLI appendix call timed out after {timeout}s")
-
-    if proc.returncode != 0:
-        raise RuntimeError(
-            f"Claude CLI appendix failed (exit {proc.returncode}): {stderr[:400]}"
+    with span(
+        project="indepth_analysis",
+        provider="anthropic",
+        model=model,
+        call_kind=CallKind.CLI_SUBPROCESS,
+        function_name="appendix_builder._run_claude",
+    ) as obs_handle:
+        obs_handle.set_text_len(len(prompt), system_len=len(system))
+        proc = subprocess.Popen(
+            [
+                "claude", "-p", prompt,
+                "--append-system-prompt", system,
+                "--output-format", "stream-json",
+                "--verbose",
+                "--model", model,
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            cwd=str(Path("/tmp")),
         )
-    return _collect_text_from_stream(stdout)
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            obs_handle.set_error("timeout")
+            raise RuntimeError(f"Claude CLI appendix call timed out after {timeout}s")
+
+        if proc.returncode != 0:
+            obs_handle.set_error(f"exit {proc.returncode}")
+            raise RuntimeError(
+                f"Claude CLI appendix failed (exit {proc.returncode}): {stderr[:400]}"
+            )
+
+        try:
+            cli_result = parse_stream_json_text(stdout)
+            obs_handle.set_usage(cli_result.usage)
+        except Exception:
+            logger.debug("usage extraction failed for appendix _run_claude")
+
+        return _collect_text_from_stream(stdout)
 
 
 def _build_context_from_results(agent_results: list[AgentResult]) -> str:

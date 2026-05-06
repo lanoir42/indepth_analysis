@@ -8,6 +8,9 @@ import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
+from bgilib.obs import CallKind, span
+from bgilib.obs.extractors.claude_cli import parse_stream_json_text
+
 from indepth_analysis.models.dev_welfare import DevWelfareReport
 from indepth_analysis.models.euro_macro import AgentResult, ReportSection
 from indepth_analysis.skills.dev_welfare.agents import (
@@ -213,27 +216,42 @@ class DevWelfareOrchestrator:
                 f"Model {model!r} not in allowed list: {sorted(_ALLOWED_MODELS)}"
             )
 
-        result = subprocess.run(
-            [
-                "claude",
-                "-p",
-                prompt,
-                "--model",
-                model,
-                "--output-format",
-                "text",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=300,
-        )
-
-        if result.returncode != 0:
-            raise RuntimeError(
-                f"Claude CLI failed (exit {result.returncode}): {result.stderr}"
+        with span(
+            project="indepth_analysis",
+            provider="anthropic",
+            model=model,
+            call_kind=CallKind.CLI_SUBPROCESS,
+            function_name="DevWelfareOrchestrator._synthesize",
+        ) as obs_handle:
+            obs_handle.set_text_len(len(prompt))
+            result = subprocess.run(
+                [
+                    "claude",
+                    "-p",
+                    prompt,
+                    "--model",
+                    model,
+                    "--output-format",
+                    "text",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=300,
             )
 
-        body = result.stdout.strip()
+            if result.returncode != 0:
+                obs_handle.set_error(f"exit {result.returncode}")
+                raise RuntimeError(
+                    f"Claude CLI failed (exit {result.returncode}): {result.stderr}"
+                )
+
+            try:
+                cli_result = parse_stream_json_text(result.stdout)
+                obs_handle.set_usage(cli_result.usage)
+            except Exception:
+                logger.debug("usage extraction failed for dev_welfare synthesize")
+
+            body = result.stdout.strip()
         sections = self._parse_sections(body)
         title = self._build_title(year, month, week, report_type)
 

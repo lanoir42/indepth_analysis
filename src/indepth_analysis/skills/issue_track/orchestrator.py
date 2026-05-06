@@ -9,6 +9,9 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
+from bgilib.obs import CallKind, span
+from bgilib.obs.extractors.claude_cli import parse_stream_json_text
+
 from indepth_analysis.models.issue_track import (
     CredibilityRating,
     CredibilityRubric,
@@ -61,11 +64,24 @@ def _extract_slug(topic: str) -> str:
     # Fall back to simple slug generation
     raw = ""
     try:
-        result = subprocess.run(
-            ["claude", "-p", prompt, "--model", "claude-haiku-4-5-20251001", "--output-format", "text"],
-            capture_output=True, text=True, timeout=30,
-        )
-        raw = result.stdout.strip().lower()
+        with span(
+            project="indepth_analysis",
+            provider="anthropic",
+            model="claude-haiku-4-5-20251001",
+            call_kind=CallKind.CLI_SUBPROCESS,
+            function_name="_extract_slug",
+        ) as obs_handle:
+            obs_handle.set_text_len(len(prompt))
+            result = subprocess.run(
+                ["claude", "-p", prompt, "--model", "claude-haiku-4-5-20251001", "--output-format", "text"],
+                capture_output=True, text=True, timeout=30,
+            )
+            try:
+                cli_result = parse_stream_json_text(result.stdout)
+                obs_handle.set_usage(cli_result.usage)
+            except Exception:
+                pass
+            raw = result.stdout.strip().lower()
     except Exception:
         pass
 
@@ -131,15 +147,29 @@ def _synthesize(
     if model not in _ALLOWED_MODELS:
         raise ValueError(f"Model {model!r} not in allowed list")
 
-    result = subprocess.run(
-        ["claude", "-p", full_prompt, "--model", model, "--output-format", "text"],
-        capture_output=True,
-        text=True,
-        timeout=600,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"Claude CLI synthesis failed: {result.stderr[:500]}")
-    return result.stdout.strip()
+    with span(
+        project="indepth_analysis",
+        provider="anthropic",
+        model=model,
+        call_kind=CallKind.CLI_SUBPROCESS,
+        function_name="issue_track._synthesize",
+    ) as obs_handle:
+        obs_handle.set_text_len(len(full_prompt))
+        result = subprocess.run(
+            ["claude", "-p", full_prompt, "--model", model, "--output-format", "text"],
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+        if result.returncode != 0:
+            obs_handle.set_error(f"exit {result.returncode}")
+            raise RuntimeError(f"Claude CLI synthesis failed: {result.stderr[:500]}")
+        try:
+            cli_result = parse_stream_json_text(result.stdout)
+            obs_handle.set_usage(cli_result.usage)
+        except Exception:
+            logger.debug("usage extraction failed for issue_track synthesize")
+        return result.stdout.strip()
 
 
 def _collect_credibility_ratings(

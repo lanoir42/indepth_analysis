@@ -8,6 +8,9 @@ import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
+from bgilib.obs import CallKind, span
+from bgilib.obs.extractors.claude_cli import parse_stream_json_text
+
 from indepth_analysis.config import ReferenceConfig
 from indepth_analysis.models.euro_macro import (
     AgentResult,
@@ -290,29 +293,48 @@ class EuroMacroOrchestrator:
                 f"Model {model!r} not in allowed list: {sorted(_ALLOWED_MODELS)}"
             )
 
-        proc = subprocess.Popen(
-            [
-                "claude", "-p", user_prompt,
-                "--append-system-prompt", ENHANCED_SYNTHESIS_SYSTEM_PROMPT,
-                "--output-format", "stream-json",
-                "--verbose",
-                "--model", model,
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            cwd=str(Path("/tmp")),
-        )
-        try:
-            stdout, stderr = proc.communicate(timeout=600)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            raise RuntimeError("Claude CLI timed out after 600s")
-
-        if proc.returncode != 0:
-            raise RuntimeError(
-                f"Claude CLI failed (exit {proc.returncode}): {stderr[:500]}"
+        with span(
+            project="indepth_analysis",
+            provider="anthropic",
+            model=model,
+            call_kind=CallKind.CLI_SUBPROCESS,
+            function_name="EuroMacroOrchestrator._synthesize",
+        ) as obs_handle:
+            obs_handle.set_text_len(
+                len(user_prompt),
+                system_len=len(ENHANCED_SYNTHESIS_SYSTEM_PROMPT),
             )
+            proc = subprocess.Popen(
+                [
+                    "claude", "-p", user_prompt,
+                    "--append-system-prompt", ENHANCED_SYNTHESIS_SYSTEM_PROMPT,
+                    "--output-format", "stream-json",
+                    "--verbose",
+                    "--model", model,
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                cwd=str(Path("/tmp")),
+            )
+            try:
+                stdout, stderr = proc.communicate(timeout=600)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                obs_handle.set_error("timeout")
+                raise RuntimeError("Claude CLI timed out after 600s")
+
+            if proc.returncode != 0:
+                obs_handle.set_error(f"exit {proc.returncode}")
+                raise RuntimeError(
+                    f"Claude CLI failed (exit {proc.returncode}): {stderr[:500]}"
+                )
+
+            try:
+                cli_result = parse_stream_json_text(stdout)
+                obs_handle.set_usage(cli_result.usage)
+            except Exception:
+                logger.debug("usage extraction failed for euro_macro _synthesize")
 
         # Parse stream-json: collect text from assistant message blocks.
         # This reliably captures output even when the model also calls tools.
