@@ -17,10 +17,11 @@ from bgilib.obs.extractors.claude_cli import parse_stream_json_text
 from indepth_analysis.skills.euro_macro.weekly_brief.prompts import (
     ECB_MARKET_AGENT_PROMPT,
     EVALUATOR_SYSTEM_PROMPT,
+    GDP_AGENT_PROMPT,
     GENERATOR_R2_SYSTEM_PROMPT,
     GENERATOR_R2_USER_PROMPT,
     HICP_AGENT_PROMPT,
-    PMI_GDP_AGENT_PROMPT,
+    PMI_AGENT_PROMPT,
     SYNTHESIS_SYSTEM_PROMPT,
     SYNTHESIS_USER_PROMPT,
 )
@@ -48,10 +49,10 @@ class WeeklyBriefOrchestrator:
 
     MODEL = "claude-opus-4-20250514"
     AGENT_TIMEOUT = 300  # default seconds per Claude CLI agent (WebSearch is slow)
-    # Per-agent overrides: hicp and pmi_gdp each source 28 months of multi-series
-    # time-series data via WebSearch, which runs near the time limit; give them
-    # more room than ecb_market (current-snapshot data that completes quickly).
-    AGENT_TIMEOUTS = {"hicp": 420, "pmi_gdp": 420}
+    # Per-agent overrides: hicp/pmi source 28 months of multi-series time-series
+    # data via WebSearch and run near the limit, so they get extra room. gdp
+    # (one quarter, 5 countries) and ecb_market (current snapshot) are light.
+    AGENT_TIMEOUTS = {"hicp": 420, "pmi": 420, "gdp": 240}
     SYNTHESIS_TIMEOUT = 300
     EVALUATOR_TIMEOUT = 120
     R2_TIMEOUT = 240
@@ -72,13 +73,18 @@ class WeeklyBriefOrchestrator:
         """Full pipeline: collect → synthesize → evaluate → (revise) → save."""
         logger.info("WeeklyBrief: start (date=%s, model=%s)", date_str, self.model)
 
-        hicp, pmi_gdp, ecb_market = asyncio.run(self._collect_all())
+        hicp, pmi, gdp, ecb_market = asyncio.run(self._collect_all())
         logger.info(
-            "WeeklyBrief: agents done (hicp=%d, pmi_gdp=%d, ecb_market=%d chars)",
+            "WeeklyBrief: agents done (hicp=%d, pmi=%d, gdp=%d, ecb_market=%d chars)",
             len(hicp),
-            len(pmi_gdp),
+            len(pmi),
+            len(gdp),
             len(ecb_market),
         )
+
+        # The synthesis prompt expects a single PMI+GDP block; recombine the two
+        # split-agent outputs, omitting any that failed (empty string).
+        pmi_gdp = "\n\n".join(part for part in (pmi, gdp) if part.strip())
 
         synthesis_raw = self._synthesize(date_str, hicp, pmi_gdp, ecb_market)
         slide_text, slide_json = self._extract_blocks(synthesis_raw)
@@ -123,23 +129,30 @@ class WeeklyBriefOrchestrator:
     # Async parallel collection
     # ------------------------------------------------------------------
 
-    async def _collect_all(self) -> tuple[str, str, str]:
-        """Run 3 Claude CLI agents in parallel; gracefully default to '' on failure."""
+    async def _collect_all(self) -> tuple[str, str, str, str]:
+        """Run 4 Claude CLI agents in parallel; gracefully default to '' on failure.
+
+        Returns (hicp, pmi, gdp, ecb_market). pmi and gdp were split from a single
+        pmi_gdp agent whose combined 28-month-PMI + 5-country-GDP workload ran past
+        the timeout; two lighter agents complete within budget.
+        """
+        names = ("hicp", "pmi", "gdp", "ecb_market")
         tasks = [
             self._run_agent(HICP_AGENT_PROMPT, "hicp"),
-            self._run_agent(PMI_GDP_AGENT_PROMPT, "pmi_gdp"),
+            self._run_agent(PMI_AGENT_PROMPT, "pmi"),
+            self._run_agent(GDP_AGENT_PROMPT, "gdp"),
             self._run_agent(ECB_MARKET_AGENT_PROMPT, "ecb_market"),
         ]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         out: list[str] = []
-        for name, r in zip(("hicp", "pmi_gdp", "ecb_market"), results):
+        for name, r in zip(names, results):
             if isinstance(r, BaseException):
                 logger.warning("WeeklyBrief agent %s failed: %s", name, r)
                 out.append("")
             else:
                 out.append(r)
-        return out[0], out[1], out[2]
+        return out[0], out[1], out[2], out[3]
 
     async def _run_agent(self, prompt: str, name: str) -> str:
         """Run a single Claude CLI agent (async). Returns parsed text or ''."""
