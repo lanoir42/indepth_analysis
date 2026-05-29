@@ -47,7 +47,11 @@ class WeeklyBriefOrchestrator:
     """Run 3 collection agents in parallel, synthesize, evaluate, revise, save."""
 
     MODEL = "claude-opus-4-20250514"
-    AGENT_TIMEOUT = 300  # seconds per Claude CLI agent (WebSearch agents are slow)
+    AGENT_TIMEOUT = 300  # default seconds per Claude CLI agent (WebSearch is slow)
+    # Per-agent overrides: hicp and pmi_gdp each source 28 months of multi-series
+    # time-series data via WebSearch, which runs near the time limit; give them
+    # more room than ecb_market (current-snapshot data that completes quickly).
+    AGENT_TIMEOUTS = {"hicp": 420, "pmi_gdp": 420}
     SYNTHESIS_TIMEOUT = 300
     EVALUATOR_TIMEOUT = 120
     R2_TIMEOUT = 240
@@ -139,6 +143,7 @@ class WeeklyBriefOrchestrator:
 
     async def _run_agent(self, prompt: str, name: str) -> str:
         """Run a single Claude CLI agent (async). Returns parsed text or ''."""
+        timeout = self.AGENT_TIMEOUTS.get(name, self.AGENT_TIMEOUT)
         cmd = [
             "claude",
             "-p", prompt,
@@ -173,14 +178,14 @@ class WeeklyBriefOrchestrator:
             try:
                 stdout_bytes, stderr_bytes = await asyncio.wait_for(
                     proc.communicate(),
-                    timeout=self.AGENT_TIMEOUT,
+                    timeout=timeout,
                 )
             except TimeoutError:
                 proc.kill()
                 await proc.communicate()
                 obs_handle.set_error("timeout")
                 raise RuntimeError(
-                    f"WeeklyBrief agent {name!r} timed out after {self.AGENT_TIMEOUT}s"
+                    f"WeeklyBrief agent {name!r} timed out after {timeout}s"
                 )
 
             stdout = stdout_bytes.decode("utf-8", errors="replace")
