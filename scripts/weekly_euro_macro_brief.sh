@@ -12,8 +12,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$(dirname "$SCRIPT_DIR")"
 
-DATE_ARG="${1:-}"
-EXTRA_ARGS="${@:2}"
+# First arg is the date only if it is not a flag; otherwise all args are extras
+# (so `script --no-publish` works without a date, as the usage header promises).
+if [[ "${1:-}" == --* ]]; then
+  DATE_ARG=""
+  EXTRA_ARGS="$*"
+else
+  DATE_ARG="${1:-}"
+  EXTRA_ARGS="${*:2}"
+fi
 
 echo "========================================================"
 echo "  유럽 거시경제 주간 브리프 슬라이드"
