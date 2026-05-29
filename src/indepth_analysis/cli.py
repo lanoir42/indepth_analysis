@@ -236,6 +236,35 @@ def build_parser() -> argparse.ArgumentParser:
         "-v", "--verbose", action="store_true", help="Enable verbose logging"
     )
 
+    # --- euro-macro-weekly ---
+    weekly_brief = report_sub.add_parser(
+        "euro-macro-weekly",
+        help="Weekly European macro brief slide (text + JSON for Claude for PowerPoint)",
+    )
+    weekly_brief.add_argument(
+        "--date",
+        default=None,
+        help="Report date YYYY-MM-DD (default: today)",
+    )
+    weekly_brief.add_argument(
+        "--model",
+        default="claude-opus-4-20250514",
+        help="Claude model",
+    )
+    weekly_brief.add_argument(
+        "--no-evaluator",
+        action="store_true",
+        help="Skip evaluator pass",
+    )
+    weekly_brief.add_argument(
+        "--no-publish",
+        action="store_true",
+        help="Skip Notion publish",
+    )
+    weekly_brief.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable verbose logging"
+    )
+
     # --- dev-welfare ---
     dw = report_sub.add_parser(
         "dev-welfare", help="Development & welfare report"
@@ -850,6 +879,15 @@ def _run_report(args: argparse.Namespace) -> None:
             force_refresh=getattr(args, "force_refresh", False),
             alert_abs_surprise=getattr(args, "alert_abs_surprise", None),
         )
+    elif args.report_type == "euro-macro-weekly":
+        from indepth_analysis.skills.euro_macro.weekly_brief import run_weekly_brief
+
+        run_weekly_brief(
+            date_str=getattr(args, "date", None),
+            model=getattr(args, "model", "claude-opus-4-20250514"),
+            no_evaluator=getattr(args, "no_evaluator", False),
+            publish=not getattr(args, "no_publish", False),
+        )
     elif args.report_type == "dev-welfare":
         collect_only = getattr(args, "collect_only", False)
         from_findings = getattr(args, "from_findings", None)
@@ -903,7 +941,8 @@ def _run_report(args: argparse.Namespace) -> None:
                 console.print(f"[green]Published to Notion ({target})[/green]")
     else:
         console.print(
-            "[red]Unknown report type. Use 'euro-macro', 'dev-welfare', or 'issue-track'.[/red]"
+            "[red]Unknown report type. Use 'euro-macro', 'euro-macro-weekly', "
+            "'dev-welfare', or 'issue-track'.[/red]"
         )
         sys.exit(1)
 

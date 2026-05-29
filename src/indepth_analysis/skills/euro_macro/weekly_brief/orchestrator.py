@@ -47,7 +47,7 @@ class WeeklyBriefOrchestrator:
     """Run 3 collection agents in parallel, synthesize, evaluate, revise, save."""
 
     MODEL = "claude-opus-4-20250514"
-    AGENT_TIMEOUT = 180  # seconds per Claude CLI agent
+    AGENT_TIMEOUT = 300  # seconds per Claude CLI agent (WebSearch agents are slow)
     SYNTHESIS_TIMEOUT = 300
     EVALUATOR_TIMEOUT = 120
     R2_TIMEOUT = 240

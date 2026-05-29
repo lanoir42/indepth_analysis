@@ -185,7 +185,7 @@ requires-dist = [
     { name = "types-requests", marker = "extra == 'dev'" },
     { name = "yfinance", marker = "extra == 'market'", specifier = ">=0.2.40" },
 ]
-provides-extras = ["google", "notion", "market", "macro", "ai-scan", "rich-output", "dev", "all"]
+provides-extras = ["google", "notion", "market", "macro", "ai-scan", "obs", "rich-output", "dev", "all"]
 
 [[package]]
 name = "build"
