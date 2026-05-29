@@ -25,6 +25,10 @@ _MIME_TYPES = {
     ".pdf": "application/pdf",
     ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".md": "text/markdown",
+    ".txt": "text/plain",
+    ".json": "application/json",
+    ".csv": "text/csv",
 }
 
 
@@ -384,6 +388,8 @@ def publish_to_notion(
     token: str,
     parent_id: str,
     attachments: list[Path] | None = None,
+    attach_source: bool = True,
+    skip_temporal_gate: bool = False,
 ) -> str:
     """Publish a markdown report to Notion as a child page.
 
@@ -392,16 +398,39 @@ def publish_to_notion(
         token: Notion API integration token.
         parent_id: Notion page ID to create the child page under.
         attachments: Optional list of file paths to attach (e.g. .pptx, .pdf).
+        attach_source: If True (default), attach the source ``.md`` itself to the
+            page as a downloadable file block.
+        skip_temporal_gate: If True, skip the deterministic temporal/anachronism
+            gate. By default the gate raises ``TemporalGateError`` on HIGH findings
+            (year other than the report's as-of year next to present-tense framing).
 
     Returns:
         The URL of the created Notion page.
+
+    Raises:
+        TemporalGateError: HIGH temporal findings and ``skip_temporal_gate`` is False.
     """
     md_text = md_path.read_text()
     md_dir = md_path.parent
 
+    # Deterministic temporal/anachronism gate (before any network work).
+    if not skip_temporal_gate:
+        from indepth_analysis.temporal_lint import assert_no_high, infer_report_year
+
+        as_of_year = infer_report_year(md_text)
+        if as_of_year is not None:
+            assert_no_high(md_text, as_of_year)
+
     # Extract title from first heading
     title_match = re.search(r"^#\s+(.+)$", md_text, re.MULTILINE)
     title = title_match.group(1) if title_match else md_path.stem
+
+    # Attach the source markdown itself (downloadable) unless opted out.
+    attachments = list(attachments or [])
+    if attach_source and not any(
+        p.resolve() == md_path.resolve() for p in attachments
+    ):
+        attachments.append(md_path)
 
     client = NotionClient(token)
     try:

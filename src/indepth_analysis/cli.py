@@ -79,6 +79,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Notion publish target (default: indepth-analysis)",
     )
     publish.add_argument(
+        "--no-attach-source",
+        action="store_true",
+        help="Do not attach the source .md file to the Notion page",
+    )
+    publish.add_argument(
+        "--skip-temporal-gate",
+        action="store_true",
+        help="Skip the temporal/anachronism gate (publish even with HIGH findings)",
+    )
+    publish.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -603,13 +613,34 @@ def _run_publish(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     from indepth_analysis.output.notion_publisher import publish_to_notion
+    from indepth_analysis.temporal_lint import TemporalGateError, render_report
 
     attachments = getattr(args, "attach", None)
 
-    with console.status("[cyan]Publishing report to Notion..."):
-        url = publish_to_notion(md_path, token, parent_id, attachments=attachments)
+    try:
+        with console.status("[cyan]Publishing report to Notion..."):
+            url = publish_to_notion(
+                md_path,
+                token,
+                parent_id,
+                attachments=attachments,
+                attach_source=not getattr(args, "no_attach_source", False),
+                skip_temporal_gate=getattr(args, "skip_temporal_gate", False),
+            )
+    except TemporalGateError as exc:
+        console.print(
+            "[red]발행 중단 — 시점 정합성(시대착오) HIGH 이슈 발견:[/red]"
+        )
+        console.print(render_report(exc.findings, exc.as_of_year))
+        console.print(
+            "[yellow]검토 후 수정하거나, 오탐이면 "
+            "--skip-temporal-gate 로 재실행하세요.[/yellow]"
+        )
+        sys.exit(2)
 
     console.print(f"[green]Published to Notion:[/green] {url}")
+    if not getattr(args, "no_attach_source", False):
+        console.print(f"[green]원본 .md 첨부됨:[/green] {md_path.name}")
 
 
 def _run_update(args: argparse.Namespace) -> None:

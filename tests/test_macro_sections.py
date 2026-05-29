@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from indepth_analysis.models.euro_macro import AgentResult
 from indepth_analysis.skills.euro_macro.macro_sections import (
@@ -13,6 +13,12 @@ from indepth_analysis.skills.euro_macro.macro_sections import (
     _recover_suffix,
     _to_kst_str,
 )
+
+
+def _future_dt(days: int) -> str:
+    """ISO-8601 UTC timestamp ``days`` from now — keeps 'upcoming' events inside
+    the builder's 14-day window regardless of when the test runs."""
+    return (datetime.now(UTC) + timedelta(days=days)).replace(microsecond=0).isoformat()
 
 
 # ----------------------------------------------------------------------
@@ -72,14 +78,14 @@ def _make_ff_result(
             False,
             forecast=0.3,
             previous=0.2,
-            dt_str="2026-05-02T12:30:00+00:00",
+            dt_str=_future_dt(2),
         ),
         _ev(
             "Good Friday",
             "EUR",
             "Holiday",
             False,
-            dt_str="2026-05-02T00:00:00+00:00",
+            dt_str=_future_dt(2),
             raw_time="All Day",
         ),
         _ev(
@@ -89,7 +95,7 @@ def _make_ff_result(
             False,
             forecast=0.1,
             previous=0.0,
-            dt_str="2026-05-05T08:00:00+00:00",
+            dt_str=_future_dt(4),
         ),
     ]
     released_events = released if released is not None else [
@@ -220,31 +226,35 @@ class TestFormatHelpers:
 # Section A — upcoming calendar
 # ----------------------------------------------------------------------
 class TestSectionA:
+    # Pin the builder to the current year/month so the builder's "this month →
+    # window starts now" branch is exercised and the now-relative upcoming
+    # events (_future_dt) fall inside the 14-day window on any run date.
+    @staticmethod
+    def _current_builder() -> MacroSectionsBuilder:
+        now = datetime.now(UTC)
+        return MacroSectionsBuilder(year=now.year, month=now.month)
+
     def test_section_a_present(self) -> None:
         ff = _make_ff_result()
-        builder = MacroSectionsBuilder(year=2026, month=5)
-        sections = builder.build(ff)
+        sections = self._current_builder().build(ff)
         headings = [s.heading for s in sections]
         assert any("향후" in h or "캘린더" in h for h in headings)
 
     def test_section_a_excludes_holidays(self) -> None:
         ff = _make_ff_result()
-        builder = MacroSectionsBuilder(year=2026, month=5)
-        sections = builder.build(ff)
+        sections = self._current_builder().build(ff)
         a = next(s for s in sections if "캘린더" in s.heading)
         assert "Good Friday" not in a.content
 
     def test_section_a_korean_headers(self) -> None:
         ff = _make_ff_result()
-        builder = MacroSectionsBuilder(year=2026, month=5)
-        sections = builder.build(ff)
+        sections = self._current_builder().build(ff)
         a = next(s for s in sections if "캘린더" in s.heading)
         assert "일시 (KST)" in a.content
         assert "중요도" in a.content
 
     def test_section_a_includes_upcoming_usd_events(self) -> None:
         """Upcoming USD events must appear in Section A when in the 14-day window."""
-        from datetime import UTC, datetime
         upcoming_usd = [
             _ev(
                 "Core PCE Price Index m/m",
@@ -253,12 +263,11 @@ class TestSectionA:
                 False,
                 forecast=0.2,
                 previous=0.3,
-                dt_str="2026-05-03T12:30:00+00:00",
+                dt_str=_future_dt(3),
             ),
         ]
         ff = _make_ff_result(upcoming=upcoming_usd)
-        builder = MacroSectionsBuilder(year=2026, month=5)
-        sections = builder.build(ff)
+        sections = self._current_builder().build(ff)
         a = next(s for s in sections if "캘린더" in s.heading)
         assert "PCE" in a.content
         assert "미국" in a.content

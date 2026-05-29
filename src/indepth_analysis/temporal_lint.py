@@ -57,6 +57,40 @@ _RECENCY_CUES: tuple[str, ...] = (
 _RANGE_MARKERS: tuple[str, ...] = ("~", "→", "부터", "이후", "이래", "—", " to ", "-")
 
 
+class TemporalGateError(Exception):
+    """Raised when a temporal gate finds HIGH-severity anachronism candidates."""
+
+    def __init__(self, findings: list[TemporalFinding], as_of_year: int) -> None:
+        self.findings = findings
+        self.as_of_year = as_of_year
+        super().__init__(
+            f"{len(findings)}건의 HIGH 시점 정합성 이슈 — 발행 전 검토 필요"
+        )
+
+
+def infer_report_year(text: str, *, lines: int = 8) -> int | None:
+    """Best-effort report year from the first ``lines`` lines (title/header)."""
+    head = "\n".join(text.splitlines()[:lines])
+    m = _YEAR_RE.search(head)
+    return int(m.group()) if m else None
+
+
+def assert_no_high(
+    text: str,
+    as_of_year: int,
+    *,
+    window_years: int = 0,
+) -> None:
+    """Raise :class:`TemporalGateError` if any HIGH finding exists.
+
+    Used as a deterministic pre-publish gate (CLI + pipelines).
+    """
+    findings = scan_temporal_issues(text, as_of_year, window_years=window_years)
+    high = [f for f in findings if f.severity == "high"]
+    if high:
+        raise TemporalGateError(high, as_of_year)
+
+
 @dataclass
 class TemporalFinding:
     """One suspect line. ``severity`` is review-priority, not correctness."""
