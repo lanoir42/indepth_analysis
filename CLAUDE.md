@@ -271,8 +271,8 @@ uv run indepth report euro-macro [--year N] [--month N] [--no-web] [--no-macro] 
 uv run indepth report euro-macro-weekly [--date YYYY-MM-DD] [--no-evaluator] [--no-publish] [--model NAME]
 uv run indepth report dev-welfare [--year N] [--month N] [--type weekly|monthly]
 
-# 노션 퍼블리시
-uv run indepth publish <report.md> [--target indepth-analysis|jeg-report] [--attach FILE...]
+# 노션 퍼블리시 (기본: 원본 .md 자동 첨부 + 시점 게이트 자동 실행)
+uv run indepth publish <report.md> [--target indepth-analysis|jeg-report] [--attach FILE...] [--no-attach-source] [--skip-temporal-gate]
 
 # KCIF 데이터 관리
 uv run indepth update kcif
@@ -342,6 +342,10 @@ skills/euro_macro/
 | `indepth-analysis` (기본) | `NOTION_PAGE_ID_INDEPTH_ANALYSIS` | 유럽 거시경제 등 주요 보고서 |
 | `jeg-report` | `NOTION_PAGE_ID_JEG_REPORT` | 개발복지 보고서 (Eun) |
 
+발행 동작(기본값):
+- **원본 .md 자동 첨부**: 발행 시 소스 마크다운을 페이지 상단에 다운로드 파일 블록으로 첨부 (`--no-attach-source`로 비활성화). 지원 첨부 MIME: png/jpg/gif/svg/webp/pptx/pdf/xlsx/docx/**md/txt/json/csv**.
+- **시점 게이트 자동 실행**: 발행 전 시대착오 HIGH 검사 → 발견 시 차단 (`--skip-temporal-gate`로 우회). 위 "시점 정합성 검증" 참조.
+
 ---
 
 ## Conventions
@@ -365,7 +369,8 @@ skills/euro_macro/
 | (A) Anachronism 검증 | evaluator 프롬프트 (topic_update §2, weekly_brief 기준8) | LLM이 연도 오인을 능동 탐지(독립 WebSearch), 발견 시 HIGH |
 | (D) 결정론적 lint | `temporal_lint.py` + `indepth lint-temporal` | 타 연도 토큰 + 현재형 표현 동반 라인을 HIGH/MEDIUM/LOW로 스크리닝 (LLM 호출 없는 1차 거름망, `--fail-on-high`로 발행 전 게이트) |
 
-- `temporal_lint.scan_temporal_issues(text, as_of_year)` — 파이프라인에서 결정론적 pre-evaluator 게이트로 호출 가능.
+- **발행 자동 게이트**: `publish_to_notion`이 페이지 생성 전 (D) 게이트를 자동 실행. HIGH 발견 시 `TemporalGateError`로 발행 차단(CLI는 findings 출력 후 exit 2). 오탐이면 `--skip-temporal-gate`로 우회. CLI·파이프라인(weekly_brief 등) 발행 경로 모두 자동 보호.
+- `temporal_lint.scan_temporal_issues(text, as_of_year)` / `assert_no_high(text, year)` — 파이프라인에서 직접 호출 가능.
 - lint는 네트워크 없이 휴리스틱 스크린이므로 "검토 필요" 신호이지 정답 판정이 아님 — HIGH는 사람/LLM 재확인 대상.
 
 ## Claude CLI Subprocess Notes
