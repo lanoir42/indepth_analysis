@@ -151,6 +151,29 @@ def build_parser() -> argparse.ArgumentParser:
         "-v", "--verbose", action="store_true", help="Enable verbose logging"
     )
 
+    # --- lint-temporal ---
+    lint_t = sub.add_parser(
+        "lint-temporal",
+        help="Scan a report for temporal/anachronism issues (year-mismatch screen)",
+    )
+    lint_t.add_argument("file", help="Markdown report to scan")
+    lint_t.add_argument(
+        "--as-of",
+        default=None,
+        help="As-of date YYYY-MM-DD or year (default: infer from report or today)",
+    )
+    lint_t.add_argument(
+        "--window-years",
+        type=int,
+        default=0,
+        help="Allow years within this many years before as-of without HIGH flag",
+    )
+    lint_t.add_argument(
+        "--fail-on-high",
+        action="store_true",
+        help="Exit non-zero if any HIGH finding (for CI/pre-publish gates)",
+    )
+
     # --- report ---
     report = sub.add_parser("report", help="Generate research reports")
     report_sub = report.add_subparsers(dest="report_type")
@@ -847,6 +870,41 @@ def _run_status(args: argparse.Namespace) -> None:
     db.close()
 
 
+def _run_lint_temporal(args: argparse.Namespace) -> None:
+    """Scan a report for temporal/anachronism issues (deterministic screen)."""
+    import re as _re
+
+    from indepth_analysis.temporal_lint import render_report, scan_temporal_issues
+
+    path = Path(args.file)
+    if not path.exists():
+        console.print(f"[red]File not found: {path}[/red]")
+        sys.exit(1)
+    text = path.read_text(encoding="utf-8")
+
+    # Resolve as-of year: explicit arg → first YYYY in the report → today.
+    as_of_year: int | None = None
+    if args.as_of:
+        m = _re.search(r"(19|20)\d{2}", args.as_of)
+        if m:
+            as_of_year = int(m.group())
+    if as_of_year is None:
+        # Infer from the first 4-digit year near the top of the report.
+        head = "\n".join(text.splitlines()[:8])
+        m = _re.search(r"(19|20)\d{2}", head)
+        as_of_year = int(m.group()) if m else date.today().year
+
+    findings = scan_temporal_issues(
+        text, as_of_year, window_years=getattr(args, "window_years", 0)
+    )
+    console.print(render_report(findings, as_of_year))
+
+    if getattr(args, "fail_on_high", False) and any(
+        f.severity == "high" for f in findings
+    ):
+        sys.exit(2)
+
+
 def _run_report(args: argparse.Namespace) -> None:
     """Execute the report subcommand."""
     from dotenv import load_dotenv
@@ -1015,6 +1073,7 @@ KNOWN_COMMANDS = (
     "process",
     "search",
     "status",
+    "lint-temporal",
     "report",
     "issue",
     "macro-backfill",
@@ -1097,6 +1156,8 @@ def main() -> None:
             _run_search(args)
         elif args.command == "status":
             _run_status(args)
+        elif args.command == "lint-temporal":
+            _run_lint_temporal(args)
         elif args.command == "report":
             _run_report(args)
         elif args.command == "issue":

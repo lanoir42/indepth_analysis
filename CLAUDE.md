@@ -280,6 +280,9 @@ uv run indepth process
 uv run indepth search "query"
 uv run indepth status
 
+# 시점 정합성 lint (시대착오/연도 오인 1차 거름망)
+uv run indepth lint-temporal <report.md> [--as-of YYYY-MM-DD] [--window-years N] [--fail-on-high]
+
 # ForexFactory 백필 (과거 데이터)
 uv run indepth macro backfill --weeks 4 [--browser-cookie "cf_clearance=..."]
 ```
@@ -349,6 +352,21 @@ skills/euro_macro/
 - Lint: E, F, I, N, W, UP
 - Tests: `uv run pytest`
 - `stream-json` 파싱 패턴: `type=="assistant"` content blocks → text 수집, fallback `type=="result" subtype=="success"`
+
+## 시점 정합성 검증 (Temporal Validation)
+
+전년도 사건을 당해 연도 사건으로 오인하는 시대착오(anachronism)를 방지하는 4겹 체계.
+(예: "2025년 5월 미·중 무역합의"를 "2026년 5월"로 오기)
+
+| 계층 | 위치 | 역할 |
+|---|---|---|
+| (C) As-of 앵커링 | 수집·합성 프롬프트 (topic_update gatherers/generator, euro_macro 합성, weekly_brief ECB_MARKET) | 기준 시점 명시 + 반복형 사건의 발생 연도 필수 표기 + 연도 치환 금지 |
+| (B) published_date 부착 | 수집 프롬프트 | 모든 사건·수치에 발생/발표일 부착, stale-as-current 방지 |
+| (A) Anachronism 검증 | evaluator 프롬프트 (topic_update §2, weekly_brief 기준8) | LLM이 연도 오인을 능동 탐지(독립 WebSearch), 발견 시 HIGH |
+| (D) 결정론적 lint | `temporal_lint.py` + `indepth lint-temporal` | 타 연도 토큰 + 현재형 표현 동반 라인을 HIGH/MEDIUM/LOW로 스크리닝 (LLM 호출 없는 1차 거름망, `--fail-on-high`로 발행 전 게이트) |
+
+- `temporal_lint.scan_temporal_issues(text, as_of_year)` — 파이프라인에서 결정론적 pre-evaluator 게이트로 호출 가능.
+- lint는 네트워크 없이 휴리스틱 스크린이므로 "검토 필요" 신호이지 정답 판정이 아님 — HIGH는 사람/LLM 재확인 대상.
 
 ## Claude CLI Subprocess Notes
 - Do NOT use `<system>` tags in prompts passed to `claude -p` — causes empty responses
