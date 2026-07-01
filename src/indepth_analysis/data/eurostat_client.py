@@ -21,6 +21,12 @@ HICP_INDEX = "prc_hicp_midx"
 HICP_ANNUAL_RATE = "prc_hicp_manr"
 INDUSTRIAL_PROD = "sts_inpr_m"
 TRADE_EA = "ext_lt_maineu"
+GDP_QUARTERLY = "namq_10_gdp"
+UNEMPLOYMENT = "une_rt_m"
+
+# GDP growth units (chain-linked volumes, % change)
+GDP_UNIT_QOQ = "CLV_PCH_PRE"  # vs previous quarter
+GDP_UNIT_YOY = "CLV_PCH_SM"  # vs same quarter previous year
 
 # Country codes
 GEO_EA20 = "EA20"
@@ -229,6 +235,86 @@ class EurostatClient:
         except httpx.HTTPStatusError:
             logger.warning("Trade data not available for this period")
             return pd.DataFrame()
+
+    def get_gdp(
+        self,
+        geos: list[str] | None = None,
+        start_period: str | None = None,
+        end_period: str | None = None,
+        unit: str = GDP_UNIT_QOQ,
+    ) -> pd.DataFrame:
+        """Get quarterly real GDP growth (chain-linked volumes, % change).
+
+        unit=CLV_PCH_PRE -> QoQ (vs previous quarter);
+        unit=CLV_PCH_SM  -> YoY (vs same quarter previous year).
+        Seasonally and calendar adjusted (s_adj=SCA), na_item=B1GQ.
+        Time periods are quarterly, e.g. "2025-Q1".
+        """
+        if geos is None:
+            geos = [GEO_EA20, GEO_DE, GEO_FR, GEO_IT, GEO_ES]
+
+        params: list[tuple[str, str]] = [
+            ("s_adj", "SCA"),
+            ("unit", unit),
+            ("na_item", "B1GQ"),
+        ]
+        for g in geos:
+            params.append(("geo", g))
+        if start_period:
+            params.append(("sinceTimePeriod", start_period))
+        if end_period:
+            params.append(("untilTimePeriod", end_period))
+
+        try:
+            data = self._fetch_json(GDP_QUARTERLY, params)
+        except httpx.HTTPStatusError:
+            logger.warning("GDP data not available for this period")
+            return pd.DataFrame()
+        df = self._json_to_dataframe(data)
+
+        if not df.empty and "geo" in df.columns:
+            df["geo_label"] = df["geo"].map(lambda x: GEO_LABELS.get(x, x))
+
+        return df
+
+    def get_unemployment(
+        self,
+        geos: list[str] | None = None,
+        start_period: str | None = None,
+        end_period: str | None = None,
+    ) -> pd.DataFrame:
+        """Get monthly unemployment rate (% of active population).
+
+        Seasonally adjusted (s_adj=SA), total age, both sexes,
+        unit=PC_ACT. Time periods are monthly, e.g. "2025-01".
+        """
+        if geos is None:
+            geos = [GEO_EA20, GEO_DE, GEO_FR, GEO_IT, GEO_ES]
+
+        params: list[tuple[str, str]] = [
+            ("s_adj", "SA"),
+            ("age", "TOTAL"),
+            ("sex", "T"),
+            ("unit", "PC_ACT"),
+        ]
+        for g in geos:
+            params.append(("geo", g))
+        if start_period:
+            params.append(("sinceTimePeriod", start_period))
+        if end_period:
+            params.append(("untilTimePeriod", end_period))
+
+        try:
+            data = self._fetch_json(UNEMPLOYMENT, params)
+        except httpx.HTTPStatusError:
+            logger.warning("Unemployment data not available for this period")
+            return pd.DataFrame()
+        df = self._json_to_dataframe(data)
+
+        if not df.empty and "geo" in df.columns:
+            df["geo_label"] = df["geo"].map(lambda x: GEO_LABELS.get(x, x))
+
+        return df
 
     def fetch_all_macro(
         self,
