@@ -211,7 +211,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     euro.add_argument(
         "--model",
-        default="claude-sonnet-4-20250514",
+        default="claude-opus-4-8",
         help="Claude model for synthesis",
     )
     euro.add_argument(

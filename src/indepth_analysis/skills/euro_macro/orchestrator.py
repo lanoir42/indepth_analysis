@@ -32,17 +32,20 @@ from indepth_analysis.skills.euro_macro.macro_sections import (
 from indepth_analysis.skills.euro_macro.prompts import (
     ENHANCED_SYNTHESIS_SYSTEM_PROMPT,
     ENHANCED_SYNTHESIS_USER_PROMPT,
-    SYNTHESIS_SYSTEM_PROMPT,
-    SYNTHESIS_USER_PROMPT,
 )
 
 logger = logging.getLogger(__name__)
 
 _ALLOWED_MODELS = frozenset(
     {
+        # current (2026) models — older -4 / -4-6 vintages are retired upstream
+        "claude-opus-4-8",
+        "claude-sonnet-5",
+        "claude-haiku-4-5",
+        "claude-haiku-4-5-20251001",
+        # legacy (kept for back-compat; may be unavailable via CLI)
         "claude-sonnet-4-20250514",
         "claude-opus-4-20250514",
-        "claude-haiku-4-5-20251001",
         "claude-sonnet-4-6-20260401",
         "claude-opus-4-6-20260401",
     }
@@ -85,7 +88,7 @@ class EuroMacroOrchestrator:
         self,
         year: int,
         month: int,
-        model: str = "claude-opus-4-20250514",
+        model: str = "claude-opus-4-8",
         skip_update: bool = False,
     ) -> EuroMacroReport:
         """Execute the full research → synthesis pipeline."""
@@ -184,7 +187,7 @@ class EuroMacroOrchestrator:
         agent_results: list[AgentResult],
         year: int,
         month: int,
-        model: str = "claude-opus-4-20250514",
+        model: str = "claude-opus-4-8",
     ) -> EuroMacroReport:
         """Public wrapper around _synthesize for Phase 3."""
         return self._synthesize(agent_results, year, month, model)

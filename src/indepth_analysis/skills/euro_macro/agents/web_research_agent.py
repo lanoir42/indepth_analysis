@@ -254,7 +254,7 @@ class WebResearchAgent(BaseResearchAgent):
     def __init__(
         self,
         *,
-        model: str = "claude-opus-4-20250514",
+        model: str = "claude-sonnet-5",
         max_concurrency: int = 4,
         timeout_per_topic: float = 120.0,
     ) -> None:
@@ -348,7 +348,7 @@ class WebResearchAgent(BaseResearchAgent):
                             proc.communicate(),
                             timeout=self.timeout_per_topic,
                         )
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         proc.kill()
                         await proc.communicate()  # drain
                         obs_handle.set_error("timeout")

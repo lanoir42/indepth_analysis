@@ -18,7 +18,7 @@ console = Console()
 def run_euro_macro(
     year: int,
     month: int,
-    model: str = "claude-opus-4-20250514",
+    model: str = "claude-opus-4-8",
     skip_update: bool = False,
     verbose: bool = False,
     collect_only: bool = False,
@@ -83,10 +83,13 @@ def run_euro_macro(
         filepath = save_report(report)
         console.print(f"\n[green]보고서 저장: {filepath}[/green]")
         if slide:
-            from indepth_analysis.skills.euro_macro.slide_renderer import save_slide
+            from indepth_analysis.skills.euro_macro.macro_charts import save_chart_deck
 
-            slide_path = save_slide(report)
-            console.print(f"\n[green]슬라이드 저장: {slide_path}[/green]")
+            deck_path, charts_json, charts = save_chart_deck(report)
+            console.print(
+                f"\n[green]차트 슬라이드 저장: {deck_path} ({len(charts)} 차트)[/green]"
+            )
+            console.print(f"[green]차트 데이터 부록: {charts_json}[/green]")
         return
 
     # Default: end-to-end pipeline
@@ -113,7 +116,10 @@ def run_euro_macro(
     filepath = save_report(report)
     console.print(f"\n[green]보고서 저장: {filepath}[/green]")
     if slide:
-        from indepth_analysis.skills.euro_macro.slide_renderer import save_slide
+        from indepth_analysis.skills.euro_macro.macro_charts import save_chart_deck
 
-        slide_path = save_slide(report)
-        console.print(f"\n[green]슬라이드 저장: {slide_path}[/green]")
+        deck_path, charts_json, charts = save_chart_deck(report)
+        console.print(
+            f"\n[green]차트 슬라이드 저장: {deck_path} ({len(charts)} 차트)[/green]"
+        )
+        console.print(f"[green]차트 데이터 부록: {charts_json}[/green]")

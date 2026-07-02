@@ -10,10 +10,13 @@ from pathlib import Path
 from bgilib.obs import CallKind, span
 from bgilib.obs.extractors.claude_cli import parse_stream_json_text
 
-from indepth_analysis.models.euro_macro import AgentResult, ReportSection, ResearchFinding
+from indepth_analysis.models.euro_macro import (
+    AgentResult,
+    ReportSection,
+    ResearchFinding,
+)
 from indepth_analysis.skills.euro_macro.prompts import (
     APPENDIX_COUNTRY_ANALYSIS_PROMPT,
-    APPENDIX_INTRO_PROMPT,
     APPENDIX_RISK_SCENARIO_PROMPT,
     POLITICAL_LANDSCAPE_SYSTEM_PROMPT,
     POLITICAL_LANDSCAPE_USER_PROMPT,
@@ -23,9 +26,14 @@ logger = logging.getLogger(__name__)
 
 _ALLOWED_MODELS = frozenset(
     {
+        # current (2026) models — older -4 / -4-6 vintages are retired upstream
+        "claude-opus-4-8",
+        "claude-sonnet-5",
+        "claude-haiku-4-5",
+        "claude-haiku-4-5-20251001",
+        # legacy (kept for back-compat; may be unavailable via CLI)
         "claude-sonnet-4-20250514",
         "claude-opus-4-20250514",
-        "claude-haiku-4-5-20251001",
         "claude-sonnet-4-6-20260401",
         "claude-opus-4-6-20260401",
     }
@@ -123,7 +131,7 @@ class AppendixBuilder:
         *,
         year: int,
         month: int,
-        model: str = "claude-opus-4-20250514",
+        model: str = "claude-opus-4-8",
         timeout: int = 300,
     ) -> None:
         self.year = year
