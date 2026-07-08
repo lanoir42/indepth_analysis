@@ -128,7 +128,7 @@ def build_live_dataset(
         market = EnergyClient().fetch_all(period="1y")
     except Exception as e:  # noqa: BLE001
         logger.warning("market fetch failed: %s", e)
-        market = {"energy": [], "indices": [], "fx": []}
+        market = {"energy": [], "indices": [], "fx": [], "ai_basket": []}
 
     dataset = {
         "meta": {"source": "live Eurostat + yfinance"},
@@ -163,6 +163,11 @@ def build_live_dataset(
             "series": market.get("indices", []),
         },
         "fx": {"unit": "rate", "source": "yfinance", "series": market.get("fx", [])},
+        "ai_basket": {
+            "unit": "index (rebased=100)",
+            "source": "yfinance",
+            "series": market.get("ai_basket", []),
+        },
     }
     if curated:
         dataset["curated"] = curated
@@ -234,6 +239,12 @@ def build_chart_dataset(
             "series": market.get("indices", []),
         },
         "fx": {"unit": "rate", "source": "yfinance", "series": market.get("fx", [])},
+        "ai_basket": {
+            "unit": "index (rebased=100)",
+            "source": "yfinance",
+            "series": market.get("ai_basket", []),
+        },
+        "consensus": data.get("consensus", {}),
     }
     if curated:
         dataset["curated"] = curated
@@ -458,6 +469,90 @@ def chart_curated_line(dataset: dict, key: str, out: Path, fname: str) -> Path |
     return _fig(out / fname, fig)
 
 
+def chart_ai_basket(dataset: dict, out: Path) -> Path | None:
+    """European AI / electrification basket, rebased to 100 (AI-axis, Q7)."""
+    block = dataset.get("ai_basket", {})
+    series = [s for s in block.get("series", []) if s.get("values")]
+    if not series:
+        return None
+    fig, ax = plt.subplots(figsize=(9, 5))
+    for i, s in enumerate(series):
+        vals = s["values"]
+        base = vals[0]["value"]
+        if not base:
+            continue
+        xs = [v["period"] for v in vals]
+        ys = [100 * v["value"] / base for v in vals]
+        # NVDA is a US benchmark: dashed to distinguish from European names.
+        is_bench = s.get("name") == "nvidia_benchmark"
+        ax.plot(
+            xs,
+            ys,
+            marker="" if is_bench else "o",
+            ms=3,
+            lw=2.0 if is_bench else 1.4,
+            ls="--" if is_bench else "-",
+            color="#666666" if is_bench else _PALETTE[i % len(_PALETTE)],
+            label=s.get("label", s.get("name")),
+        )
+    ax.axhline(100, color="black", lw=0.6, alpha=0.5)
+    ax.set_title(
+        "European AI / electrification basket — rebased to 100 (last 12m)",
+        fontsize=13,
+        fontweight="bold",
+    )
+    ax.set_ylabel("Price (start = 100)")
+    ax.legend(fontsize=7, ncol=2)
+    _style(ax)
+    fig.autofmt_xdate(rotation=45)
+    return _fig(out / "08_ai_basket.png", fig)
+
+
+def chart_consensus_gdp(dataset: dict, out: Path) -> Path | None:
+    """Grouped bars of consensus real-GDP-growth projections by geo (forecast).
+
+    Reads the vintage-tagged consensus block; each bar group is a forecast year.
+    Title carries the source vintage so it is never read as realised data.
+    """
+    proj = (dataset.get("consensus") or {}).get("projections", {})
+    recs = [r for r in proj.get("gdp_growth_pct", []) if r.get("values")]
+    if not recs:
+        return None
+    # Restrict to forward years (>= current year) that carry a real forecast.
+    want = ["2025", "2026", "2027"]
+    labels, per_year = [], {y: [] for y in want}
+    for r in recs:
+        vmap = {v["period"]: v["value"] for v in r["values"]}
+        if not any(y in vmap for y in want):
+            continue
+        labels.append(r.get("label", r.get("geo")))
+        for y in want:
+            per_year[y].append(vmap.get(y))
+    if not labels:
+        return None
+    vintages = sorted({r.get("vintage") or r.get("source", "") for r in recs})
+    fig, ax = plt.subplots(figsize=(9, 5))
+    n = len(labels)
+    x = list(range(n))
+    width = 0.26
+    for j, y in enumerate(want):
+        offs = [xi + (j - 1) * width for xi in x]
+        ys = [v if v is not None else 0 for v in per_year[y]]
+        ax.bar(offs, ys, width=width, color=_PALETTE[j], label=y, alpha=0.85)
+    ax.axhline(0, color="black", lw=0.6)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=20, ha="right", fontsize=8)
+    ax.set_title(
+        f"Real GDP growth — consensus projection ({', '.join(vintages)})",
+        fontsize=12,
+        fontweight="bold",
+    )
+    ax.set_ylabel("% (annual)")
+    ax.legend(fontsize=8, title="forecast yr")
+    _style(ax)
+    return _fig(out / "09_consensus_gdp.png", fig)
+
+
 def render_charts(dataset: dict, out_dir: Path) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     charts: list[Path] = []
@@ -472,6 +567,8 @@ def render_charts(dataset: dict, out_dir: Path) -> list[Path]:
         lambda: chart_gdp_qoq(dataset, out_dir),
         lambda: chart_gdp_yoy_latest(dataset, out_dir),
         lambda: chart_unemployment(dataset, out_dir),
+        lambda: chart_ai_basket(dataset, out_dir),
+        lambda: chart_consensus_gdp(dataset, out_dir),
     ]
     for b in builders:
         try:

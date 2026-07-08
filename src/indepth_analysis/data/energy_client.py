@@ -46,6 +46,22 @@ FX_TICKERS: dict[str, str] = {
     "eur_jpy": "EURJPY=X",
 }
 
+# European AI / semiconductor / electrification basket for the H2 report's AI
+# axis (data-centre build-out physically ties AI capex to power demand -> the
+# energy axis). NVDA is a US benchmark for relative-strength context, not a
+# European name. Prices via yfinance; degrade silently per ticker.
+AI_BASKET_TICKERS: dict[str, str] = {
+    "asml": "ASML.AS",  # lithography — Europe's AI-supply-chain keystone
+    "sap": "SAP.DE",  # enterprise software / applied AI
+    "siemens": "SIE.DE",  # industrial automation
+    "siemens_energy": "ENR.DE",  # grid / power kit for data centres
+    "schneider": "SU.PA",  # data-centre power & cooling
+    "legrand": "LR.PA",  # data-centre electrical infrastructure
+    "infineon": "IFX.DE",  # power semiconductors
+    "stmicro": "STMPA.PA",  # semiconductors
+    "nvidia_benchmark": "NVDA",  # US AI benchmark (context only)
+}
+
 # Human labels for metadata / report tables.
 SERIES_LABELS: dict[str, str] = {
     "brent_usd_bbl": "Brent crude (USD/bbl)",
@@ -62,6 +78,15 @@ SERIES_LABELS: dict[str, str] = {
     "eur_usd": "EUR/USD",
     "eur_gbp": "EUR/GBP",
     "eur_jpy": "EUR/JPY",
+    "asml": "ASML (NL)",
+    "sap": "SAP (DE)",
+    "siemens": "Siemens (DE)",
+    "siemens_energy": "Siemens Energy (DE)",
+    "schneider": "Schneider Electric (FR)",
+    "legrand": "Legrand (FR)",
+    "infineon": "Infineon (DE)",
+    "stmicro": "STMicroelectronics",
+    "nvidia_benchmark": "NVIDIA (US benchmark)",
 }
 
 
@@ -154,11 +179,12 @@ class EnergyClient:
         return out
 
     def fetch_all(self, period: str = "1y") -> dict[str, list[dict]]:
-        """Fetch energy, indices and FX groups. Empty series degrade silently."""
+        """Fetch energy, indices, FX and AI-basket groups. Empties degrade."""
         return {
             "energy": self.fetch_group(ENERGY_TICKERS, period=period),
             "indices": self.fetch_group(INDEX_TICKERS, period=period),
             "fx": self.fetch_group(FX_TICKERS, period=period),
+            "ai_basket": self.fetch_group(AI_BASKET_TICKERS, period=period),
         }
 
 
