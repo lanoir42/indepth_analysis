@@ -29,6 +29,7 @@ _MIME_TYPES = {
     ".txt": "text/plain",
     ".json": "application/json",
     ".csv": "text/csv",
+    ".zip": "application/zip",
 }
 
 
@@ -475,5 +476,89 @@ def publish_to_notion(
         client.append_blocks(page_id, blocks)
 
         return page_url
+    finally:
+        client.close()
+
+
+_RE_HEX_RUN = re.compile(r"[0-9a-fA-F]+")
+
+
+def _extract_page_id(page_id_or_url: str) -> str:
+    """Pull the 32-hex Notion page id from a URL or raw id, return dashed UUID.
+
+    The id is the LAST 32 hex chars of the URL path (Notion appends it to a
+    human slug, e.g. ``/p/2026-H2-<id>``). Taking the trailing 32 chars of the
+    final hex run avoids merging slug characters (like the "2" in "H2") into it.
+    """
+    base = page_id_or_url.split("?")[0].split("#")[0].rstrip("/")
+    stripped = base.replace("-", "")
+    runs = _RE_HEX_RUN.findall(stripped)
+    if not runs or len(runs[-1]) < 32:
+        raise ValueError(f"Notion page id를 찾을 수 없음: {page_id_or_url}")
+    h = runs[-1][-32:].lower()
+    return f"{h[0:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:32]}"
+
+
+def append_to_notion_page(
+    page_id_or_url: str,
+    md_path: Path,
+    token: str,
+    attachments: list[Path] | None = None,
+    heading: str | None = None,
+    skip_temporal_gate: bool = False,
+) -> str:
+    """Append markdown content + downloadable file blocks to an EXISTING page.
+
+    Used to add a section (e.g. a forecast-table appendix) plus downloadable
+    files (report .md, 해설서 .zip) to the bottom of an already-published
+    comprehensive report, instead of minting a new page.
+
+    Args:
+        page_id_or_url: The target Notion page URL or id.
+        md_path: Markdown whose blocks are appended (local images uploaded).
+        token: Notion integration token.
+        attachments: Files to add as downloadable file blocks (e.g. .md, .zip).
+        heading: Optional H2 heading inserted above the appended content.
+        skip_temporal_gate: Skip the temporal/anachronism gate (default False).
+
+    Returns:
+        The resolved page id that was appended to.
+    """
+    page_id = _extract_page_id(page_id_or_url)
+    md_text = md_path.read_text()
+    md_dir = md_path.parent
+
+    if not skip_temporal_gate:
+        from indepth_analysis.temporal_lint import assert_no_high, infer_report_year
+
+        as_of_year = infer_report_year(md_text)
+        if as_of_year is not None:
+            assert_no_high(md_text, as_of_year)
+
+    client = NotionClient(token)
+    try:
+        blocks: list[dict] = [_divider_block()]
+        if heading:
+            blocks.append(_heading_block(2, heading))
+
+        for att_path in attachments or []:
+            if att_path.exists():
+                logger.info("Uploading attachment %s", att_path.name)
+                upload_id = client.upload_file(att_path)
+                blocks.append(
+                    _file_block_upload(upload_id, f"Download: {att_path.name}")
+                )
+            else:
+                logger.warning("Attachment file not found: %s", att_path)
+
+        upload_map: dict[str, str] = {}
+        for rel_path in _extract_local_images(md_text):
+            abs_path = md_dir / rel_path
+            if abs_path.exists():
+                upload_map[rel_path] = client.upload_file(abs_path)
+
+        blocks.extend(markdown_to_blocks(md_text, upload_map))
+        client.append_blocks(page_id, blocks)
+        return page_id
     finally:
         client.close()

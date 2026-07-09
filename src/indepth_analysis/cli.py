@@ -95,6 +95,38 @@ def build_parser() -> argparse.ArgumentParser:
         help="Enable verbose logging",
     )
 
+    # --- publish-append ---
+    pappend = sub.add_parser(
+        "publish-append",
+        help="Append markdown + downloadable files to an EXISTING Notion page",
+    )
+    pappend.add_argument("md_path", type=Path, help="Markdown to append")
+    pappend.add_argument(
+        "--page",
+        required=True,
+        help="Target Notion page URL or id to append to",
+    )
+    pappend.add_argument(
+        "--attach",
+        type=Path,
+        nargs="+",
+        default=None,
+        help="File(s) to add as downloadable blocks (e.g. .md, .zip, .json)",
+    )
+    pappend.add_argument(
+        "--heading",
+        default=None,
+        help="Optional H2 heading inserted above the appended content",
+    )
+    pappend.add_argument(
+        "--skip-temporal-gate",
+        action="store_true",
+        help="Skip the temporal/anachronism gate",
+    )
+    pappend.add_argument(
+        "-v", "--verbose", action="store_true", help="Enable verbose logging"
+    )
+
     # --- update ---
     update = sub.add_parser("update", help="Scrape and download reports")
     update.add_argument(
@@ -643,6 +675,51 @@ def _run_publish(args: argparse.Namespace) -> None:
         console.print(f"[green]원본 .md 첨부됨:[/green] {md_path.name}")
 
 
+def _run_publish_append(args: argparse.Namespace) -> None:
+    """Append markdown + downloadable files to an existing Notion page."""
+    from dotenv import load_dotenv
+
+    load_dotenv()
+
+    token = os.environ.get("NOTION_TOKEN")
+    if not token:
+        console.print("[red]NOTION_TOKEN not set in environment or .env[/red]")
+        sys.exit(1)
+
+    md_path: Path = args.md_path
+    if not md_path.exists():
+        console.print(f"[red]File not found: {md_path}[/red]")
+        sys.exit(1)
+
+    from indepth_analysis.output.notion_publisher import append_to_notion_page
+    from indepth_analysis.temporal_lint import TemporalGateError, render_report
+
+    try:
+        with console.status("[cyan]Appending to Notion page..."):
+            page_id = append_to_notion_page(
+                args.page,
+                md_path,
+                token,
+                attachments=getattr(args, "attach", None),
+                heading=getattr(args, "heading", None),
+                skip_temporal_gate=getattr(args, "skip_temporal_gate", False),
+            )
+    except TemporalGateError as exc:
+        console.print(
+            "[red]추가 중단 — 시점 정합성(시대착오) HIGH 이슈 발견:[/red]"
+        )
+        console.print(render_report(exc.findings, exc.as_of_year))
+        console.print(
+            "[yellow]검토 후 수정하거나, 오탐이면 "
+            "--skip-temporal-gate 로 재실행하세요.[/yellow]"
+        )
+        sys.exit(2)
+
+    console.print(f"[green]Notion 페이지에 추가됨:[/green] {page_id}")
+    for att in getattr(args, "attach", None) or []:
+        console.print(f"[green]첨부 파일:[/green] {Path(att).name}")
+
+
 def _run_update(args: argparse.Namespace) -> None:
     """Execute the update subcommand."""
     from indepth_analysis.config import ReferenceConfig
@@ -1100,6 +1177,7 @@ def _run_issue(args: argparse.Namespace) -> None:
 KNOWN_COMMANDS = (
     "analyze",
     "publish",
+    "publish-append",
     "update",
     "process",
     "search",
@@ -1179,6 +1257,8 @@ def main() -> None:
             _run_analyze(args)
         elif args.command == "publish":
             _run_publish(args)
+        elif args.command == "publish-append":
+            _run_publish_append(args)
         elif args.command == "update":
             _run_update(args)
         elif args.command == "process":
