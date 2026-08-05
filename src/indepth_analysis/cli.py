@@ -216,6 +216,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="Exit non-zero if any HIGH finding (for CI/pre-publish gates)",
     )
 
+    # --- lint-numeric (advisory, never gates) ---
+    lint_n = sub.add_parser(
+        "lint-numeric",
+        help="Cross-check report figures against MacroStore/optionsdeck (advisory)",
+    )
+    lint_n.add_argument("file", help="Markdown report to scan")
+    lint_n.add_argument(
+        "--as-of",
+        default=None,
+        help="As-of date YYYY-MM-DD (default: infer from filename, else today)",
+    )
+    lint_n.add_argument(
+        "--tol-pct",
+        type=float,
+        default=2.0,
+        help="Relative tolerance %% for level indicators (rates use per-spec abs)",
+    )
+    lint_n.add_argument(
+        "--db-path", type=Path, default=Path("data/macro_calendar.db")
+    )
+
     # --- report ---
     report = sub.add_parser("report", help="Generate research reports")
     report_sub = report.add_subparsers(dest="report_type")
@@ -406,6 +427,38 @@ def build_parser() -> argparse.ArgumentParser:
         help="Cookie string for Cloudflare bypass",
     )
     mb.add_argument("-v", "--verbose", action="store_true")
+
+    # --- macro-series (optionsdeck macro backbone, read-only) ---
+    ms = sub.add_parser(
+        "macro-series",
+        help="Query the read-only optionsdeck macro backbone (macro.db snapshot)",
+    )
+    ms.add_argument("--list", action="store_true", help="List available series")
+    ms.add_argument(
+        "--series", default=None, help="Series id to dump (e.g. M.RCH_A.CP00.EA)"
+    )
+    ms.add_argument(
+        "--calendar",
+        default=None,
+        metavar="COUNTRY",
+        help="Dump calendar release history for a country prefix (EU/US/JP)",
+    )
+    ms.add_argument(
+        "--start", default=None, help="Inclusive start (series-native format)"
+    )
+    ms.add_argument("--end", default=None, help="Inclusive end")
+    ms.add_argument(
+        "--limit", type=int, default=20, help="Rows to print (default 20, 0=all)"
+    )
+    ms.add_argument(
+        "--db-path",
+        type=Path,
+        default=None,
+        help=(
+            "Override macro.db path (default: $OPTIONSDECK_MACRO_DB or "
+            "~/.optionsdeck-gb/data/macro.db)"
+        ),
+    )
 
     # --- issue (list/show/search) ---
     issue_cmd = sub.add_parser("issue", help="Manage accumulated issue topics")
@@ -646,6 +699,33 @@ def _run_publish(args: argparse.Namespace) -> None:
 
     from indepth_analysis.output.notion_publisher import publish_to_notion
     from indepth_analysis.temporal_lint import TemporalGateError, render_report
+
+    # Numeric audit (advisory only — never blocks publishing, unlike the
+    # temporal gate). Cross-checks cited figures against local macro stores.
+    try:
+        import re as _re
+
+        from indepth_analysis.numeric_audit import (
+            build_default_sources,
+            scan_numeric_issues,
+        )
+        from indepth_analysis.numeric_audit import (
+            render_report as render_numeric_report,
+        )
+
+        _m = _re.search(r"(20\d{2})-(\d{2})", md_path.name)
+        _as_of = (
+            date(int(_m.group(1)), int(_m.group(2)), 28) if _m else date.today()
+        )
+        _sources = build_default_sources(db_path=Path("data/macro_calendar.db"))
+        _findings = scan_numeric_issues(
+            md_path.read_text(encoding="utf-8"), as_of=_as_of, sources=_sources
+        )
+        if _findings:
+            console.print("[dim]수치 감사 (advisory — 발행 차단 없음):[/dim]")
+            console.print(render_numeric_report(_findings))
+    except Exception as exc:  # advisory: any failure is non-fatal
+        logger.warning("Numeric audit skipped: %s", exc)
 
     attachments = getattr(args, "attach", None)
 
@@ -977,6 +1057,47 @@ def _run_status(args: argparse.Namespace) -> None:
 
     db.close()
 
+    # Optionsdeck macro backbone (read-only snapshot adapter).
+    try:
+        from indepth_analysis.data.optionsdeck_series import OptionsdeckSeriesClient
+
+        info = OptionsdeckSeriesClient().available()
+        if info:
+            console.print(
+                f"Macro backbone: [green]OK[/green] {info.series_count} series, "
+                f"as-of {info.latest_observation_date} (fetched {info.fetched_at})"
+            )
+        else:
+            console.print(
+                f"Macro backbone: [yellow]unavailable[/yellow] — {info.reason}"
+            )
+    except Exception as exc:  # pragma: no cover - defensive
+        console.print(f"Macro backbone: [yellow]check failed[/yellow] — {exc}")
+
+    # Collector health stamps from the euro-macro MacroStore.
+    try:
+        from bgilib.macro import MacroStore, read_health
+
+        macro_db = Path("data/macro_calendar.db")
+        if macro_db.exists():
+            stamps = read_health(MacroStore(macro_db))
+            if stamps:
+                ht = Table(title="Macro Collector Health")
+                ht.add_column("Collector", style="cyan")
+                ht.add_column("OK")
+                ht.add_column("Checked (UTC)")
+                ht.add_column("Detail")
+                for h in stamps:
+                    ht.add_row(
+                        h.collector,
+                        "[green]ok[/green]" if h.ok else "[red]FAIL[/red]",
+                        str(h.checked_at_utc)[:16],
+                        h.detail or "",
+                    )
+                console.print(ht)
+    except Exception as exc:  # pragma: no cover - defensive
+        console.print(f"Collector health: [yellow]check failed[/yellow] — {exc}")
+
 
 def _run_lint_temporal(args: argparse.Namespace) -> None:
     """Scan a report for temporal/anachronism issues (deterministic screen)."""
@@ -1011,6 +1132,115 @@ def _run_lint_temporal(args: argparse.Namespace) -> None:
         f.severity == "high" for f in findings
     ):
         sys.exit(2)
+
+
+def _run_lint_numeric(args: argparse.Namespace) -> None:
+    """Cross-check cited figures against our stores (advisory, never gates)."""
+    import re as _re
+
+    from indepth_analysis.numeric_audit import (
+        build_default_sources,
+        render_report,
+        scan_numeric_issues,
+    )
+
+    path = Path(args.file)
+    if not path.exists():
+        console.print(f"[red]File not found: {path}[/red]")
+        sys.exit(1)
+    text = path.read_text(encoding="utf-8")
+
+    if args.as_of:
+        as_of = date.fromisoformat(args.as_of)
+    else:
+        m = _re.search(r"(20\d{2})-(\d{2})", path.name)
+        as_of = date(int(m.group(1)), int(m.group(2)), 28) if m else date.today()
+
+    sources = build_default_sources(db_path=args.db_path)
+    if not sources:
+        console.print(
+            "[yellow]대조 소스 없음 — 모든 지표가 INFO로 보고됩니다.[/yellow]"
+        )
+    findings = scan_numeric_issues(
+        text, as_of=as_of, sources=sources, tol_pct=args.tol_pct
+    )
+    console.print(render_report(findings))
+    # Advisory by design: always exit 0 (unlike lint-temporal's --fail-on-high).
+
+
+def _run_macro_series(args: argparse.Namespace) -> None:
+    """Execute the macro-series subcommand (read-only optionsdeck backbone)."""
+    from indepth_analysis.data.optionsdeck_series import OptionsdeckSeriesClient
+
+    client = OptionsdeckSeriesClient(args.db_path)
+    info = client.available()
+    if not info:
+        console.print(f"[yellow]Macro backbone unavailable:[/yellow] {info.reason}")
+        sys.exit(2)
+    console.print(
+        f"[dim]{info.db_path} — {info.series_count} series, "
+        f"latest obs {info.latest_observation_date}, "
+        f"latest release {info.latest_calendar_release}, "
+        f"fetched {info.fetched_at}[/dim]"
+    )
+
+    def _rows(rows: list) -> list:
+        return rows if args.limit == 0 else rows[-args.limit :]
+
+    def _fmt(v: float | None) -> str:
+        return "" if v is None else f"{v:g}"
+
+    if args.list or not (args.series or args.calendar):
+        table = Table(title="Macro backbone series")
+        for col in ("series_id", "source", "n", "first", "last"):
+            table.add_column(col)
+        for s in client.list_series():
+            table.add_row(
+                s.series_id,
+                s.source,
+                str(s.n_obs),
+                s.first_date or "",
+                s.last_date or "",
+            )
+        console.print(table)
+
+    if args.series:
+        obs = client.get_series(args.series, start=args.start, end=args.end)
+        table = Table(title=f"{args.series} ({len(obs)} obs)")
+        table.add_column("date")
+        table.add_column("value", justify="right")
+        for o in _rows(obs):
+            table.add_row(o.date, _fmt(o.value))
+        console.print(table)
+
+    if args.calendar:
+        rels = client.get_calendar_history(
+            country=args.calendar, start=args.start, end=args.end
+        )
+        table = Table(title=f"{args.calendar.upper()} calendar releases ({len(rels)})")
+        for col in (
+            "release_date",
+            "series_id",
+            "event",
+            "forecast",
+            "previous",
+            "actual",
+            "src",
+        ):
+            table.add_column(col)
+        for r in _rows(rels):
+            table.add_row(
+                r.release_date,
+                r.series_id,
+                r.event_title or "",
+                _fmt(r.forecast_value),
+                _fmt(r.previous_value),
+                _fmt(r.actual_value),
+                r.source,
+            )
+        console.print(table)
+
+    client.close()
 
 
 def _run_report(args: argparse.Namespace) -> None:
@@ -1183,9 +1413,11 @@ KNOWN_COMMANDS = (
     "search",
     "status",
     "lint-temporal",
+    "lint-numeric",
     "report",
     "issue",
     "macro-backfill",
+    "macro-series",
     "-h",
     "--help",
 )
@@ -1269,12 +1501,16 @@ def main() -> None:
             _run_status(args)
         elif args.command == "lint-temporal":
             _run_lint_temporal(args)
+        elif args.command == "lint-numeric":
+            _run_lint_numeric(args)
         elif args.command == "report":
             _run_report(args)
         elif args.command == "issue":
             _run_issue(args)
         elif args.command == "macro-backfill":
             _run_macro_backfill(args)
+        elif args.command == "macro-series":
+            _run_macro_series(args)
     except KeyboardInterrupt:
         console.print("\n[yellow]Cancelled.[/yellow]")
         sys.exit(1)
