@@ -32,27 +32,23 @@ _DEFAULT_MIN_HISTORY = 6
 _DEFAULT_Z_THRESHOLD = 2.0
 _DEFAULT_HISTORY_MONTHS = 24
 
-#: R-1 vendor reconciliation gate (2026-08-05, Advisor condition C-1).
-#:
-#: The seeded vendor's EU *headline* HICP stream is internally inconsistent
-#: in 2026: the same reference month carries actual=1.7 in one release row
-#: and previous=2.6 in the next (a 0.9pp flash->final "revision" where
-#: Eurostat's structural envelope is ~0.1pp). Neither the seeded sigma
-#: (0.335) nor the pre-seed one (0.122) can be trusted for these two groups,
-#: so their sigma alerts are suppressed at the source — this covers every
+#: Source-level suppression of sigma alerts for known-bad (country, title)
+#: groups. Applied inside compute_sigma_alerts(), which covers every
 #: consumer (Telegram delivery via macro_telegram and report-body citation
-#: via the Section C builder), which both feed off compute_sigma_alerts().
+#: via the Section C builder).
 #:
-#: Removal condition (follow-up R6): once the 2026 EA HICP prints are
-#: reconciled against primary Eurostat press releases and the seeded rows
-#: are confirmed or re-labelled, delete this blocklist. Core HICP, GDP and
-#: unemployment groups verified clean in R-1 and are NOT blocked.
-SIGMA_ALERT_BLOCKLIST: frozenset[tuple[str, str]] = frozenset(
-    {
-        ("EUR", "CPI Flash Estimate y/y"),
-        ("EUR", "Final CPI y/y"),
-    }
-)
+#: History: introduced 2026-08-05 (Advisor condition C-1) with the two EUR
+#: headline-CPI groups blocked, after R-1 found the seeded vendor stream
+#: internally inconsistent in 2026. The R6 primary-source reconciliation
+#: (2026-08-06, Eurostat press releases) identified the root cause — the
+#: vendor's flash chain was reference-month-shifted by +2 from the 2026-01
+#: ECOICOP v2 methodology break onward — after which the corrupted rows
+#: were corrected in the DB (apply_r6_hicp_corrections.py), re-import was
+#: fenced (seed_calendar_history.VENDOR_QUARANTINE), and verified Eurostat
+#: prints were backfilled. The removal condition was thereby fulfilled and
+#: both entries were lifted. The mechanism stays for future vendor
+#: incidents; keep entries documented with reason and removal condition.
+SIGMA_ALERT_BLOCKLIST: frozenset[tuple[str, str]] = frozenset()
 
 
 @dataclass(frozen=True)

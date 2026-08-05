@@ -21,6 +21,10 @@ title-mapping rationale, and Advisor plan v2 Section 2b for the full spec):
 2. Resolve each row's ForexFactory title + release vintage (flash/final/...)
    via :func:`calendar_title_map.classify_release`. Rows with no mapping or
    no matching release-date window are quarantined, not guessed.
+2b. Drop rows falling inside a known-bad vendor window
+   (:data:`VENDOR_QUARANTINE`) -- streams a primary-source reconciliation
+   has proven corrupt over a date range, which no statistical gate can
+   detect because the values are individually plausible.
 3. Quality-gate the survivors:
    a. per-indicator plausibility range (:data:`PLAUSIBILITY_RANGES`) -- a
       **hard quarantine**: a value outside these bounds is physically
@@ -49,6 +53,21 @@ summary -- nothing is silently dropped.
 
 History
 -------
+2026-08-06 (R6 primary-source reconciliation): added the
+:data:`VENDOR_QUARANTINE` step. R6 established against Eurostat press
+releases that the vendor's euro-area **headline HICP** reference-month
+labelling slipped by two months at the 2026-01 ECOICOP v2 methodology
+break, and that one core-HICP row (2026-02-04) is mislabelled in
+isolation. Neither defect is reachable by the statistical gates below --
+every affected value is a real Eurostat print sitting in the wrong slot,
+so it passes the plausibility range, and the vendor's own ``previous``
+chain is internally consistent, so nothing looks anomalous from inside
+the stream. Only an external truth source can see it, which is why the
+exclusion is a hard-coded date window rather than a computed screen. The
+already-seeded contaminated rows are handled separately by
+``scripts/apply_r6_hicp_corrections.py``; this rule stops the monthly
+top-up from re-inserting them.
+
 2026-08 (R-1 vendor reconciliation follow-up, "R3"): the IQR screen in step
 3b used to *quarantine* its hits. The R-1 reconciliation showed that of the
 8 rows it excluded, 3 were not contamination but genuine regime-shift
@@ -173,6 +192,62 @@ PLAUSIBILITY_RANGES: dict[str, tuple[float, float] | None] = {
     "BOJ_RATE": None,
 }
 
+#: An inclusive release-date range. ``None`` on either side means unbounded,
+#: so ``(date(2026, 2, 1), None)`` reads "2026-02-01 onward, indefinitely".
+DateRange = tuple[date | None, date | None]
+
+#: Vendor stream windows a primary-source reconciliation has ruled unusable,
+#: keyed by JBlanked ``series_id``. Every row whose release date falls in one
+#: of a series' ranges is excluded from seeding with the paired reason.
+#:
+#: This is deliberately a hard-coded table and not a computed screen. The
+#: defect it guards against -- R6, 2026-08-06: the vendor's euro-area
+#: headline HICP reference month is two months late from the 2026-01
+#: ECOICOP v2 methodology break onward -- is invisible from inside the
+#: stream. Each value is a genuine Eurostat print (so the plausibility range
+#: passes it), the vendor's ``previous[i] = actual[i-1]`` chain still closes
+#: (so a chain audit passes it), and the resulting surprises are ordinary in
+#: size (so the IQR screen passes it). Only Eurostat's own press releases
+#: reveal that the labels are wrong, and that verdict cannot be re-derived
+#: at runtime -- so it is recorded here as a decision, with its evidence
+#: date, rather than re-litigated on every run.
+#:
+#: **Known cost -- accepted deliberately.** The ``EU.HICP_YOY`` window is
+#: the whole stream from 2026-02-01, which also excludes the *final*-vintage
+#: rows whose ``actual`` R6 verified as exactly correct (2026-02-25 -> 1.7,
+#: 2026-03-18 -> 1.9, 2026-04-16 -> 2.6). Excluding a good row is the wrong
+#: trade in general; here it costs nothing, because those rows are already
+#: in the target DB and ``scripts/apply_r6_hicp_corrections.py`` preserves
+#: them (it only clears their contaminated ``forecast``). A narrower rule
+#: would have to encode "flash vintage only", i.e. re-derive the release
+#: window from the date -- duplicating :mod:`calendar_title_map` logic
+#: inside a quarantine table, where a subtle mismatch would silently let a
+#: shifted row through. A blunt window that over-excludes rows we already
+#: hold beats a clever one that under-excludes rows we do not.
+#:
+#: **Release condition.** Narrow or drop a window once the vendor is
+#: confirmed fixed: take a new release from the vendor stream, resolve its
+#: reference month, and compare it against the Eurostat print for that month
+#: (the golden table in ``apply_r6_hicp_corrections.py``). Two consecutive
+#: matching releases mean the shift is gone -- then move the range's start
+#: to the first verified-good release date, and delete the entry when no
+#: contaminated release remains inside the seeder's source window.
+VENDOR_QUARANTINE: dict[str, list[tuple[DateRange, str]]] = {
+    "EU.HICP_YOY": [
+        (
+            (date(2026, 2, 1), None),
+            "vendor ref-month +2 shift since 2026-01 ECOICOP v2 break, "
+            "R6 2026-08-06",
+        ),
+    ],
+    "EU.CORE_CPI_YOY": [
+        (
+            (date(2026, 2, 4), date(2026, 2, 4)),
+            "isolated mislabel, truth 2.2",
+        ),
+    ],
+}
+
 #: Below this many points in a (country, title) group, the outlier screen is
 #: skipped -- three data points don't support a meaningful quartile estimate.
 MIN_IQR_GROUP_SIZE = 4
@@ -250,6 +325,8 @@ class SeedResult:
 
     total_usable: int
     unmapped: list[QuarantineEntry]
+    #: Rows excluded by :data:`VENDOR_QUARANTINE` (known-bad vendor window).
+    vendor_quarantined: list[QuarantineEntry]
     range_quarantined: list[QuarantineEntry]
     #: IQR outliers. These are *not* excluded -- each one also appears in
     #: ``inserted`` (or in ``dedupe_skipped``, if an organic row already
@@ -263,12 +340,16 @@ class SeedResult:
 
     @property
     def quarantined(self) -> list[QuarantineEntry]:
-        """All data-quality quarantines (unmapped + range), not dedupe.
+        """All data-quality quarantines (unmapped + vendor + range), not dedupe.
 
         IQR outliers are intentionally absent: since the R-1 follow-up they
         are flagged (:attr:`iqr_flagged`), not quarantined.
         """
-        return [*self.unmapped, *self.range_quarantined]
+        return [
+            *self.unmapped,
+            *self.vendor_quarantined,
+            *self.range_quarantined,
+        ]
 
 
 def _country_of(series_id: str) -> str:
@@ -317,6 +398,54 @@ def _classify_all(
             )
         )
     return classified, unmapped
+
+
+def _in_range(release_date: date, window: DateRange) -> bool:
+    start, end = window
+    if start is not None and release_date < start:
+        return False
+    return not (end is not None and release_date > end)
+
+
+def _vendor_quarantine(
+    classified: list[Classified],
+) -> tuple[list[Classified], list[QuarantineEntry]]:
+    """Exclude rows inside a :data:`VENDOR_QUARANTINE` window.
+
+    Runs immediately after classification and therefore **before** dedupe:
+    a quarantined row must never be described as "already present", because
+    the two dispositions mean opposite things to a reviewer -- "the DB
+    already has this" versus "this must not reach the DB". Ordering it first
+    also keeps the rule independent of what happens to be stored already.
+    """
+    kept: list[Classified] = []
+    quarantined: list[QuarantineEntry] = []
+    for row, mapping in classified:
+        windows = VENDOR_QUARANTINE.get(row.series_id)
+        if not windows:
+            kept.append((row, mapping))
+            continue
+        release_date = date.fromisoformat(row.release_date)
+        hit = next(
+            ((w, reason) for w, reason in windows if _in_range(release_date, w)),
+            None,
+        )
+        if hit is None:
+            kept.append((row, mapping))
+            continue
+        (start, end), reason = hit
+        span = f"{start or '-inf'}..{end or '+inf'}"
+        quarantined.append(
+            QuarantineEntry(
+                series_id=row.series_id,
+                release_date=row.release_date,
+                forecast_value=row.forecast_value,
+                actual_value=row.actual_value,
+                reason="vendor-quarantine",
+                detail=f"{mapping.ff_title}: in window [{span}] -- {reason}",
+            )
+        )
+    return kept, quarantined
 
 
 def _range_gate(
@@ -567,7 +696,10 @@ def run(
     )
 
     classified, unmapped = _classify_all(usable)
-    passed_range, range_q = _range_gate(classified)
+    # Vendor windows first: an externally-proven-bad row should be reported
+    # as quarantined, never as deduped or range-gated (see _vendor_quarantine).
+    survivors, vendor_q = _vendor_quarantine(classified)
+    passed_range, range_q = _range_gate(survivors)
     # Review annotations only -- passed_range flows on to dedupe unfiltered.
     iqr_flags, iqr_skipped = _iqr_screen(passed_range)
     flagged_keys = {f.key for f in iqr_flags}
@@ -607,6 +739,7 @@ def run(
     return SeedResult(
         total_usable=len(usable),
         unmapped=unmapped,
+        vendor_quarantined=vendor_q,
         range_quarantined=range_q,
         iqr_flagged=iqr_flags,
         iqr_skipped_groups=iqr_skipped,
@@ -649,6 +782,7 @@ def _print_summary(result: SeedResult) -> None:
     inserted_flagged = sum(1 for r in result.inserted if r.iqr_flagged)
     print(f"total usable source rows (forecast+actual present): {result.total_usable}")
     print(f"  unmapped (skip):           {len(result.unmapped)}")
+    print(f"  vendor-quarantined (skip): {len(result.vendor_quarantined)}")
     print(f"  range-quarantined (skip):  {len(result.range_quarantined)}")
     print(f"  dedupe-skipped:            {len(result.dedupe_skipped)}")
     print(f"  inserted:                  {len(result.inserted)}")
@@ -667,6 +801,10 @@ def _print_summary(result: SeedResult) -> None:
         print()
 
     _print_entries("unmapped", result.unmapped)
+    _print_entries(
+        "vendor-quarantined (known-bad vendor window, never seeded)",
+        result.vendor_quarantined,
+    )
     _print_entries("range-quarantined", result.range_quarantined)
     _print_flagged(result)
     if result.iqr_skipped_groups:

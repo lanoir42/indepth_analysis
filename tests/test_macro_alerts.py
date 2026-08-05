@@ -309,7 +309,7 @@ class TestCentredZ:
 
 
 class TestSigmaAlertBlocklist:
-    """R-1 vendor gate (Advisor C-1): EUR headline-CPI groups are suppressed."""
+    """Source-level vendor gate mechanism (introduced R-1 C-1, lifted R6)."""
 
     def _store_with_titled_history(self, tmp_db, title: str) -> MacroStore:
         store = MacroStore(tmp_db)
@@ -322,30 +322,38 @@ class TestSigmaAlertBlocklist:
             )
         return store
 
-    def test_blocked_title_never_alerts_even_with_extreme_z(self, tmp_db) -> None:
+    def test_production_blocklist_is_empty_after_r6(self) -> None:
+        """R6 (2026-08-06) fulfilled the removal condition — no live entries."""
         from indepth_analysis.skills.euro_macro.macro_alerts import (
             SIGMA_ALERT_BLOCKLIST,
         )
 
+        assert SIGMA_ALERT_BLOCKLIST == frozenset()
+
+    def test_blocklisted_group_never_alerts_even_with_extreme_z(
+        self, tmp_db, monkeypatch
+    ) -> None:
+        """The mechanism suppresses a listed group at the source."""
         title = "CPI Flash Estimate y/y"
-        assert ("EUR", title) in SIGMA_ALERT_BLOCKLIST
+        monkeypatch.setattr(
+            "indepth_analysis.skills.euro_macro.macro_alerts."
+            "SIGMA_ALERT_BLOCKLIST",
+            frozenset({("EUR", title)}),
+        )
         store = self._store_with_titled_history(tmp_db, title)
         store.upsert_event(_ev("outlier", 2026, 4, 5.0, 2.0, title=title))
 
         alerts = compute_sigma_alerts(store, year=2026, month=4)
         assert not any(a.event.event_id == "outlier" for a in alerts)
 
-    def test_final_cpi_group_also_blocked(self, tmp_db) -> None:
-        title = "Final CPI y/y"
-        store = self._store_with_titled_history(tmp_db, title)
-        store.upsert_event(_ev("outlier", 2026, 4, 5.0, 2.0, title=title))
-
-        alerts = compute_sigma_alerts(store, year=2026, month=4)
-        assert alerts == []
-
-    def test_unblocked_title_still_alerts(self, tmp_db) -> None:
-        """The gate is surgical: only the two EUR headline-CPI groups."""
-        title = "Core CPI Flash Estimate y/y"  # verified clean in R-1
+    def test_unlisted_title_still_alerts(self, tmp_db, monkeypatch) -> None:
+        """The gate is surgical: only listed (country, title) pairs."""
+        monkeypatch.setattr(
+            "indepth_analysis.skills.euro_macro.macro_alerts."
+            "SIGMA_ALERT_BLOCKLIST",
+            frozenset({("EUR", "Some Other Indicator")}),
+        )
+        title = "Core CPI Flash Estimate y/y"
         store = self._store_with_titled_history(tmp_db, title)
         store.upsert_event(_ev("outlier", 2026, 4, 5.0, 2.0, title=title))
 
