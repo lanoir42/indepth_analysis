@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from indepth_analysis.models.euro_macro import AgentResult
 from indepth_analysis.skills.euro_macro.macro_sections import (
     MacroSectionsBuilder,
@@ -373,3 +375,194 @@ class TestBuilderEdge:
         assert len(sections) >= 2
         assert sections[0].heading.startswith("A.")
         assert sections[1].heading.startswith("B.")
+
+
+# ----------------------------------------------------------------------
+# Section B — z-ranking and seed-row exclusion
+# ----------------------------------------------------------------------
+def _stats(country: str, title: str, mean: float, sigma: float, n: int = 12):
+    from indepth_analysis.skills.euro_macro.macro_alerts import SurpriseStats
+
+    return SurpriseStats(country=country, title=title, mean=mean, sigma=sigma, n=n)
+
+
+class TestSectionBZRanking:
+    """Mixed-unit ranking: a big-in-euros miss must not outrank a big-in-sigma one."""
+
+    @staticmethod
+    def _mixed_unit_result() -> AgentResult:
+        released = [
+            # 2.5 EUR bn miss — always wins on raw magnitude...
+            _ev(
+                "Trade Balance",
+                "EUR",
+                "High",
+                True,
+                actual=15.0,
+                forecast=12.5,
+                dt_str="2026-04-18T09:00:00+00:00",
+            ),
+            # ...but only 0.2%p here, which is a far bigger shock for CPI.
+            _ev(
+                "CPI Flash Estimate y/y",
+                "EUR",
+                "High",
+                True,
+                actual=2.7,
+                forecast=2.5,
+                dt_str="2026-04-30T09:00:00+00:00",
+            ),
+        ]
+        return _make_ff_result(released=released)
+
+    def test_without_stats_raw_magnitude_still_wins(self) -> None:
+        """Backwards compatibility: no stats -> previous ordering."""
+        builder = MacroSectionsBuilder(year=2026, month=5)
+        rows = builder._collect_surprise_rows(self._mixed_unit_result())
+        assert [r["title"] for r in rows] == [
+            "Trade Balance",
+            "CPI Flash Estimate y/y",
+        ]
+        assert all(r["z"] is None for r in rows)
+
+    def test_z_ranking_beats_raw_magnitude(self) -> None:
+        """With stats, the 0.2%p CPI miss (4σ) outranks the 2.5bn trade miss (0.5σ)."""
+        stats = {
+            ("EUR", "Trade Balance"): _stats("EUR", "Trade Balance", 0.0, 5.0),
+            ("EUR", "CPI Flash Estimate y/y"): _stats(
+                "EUR", "CPI Flash Estimate y/y", 0.0, 0.05
+            ),
+        }
+        builder = MacroSectionsBuilder(year=2026, month=5, surprise_stats=stats)
+        rows = builder._collect_surprise_rows(self._mixed_unit_result())
+        assert [r["title"] for r in rows] == [
+            "CPI Flash Estimate y/y",
+            "Trade Balance",
+        ]
+        assert rows[0]["z"] == pytest.approx(4.0)
+        assert rows[1]["z"] == pytest.approx(0.5)
+
+    def test_scored_events_precede_unscored_ones(self) -> None:
+        """Events without statistics form a second group, ranked by |surprise|."""
+        stats = {
+            ("EUR", "CPI Flash Estimate y/y"): _stats(
+                "EUR", "CPI Flash Estimate y/y", 0.0, 0.05
+            )
+        }
+        builder = MacroSectionsBuilder(year=2026, month=5, surprise_stats=stats)
+        rows = builder._collect_surprise_rows(self._mixed_unit_result())
+        assert rows[0]["z"] is not None
+        assert rows[1]["z"] is None
+
+    def test_z_uses_the_historical_mean(self) -> None:
+        """The score is centred: (surprise - mean) / sigma."""
+        stats = {
+            ("EUR", "CPI Flash Estimate y/y"): _stats(
+                "EUR", "CPI Flash Estimate y/y", 0.1, 0.05
+            )
+        }
+        builder = MacroSectionsBuilder(year=2026, month=5, surprise_stats=stats)
+        rows = builder._collect_surprise_rows(self._mixed_unit_result())
+        cpi = next(r for r in rows if r["title"] == "CPI Flash Estimate y/y")
+        assert cpi["z"] == pytest.approx(2.0)  # (0.2 - 0.1) / 0.05
+
+    def test_sigma_multiple_is_printed_in_the_table(self) -> None:
+        stats = {
+            ("EUR", "CPI Flash Estimate y/y"): _stats(
+                "EUR", "CPI Flash Estimate y/y", 0.0, 0.05
+            )
+        }
+        builder = MacroSectionsBuilder(year=2026, month=5, surprise_stats=stats)
+        sections = builder.build(self._mixed_unit_result())
+        b = next(s for s in sections if "서프라이즈" in s.heading)
+        assert "4.0σ" in b.content
+        assert "표준화" in b.content  # the ordering footnote
+
+    def test_no_sigma_annotation_without_stats(self) -> None:
+        builder = MacroSectionsBuilder(year=2026, month=5)
+        sections = builder.build(self._mixed_unit_result())
+        b = next(s for s in sections if "서프라이즈" in s.heading)
+        assert "σ" not in b.content
+
+    def test_stats_can_arrive_through_agent_extra(self) -> None:
+        """JSON-friendly stats published by the agent are picked up too."""
+        ff = self._mixed_unit_result()
+        ff.extra["surprise_stats"] = [
+            {
+                "country": "EUR",
+                "title": "CPI Flash Estimate y/y",
+                "mean": 0.0,
+                "sigma": 0.05,
+                "n": 12,
+            }
+        ]
+        builder = MacroSectionsBuilder(year=2026, month=5)
+        rows = builder._collect_surprise_rows(ff)
+        assert rows[0]["title"] == "CPI Flash Estimate y/y"
+        assert rows[0]["z"] == pytest.approx(4.0)
+
+
+class TestSeedRowExclusion:
+    """Seeded history feeds the statistics but never a display table."""
+
+    @staticmethod
+    def _with_seed_rows() -> AgentResult:
+        seeded = _ev(
+            "CPI Flash Estimate y/y",
+            "EUR",
+            "High",
+            True,
+            actual=9.9,
+            forecast=2.0,
+            dt_str="2026-04-20T09:00:00+00:00",
+        )
+        seeded["source"] = "seed:jblanked"
+        live = _ev(
+            "German Ifo Business Climate",
+            "EUR",
+            "High",
+            True,
+            actual=87.5,
+            forecast=86.0,
+            dt_str="2026-04-21T08:00:00+00:00",
+        )
+        ff = _make_ff_result(released=[seeded, live])
+        return ff
+
+    def test_seed_rows_excluded_from_surprise_rows(self) -> None:
+        builder = MacroSectionsBuilder(year=2026, month=5)
+        rows = builder._collect_surprise_rows(self._with_seed_rows())
+        titles = [r["title"] for r in rows]
+        assert "CPI Flash Estimate y/y" not in titles
+        assert "German Ifo Business Climate" in titles
+
+    def test_seed_rows_excluded_from_section_b_output(self) -> None:
+        builder = MacroSectionsBuilder(year=2026, month=5)
+        sections = builder.build(self._with_seed_rows())
+        b = next(s for s in sections if "서프라이즈" in s.heading)
+        assert "9.9" not in b.content
+
+    def test_seed_rows_excluded_from_upcoming_window(self) -> None:
+        seeded = _ev(
+            "CPI Flash Estimate y/y",
+            "EUR",
+            "High",
+            False,
+            forecast=2.0,
+            previous=1.9,
+            dt_str=_future_dt(3),
+        )
+        seeded["source"] = "seed:jblanked"
+        ff = _make_ff_result(upcoming=[seeded])
+        now = datetime.now(UTC)
+        builder = MacroSectionsBuilder(year=now.year, month=now.month)
+        assert builder._collect_window_rows(ff) == []
+
+    def test_non_seed_sources_are_untouched(self) -> None:
+        """'json' and 'html' rows keep flowing through unchanged."""
+        ff = _make_ff_result()
+        for period in ff.extra["events_by_period"].values():
+            for row in period:
+                row["source"] = "html"
+        builder = MacroSectionsBuilder(year=2026, month=5)
+        assert builder._collect_surprise_rows(ff)

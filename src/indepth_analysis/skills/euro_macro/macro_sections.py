@@ -11,12 +11,19 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import UTC, date, datetime, timedelta
+from collections.abc import Iterable, Mapping
+from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 from bgilib.macro.constants import ALL_TRACKED_COUNTRIES, CB_NAMES, COUNTRY_LABELS_KOR
 
 from indepth_analysis.models.euro_macro import AgentResult, ReportSection
+
+if TYPE_CHECKING:
+    from indepth_analysis.skills.euro_macro.macro_alerts import SurpriseStats
+
+StatsMap = Mapping[tuple[str, str], "SurpriseStats"]
 
 logger = logging.getLogger(__name__)
 
@@ -196,15 +203,90 @@ def _format_value(
         return f"{value}{suffix}"
 
 
+def _is_seed_row(row: Mapping) -> bool:
+    """True for rows backfilled by the history seeding script.
+
+    Seeded rows exist so ``surprise_stats`` has a deep enough sample to
+    compute sigma; they are historical fill, not this month's news, so they
+    must never surface in a display table (Advisor s-3).
+    """
+    return str(row.get("source") or "").startswith("seed:")
+
+
+def _coerce_stats(raw: object) -> dict[tuple[str, str], SurpriseStats]:
+    """Normalise surprise statistics from any of the shapes callers pass.
+
+    Accepts a ``{(country, title): SurpriseStats}`` mapping (in-process), the
+    same mapping with plain dict values, or a JSON-friendly list of dicts
+    carrying ``country``/``title``/``mean``/``sigma``/``n`` — the form that
+    survives a round-trip through the findings JSON.
+    """
+    from indepth_analysis.skills.euro_macro.macro_alerts import SurpriseStats
+
+    def _one(value: object, key: object = None) -> SurpriseStats | None:
+        if isinstance(value, SurpriseStats):
+            return value
+        if not isinstance(value, Mapping):
+            return None
+        country = value.get("country")
+        title = value.get("title")
+        if (country is None or title is None) and isinstance(key, tuple):
+            country, title = key[0], key[1]
+        try:
+            return SurpriseStats(
+                country=str(country),
+                title=str(title),
+                mean=float(value["mean"]),
+                sigma=float(value["sigma"]),
+                n=int(value["n"]),
+            )
+        except (KeyError, TypeError, ValueError):
+            return None
+
+    items: list[SurpriseStats] = []
+    if isinstance(raw, Mapping):
+        for key, value in raw.items():
+            stat = _one(value, key)
+            if stat is not None:
+                items.append(stat)
+    elif isinstance(raw, Iterable) and not isinstance(raw, str | bytes):
+        for value in raw:
+            stat = _one(value)
+            if stat is not None:
+                items.append(stat)
+
+    return {(s.country, s.title): s for s in items}
+
+
 # ----------------------------------------------------------------------
 # Builder
 # ----------------------------------------------------------------------
 class MacroSectionsBuilder:
     """Builds deterministic macro sections from a ForexFactory AgentResult."""
 
-    def __init__(self, *, year: int, month: int) -> None:
+    def __init__(
+        self,
+        *,
+        year: int,
+        month: int,
+        surprise_stats: StatsMap | None = None,
+    ) -> None:
+        """Build the deterministic macro sections for one report month.
+
+        Args:
+            year: Report year.
+            month: Report month.
+            surprise_stats: Optional ``{(country, title): SurpriseStats}``
+                from :func:`macro_alerts.surprise_stats`. When supplied,
+                Section B ranks surprises by centred z-score and prints the
+                sigma multiple next to each difference. When omitted, the
+                builder falls back to ``ff_result.extra["surprise_stats"]``
+                if the agent published it, and otherwise keeps the previous
+                behaviour (ranking by raw absolute surprise).
+        """
         self.year = year
         self.month = month
+        self.surprise_stats = _coerce_stats(surprise_stats) if surprise_stats else {}
 
     # Public entry points ------------------------------------------------
     def build(self, ff_result: AgentResult | None) -> list[ReportSection]:
@@ -352,6 +434,9 @@ class MacroSectionsBuilder:
                 arrow = "▲" if surprise > 0 else ("▼" if surprise < 0 else "=")
                 suffix = _recover_suffix(ev.get("actual_raw"), title_text)
                 surprise_fmt = _format_with_suffix(abs(surprise), suffix)
+                z = ev.get("z")
+                if z is not None:
+                    surprise_fmt = f"{surprise_fmt}, {abs(z):.1f}σ"
                 parts.append(
                     f"- {date_str} {country_label} · {title_text}: "
                     f"실제 {actual_fmt} vs 예상 {forecast_fmt} "
@@ -477,6 +562,9 @@ class MacroSectionsBuilder:
                     arrow = "="
                 suffix = _recover_suffix(ev.get("actual_raw"), title_text)
                 surprise_fmt = _format_with_suffix(abs(surprise), suffix)
+                z = ev.get("z")
+                if z is not None:
+                    surprise_fmt = f"{surprise_fmt} ({abs(z):.1f}σ)"
                 title_md = title_text.replace("|", r"\|")
                 body_lines.append(
                     f"| {kst_str} | {country_label} | {title_md} | "
@@ -484,6 +572,14 @@ class MacroSectionsBuilder:
                     f"{arrow} {surprise_fmt} |"
                 )
             body_lines.append("")
+
+        if any(r.get("z") is not None for r in rows[:SECTION_B_MAX_ROWS]):
+            body_lines.append(
+                "*정렬: 과거 24개월 서프라이즈 분포 대비 표준화 점수(σ) 순 "
+                "— 단위가 다른 지표 간 비교를 위해 (실제−예상)을 해당 지표의 "
+                "역사적 평균·표준편차로 표준화. σ 산출에 필요한 이력이 부족한 "
+                "지표는 뒤쪽에 절대 편차 순으로 배치*"
+            )
 
         body_lines.append(
             "*출처: ForexFactory JSON 피드 · 실제치 발표 기준*"
@@ -529,6 +625,9 @@ class MacroSectionsBuilder:
             if dt.tzinfo is None:
                 dt = dt.replace(tzinfo=UTC)
 
+            if _is_seed_row(d):
+                continue
+
             impact = d.get("impact") or ""
             country = d.get("country") or ""
             if impact in EXCLUDED_IMPACTS:
@@ -560,18 +659,38 @@ class MacroSectionsBuilder:
         rows.sort(key=lambda r: r["datetime_utc"])
         return rows[:MAX_ROWS]
 
+    def _resolve_stats(
+        self, ff_result: AgentResult | None
+    ) -> dict[tuple[str, str], SurpriseStats]:
+        """Return the surprise statistics to score Section B with."""
+        if self.surprise_stats:
+            return dict(self.surprise_stats)
+        extra = (ff_result.extra or {}) if ff_result is not None else {}
+        return _coerce_stats(extra.get("surprise_stats"))
+
     def _collect_surprise_rows(self, ff_result: AgentResult) -> list[dict]:
         """Collect released European events with non-null surprise.
 
         Window: [anchor_start − 30d, anchor_start + 7d] where anchor_start
-        is the first day of the report month (UTC). Sorted by absolute
-        surprise magnitude, descending.
+        is the first day of the report month (UTC).
+
+        Ordering (Advisor M-1 / 2b): raw ``|surprise|`` mixes units, so a
+        Trade Balance miss of a few € billions always outranked a 0.1%p CPI
+        miss. Events for which historical statistics exist are therefore
+        ranked first, by ``|z|`` — a unit-free measure of how unusual the
+        miss was — and events without statistics follow as a second group,
+        still ordered by raw magnitude. With no statistics at all the
+        ordering is exactly as before.
+
+        Seeded history rows (``source='seed:...'``) are excluded: they feed
+        the statistics, they are not this month's news (Advisor s-3).
 
         Sources (in priority order):
         1. DB released events queried by ForexFactoryAgent (authoritative,
            covers the full lookback window even when "lastweek" JSON 404s).
         2. events_by_period["lastweek"/"thisweek"] as a fallback supplement.
         """
+        stats = self._resolve_stats(ff_result)
         extra = ff_result.extra or {}
         candidates: list[dict] = []
 
@@ -598,6 +717,8 @@ class MacroSectionsBuilder:
                 continue
 
             if not d.get("is_released"):
+                continue
+            if _is_seed_row(d):
                 continue
 
             actual = d.get("actual")
@@ -634,11 +755,15 @@ class MacroSectionsBuilder:
             except (TypeError, ValueError):
                 continue
 
+            title = d.get("title", "")
+            stat = stats.get((country, title))
+            z = stat.z(surprise) if stat is not None else None
+
             rows.append(
                 {
                     "datetime_utc": dt,
                     "country": country,
-                    "title": d.get("title", ""),
+                    "title": title,
                     "impact": impact,
                     "actual": actual,
                     "forecast": forecast,
@@ -648,11 +773,17 @@ class MacroSectionsBuilder:
                     "forecast_raw": d.get("forecast_raw"),
                     "previous_raw": d.get("previous_raw"),
                     "surprise": surprise,
+                    "z": z,
+                    "sigma": stat.sigma if stat is not None else None,
+                    "history_n": stat.n if stat is not None else None,
                 }
             )
 
-        rows.sort(key=lambda r: abs(r["surprise"]), reverse=True)
-        return rows
+        scored = [r for r in rows if r["z"] is not None]
+        unscored = [r for r in rows if r["z"] is None]
+        scored.sort(key=lambda r: abs(r["z"]), reverse=True)
+        unscored.sort(key=lambda r: abs(r["surprise"]), reverse=True)
+        return scored + unscored
 
     # Section G — FX snapshot -------------------------------------------
     def _build_fx_section(
@@ -671,7 +802,9 @@ class MacroSectionsBuilder:
         for row in fx_snapshot_raw:
             quote = row.get("quote", "")
             existing = latest.get(quote)
-            if existing is None or row.get("date_utc", "") > existing.get("date_utc", ""):
+            if existing is None or row.get("date_utc", "") > existing.get(
+                "date_utc", ""
+            ):
                 latest[quote] = row
 
         # Preferred display order.
@@ -754,7 +887,8 @@ class MacroSectionsBuilder:
                 chg_fmt = "–"
 
             body_lines.append(
-                f"| {country_label} | {cb_name} | {rate_fmt} | {prev_fmt} | {chg_fmt} | {obs_date} |"
+                f"| {country_label} | {cb_name} | {rate_fmt} | {prev_fmt} | "
+                f"{chg_fmt} | {obs_date} |"
             )
 
         body_lines.append("")

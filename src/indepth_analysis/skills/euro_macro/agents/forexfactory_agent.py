@@ -114,9 +114,10 @@ class ForexFactoryAgent:
         # Fetch central bank rate history from FRED for all trackable countries.
         rate_history_raw: dict[str, list[dict]] = {}
         try:
-            from bgilib.macro.rate_fetcher import CentralBankRateFetcher
-            from bgilib.macro.constants import FRED_SERIES_IDS
             from datetime import date
+
+            from bgilib.macro.constants import FRED_SERIES_IDS
+            from bgilib.macro.rate_fetcher import CentralBankRateFetcher
 
             today = date.today()
             lookback_start = date(today.year - 2, today.month, 1)
@@ -168,6 +169,53 @@ class ForexFactoryAgent:
             logger.warning("Sigma alert computation failed: %s", exc)
             sigma_alerts_raw = []
 
+        # Surprise stats for Section B z-ordering (history fixed before the
+        # report month; consumed by MacroSectionsBuilder via extra).
+        surprise_stats_raw: list[dict] = []
+        try:
+            from indepth_analysis.skills.euro_macro.macro_alerts import (
+                surprise_stats,
+            )
+
+            stats = await asyncio.to_thread(
+                lambda: surprise_stats(
+                    client.store,
+                    before=datetime(year, month, 1, tzinfo=UTC),
+                )
+            )
+            surprise_stats_raw = [s.to_dict() for s in stats.values()]
+        except Exception as exc:
+            logger.warning("Surprise stats computation failed: %s", exc)
+
+        # Collector health stamps (read back via `indepth status`).
+        try:
+            from bgilib.macro import stamp_health
+
+            stamp_health(
+                client.store,
+                "forexfactory_json",
+                ok=not periods_failed or "thisweek" not in periods_failed,
+                detail=(
+                    f"periods_failed={','.join(periods_failed)}"
+                    if periods_failed
+                    else None
+                ),
+            )
+            stamp_health(
+                client.store,
+                "fx_frankfurter",
+                ok=bool(fx_snapshot_raw),
+                detail=f"rates={len(fx_snapshot_raw)}",
+            )
+            stamp_health(
+                client.store,
+                "fred_rates",
+                ok=bool(rate_history_raw),
+                detail=f"countries={len(rate_history_raw)}",
+            )
+        except Exception as exc:
+            logger.warning("Health stamping failed (non-fatal): %s", exc)
+
         extra: dict = {
             "events_by_period": events_by_period,
             "released_events_db": released_events_db,
@@ -177,6 +225,7 @@ class ForexFactoryAgent:
             "periods_failed": periods_failed,
             "force_refresh": self._force_refresh,
             "sigma_alerts": sigma_alerts_raw,
+            "surprise_stats": surprise_stats_raw,
         }
 
         return AgentResult(

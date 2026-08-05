@@ -1,15 +1,17 @@
 """Tests for compute_sigma_alerts."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
-
 from bgilib.macro.models import CalendarEvent
 from bgilib.macro.storage import MacroStore
+
 from indepth_analysis.skills.euro_macro.macro_alerts import (
     SigmaAlert,
+    SurpriseStats,
     compute_sigma_alerts,
+    surprise_stats,
 )
 
 
@@ -29,7 +31,7 @@ def _ev(
         country=country,
         title=title,
         impact="High",
-        datetime_utc=datetime(year, month, 1, 12, 0, tzinfo=timezone.utc),
+        datetime_utc=datetime(year, month, 1, 12, 0, tzinfo=UTC),
         forecast=forecast,
         previous=None,
         actual=actual,
@@ -111,7 +113,7 @@ def test_alerts_sorted_by_z_desc(store_with_history: MacroStore) -> None:
                 title="GDP m/m",
                 impact="High",
                 datetime_utc=datetime(
-                    2024 + i // 12, (i % 12) + 1, 1, 12, 0, tzinfo=timezone.utc
+                    2024 + i // 12, (i % 12) + 1, 1, 12, 0, tzinfo=UTC
                 ),
                 forecast=0.1,
                 previous=None,
@@ -127,7 +129,7 @@ def test_alerts_sorted_by_z_desc(store_with_history: MacroStore) -> None:
         country="GBP",
         title="GDP m/m",
         impact="High",
-        datetime_utc=datetime(2026, 4, 15, 12, 0, tzinfo=timezone.utc),
+        datetime_utc=datetime(2026, 4, 15, 12, 0, tzinfo=UTC),
         forecast=0.1,
         previous=None,
         actual=0.5,
@@ -150,3 +152,157 @@ def test_sigma_alert_dataclass_frozen() -> None:
     assert a.label == "독일"
     with pytest.raises(Exception):
         a.label = "프랑스"  # type: ignore[misc]
+
+
+# ----------------------------------------------------------------------
+# surprise_stats — the shared surprise distribution
+# ----------------------------------------------------------------------
+def _ev_at(
+    eid: str,
+    dt: datetime,
+    actual: float | None,
+    forecast: float | None,
+    *,
+    country: str = "EUR",
+    title: str = "German CPI m/m",
+    impact: str = "High",
+) -> CalendarEvent:
+    return CalendarEvent(
+        event_id=eid,
+        country=country,
+        title=title,
+        impact=impact,
+        datetime_utc=dt,
+        forecast=forecast,
+        previous=None,
+        actual=actual,
+        is_released=True,
+        source="json",
+    )
+
+
+def _biased_store(store: MacroStore, *, title: str = "German CPI m/m") -> MacroStore:
+    """8 releases that all beat consensus by ~0.5 — a systematically biased forecast."""
+    for i in range(8):
+        month = (i % 12) + 1
+        actual = 0.3 + (0.52 if i % 2 else 0.48)
+        store.upsert_event(
+            _ev_at(
+                f"bias-{i}",
+                datetime(2025, month, 1, 12, 0, tzinfo=UTC),
+                actual,
+                0.3,
+                title=title,
+            )
+        )
+    return store
+
+
+class TestSurpriseStats:
+    def test_groups_by_country_and_title(self, tmp_db) -> None:
+        store = _biased_store(MacroStore(tmp_db))
+        stats = surprise_stats(
+            store, before=datetime(2026, 4, 1, tzinfo=UTC)
+        )
+        stat = stats[("EUR", "German CPI m/m")]
+        assert stat.n == 8
+        assert stat.mean == pytest.approx(0.5)
+        assert stat.sigma == pytest.approx(0.02)
+
+    def test_thin_groups_are_dropped(self, tmp_db) -> None:
+        store = MacroStore(tmp_db)
+        for i in range(3):
+            store.upsert_event(_ev(f"h{i}", 2025, i + 1, 0.3 + i * 0.1, 0.3))
+        stats = surprise_stats(
+            store, before=datetime(2026, 4, 1, tzinfo=UTC)
+        )
+        assert stats == {}
+
+    def test_history_window_is_bounded_by_before_and_months(self, tmp_db) -> None:
+        store = _biased_store(MacroStore(tmp_db))
+        # A 3-month window ending 2025-04 keeps only Jan-Mar 2025.
+        stats = surprise_stats(
+            store,
+            before=datetime(2025, 4, 1, tzinfo=UTC),
+            history_months=3,
+            min_history_points=1,
+        )
+        assert stats[("EUR", "German CPI m/m")].n == 3
+
+    def test_exact_title_matching_no_like_contamination(self, tmp_db) -> None:
+        """'Core CPI …' must not leak into the 'CPI …' pool."""
+        store = MacroStore(tmp_db)
+        _biased_store(store, title="CPI Flash Estimate y/y")
+        for i in range(8):
+            store.upsert_event(
+                _ev_at(
+                    f"core-{i}",
+                    datetime(2025, (i % 12) + 1, 2, 12, 0, tzinfo=UTC),
+                    5.0,
+                    0.0,
+                    title="Core CPI Flash Estimate y/y",
+                )
+            )
+        stats = surprise_stats(
+            store, before=datetime(2026, 4, 1, tzinfo=UTC)
+        )
+        assert stats[("EUR", "CPI Flash Estimate y/y")].n == 8
+        assert stats[("EUR", "CPI Flash Estimate y/y")].mean == pytest.approx(0.5)
+        assert stats[("EUR", "Core CPI Flash Estimate y/y")].mean == pytest.approx(5.0)
+
+    def test_history_is_not_truncated_by_impact_drift(self, tmp_db) -> None:
+        """Impact labels drift across vintages; history must keep every release."""
+        store = MacroStore(tmp_db)
+        for i in range(8):
+            store.upsert_event(
+                _ev_at(
+                    f"drift-{i}",
+                    datetime(2025, (i % 12) + 1, 1, 12, 0, tzinfo=UTC),
+                    0.3 + (0.1 if i % 2 else -0.1),
+                    0.3,
+                    title="ISM Manufacturing PMI",
+                    country="USD",
+                    impact="High" if i < 2 else "Medium",
+                )
+            )
+        stats = surprise_stats(
+            store, before=datetime(2026, 4, 1, tzinfo=UTC)
+        )
+        assert stats[("USD", "ISM Manufacturing PMI")].n == 8
+
+    def test_countries_filter(self, tmp_db) -> None:
+        store = _biased_store(MacroStore(tmp_db))
+        stats = surprise_stats(
+            store,
+            before=datetime(2026, 4, 1, tzinfo=UTC),
+            countries=("USD",),
+        )
+        assert stats == {}
+
+
+class TestCentredZ:
+    def test_z_subtracts_the_historical_mean(self) -> None:
+        stat = SurpriseStats("EUR", "CPI", mean=0.5, sigma=0.1, n=10)
+        assert stat.z(0.5) == pytest.approx(0.0)
+        assert stat.z(0.7) == pytest.approx(2.0)
+        assert stat.z(0.3) == pytest.approx(-2.0)
+
+    def test_z_none_when_sigma_zero(self) -> None:
+        assert SurpriseStats("EUR", "CPI", mean=0.5, sigma=0.0, n=10).z(9.9) is None
+
+    def test_biased_indicator_no_longer_self_alerts(self, tmp_db) -> None:
+        """A miss equal to the usual miss is not news, however large in raw terms."""
+        store = _biased_store(MacroStore(tmp_db))
+        typical = _ev("typical", 2026, 4, actual=0.8, forecast=0.3)  # surprise +0.5
+        store.upsert_event(typical)
+        alerts = compute_sigma_alerts(store, year=2026, month=4)
+        assert [a.event.event_id for a in alerts] == []
+
+    def test_deviation_from_the_usual_bias_still_alerts(self, tmp_db) -> None:
+        store = _biased_store(MacroStore(tmp_db))
+        # surprise +0.6 against mean 0.5, sigma 0.02 -> z = 5
+        store.upsert_event(_ev("shock", 2026, 4, actual=0.9, forecast=0.3))
+        alerts = compute_sigma_alerts(store, year=2026, month=4)
+        assert [a.event.event_id for a in alerts] == ["shock"]
+        assert alerts[0].z == pytest.approx(5.0)
+        assert alerts[0].history_n == 8
