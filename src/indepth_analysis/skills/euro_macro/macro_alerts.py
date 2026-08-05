@@ -32,6 +32,28 @@ _DEFAULT_MIN_HISTORY = 6
 _DEFAULT_Z_THRESHOLD = 2.0
 _DEFAULT_HISTORY_MONTHS = 24
 
+#: R-1 vendor reconciliation gate (2026-08-05, Advisor condition C-1).
+#:
+#: The seeded vendor's EU *headline* HICP stream is internally inconsistent
+#: in 2026: the same reference month carries actual=1.7 in one release row
+#: and previous=2.6 in the next (a 0.9pp flash->final "revision" where
+#: Eurostat's structural envelope is ~0.1pp). Neither the seeded sigma
+#: (0.335) nor the pre-seed one (0.122) can be trusted for these two groups,
+#: so their sigma alerts are suppressed at the source — this covers every
+#: consumer (Telegram delivery via macro_telegram and report-body citation
+#: via the Section C builder), which both feed off compute_sigma_alerts().
+#:
+#: Removal condition (follow-up R6): once the 2026 EA HICP prints are
+#: reconciled against primary Eurostat press releases and the seeded rows
+#: are confirmed or re-labelled, delete this blocklist. Core HICP, GDP and
+#: unemployment groups verified clean in R-1 and are NOT blocked.
+SIGMA_ALERT_BLOCKLIST: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("EUR", "CPI Flash Estimate y/y"),
+        ("EUR", "Final CPI y/y"),
+    }
+)
+
 
 @dataclass(frozen=True)
 class SurpriseStats:
@@ -226,6 +248,15 @@ def compute_sigma_alerts(
     alerts: list[SigmaAlert] = []
     for candidate in candidates:
         if candidate.surprise is None:
+            continue
+
+        if (candidate.country, candidate.title) in SIGMA_ALERT_BLOCKLIST:
+            log.info(
+                "Sigma alert suppressed for %s/%s (R-1 vendor gate, see "
+                "SIGMA_ALERT_BLOCKLIST)",
+                candidate.country,
+                candidate.title,
+            )
             continue
 
         stat = stats.get((candidate.country, candidate.title))

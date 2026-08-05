@@ -306,3 +306,48 @@ class TestCentredZ:
         assert [a.event.event_id for a in alerts] == ["shock"]
         assert alerts[0].z == pytest.approx(5.0)
         assert alerts[0].history_n == 8
+
+
+class TestSigmaAlertBlocklist:
+    """R-1 vendor gate (Advisor C-1): EUR headline-CPI groups are suppressed."""
+
+    def _store_with_titled_history(self, tmp_db, title: str) -> MacroStore:
+        store = MacroStore(tmp_db)
+        for i in range(24):
+            month = (i % 12) + 1
+            year = 2024 + (i // 12)
+            actual = 2.0 + (0.05 if i % 3 == 0 else -0.05)
+            store.upsert_event(
+                _ev(f"hist-{i}", year, month, actual, 2.0, title=title)
+            )
+        return store
+
+    def test_blocked_title_never_alerts_even_with_extreme_z(self, tmp_db) -> None:
+        from indepth_analysis.skills.euro_macro.macro_alerts import (
+            SIGMA_ALERT_BLOCKLIST,
+        )
+
+        title = "CPI Flash Estimate y/y"
+        assert ("EUR", title) in SIGMA_ALERT_BLOCKLIST
+        store = self._store_with_titled_history(tmp_db, title)
+        store.upsert_event(_ev("outlier", 2026, 4, 5.0, 2.0, title=title))
+
+        alerts = compute_sigma_alerts(store, year=2026, month=4)
+        assert not any(a.event.event_id == "outlier" for a in alerts)
+
+    def test_final_cpi_group_also_blocked(self, tmp_db) -> None:
+        title = "Final CPI y/y"
+        store = self._store_with_titled_history(tmp_db, title)
+        store.upsert_event(_ev("outlier", 2026, 4, 5.0, 2.0, title=title))
+
+        alerts = compute_sigma_alerts(store, year=2026, month=4)
+        assert alerts == []
+
+    def test_unblocked_title_still_alerts(self, tmp_db) -> None:
+        """The gate is surgical: only the two EUR headline-CPI groups."""
+        title = "Core CPI Flash Estimate y/y"  # verified clean in R-1
+        store = self._store_with_titled_history(tmp_db, title)
+        store.upsert_event(_ev("outlier", 2026, 4, 5.0, 2.0, title=title))
+
+        alerts = compute_sigma_alerts(store, year=2026, month=4)
+        assert any(a.event.event_id == "outlier" for a in alerts)

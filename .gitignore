@@ -34,3 +34,7 @@ journal/
 
 # Presentations (CEO-facing slides with confidential portfolio details)
 presentations/
+
+# SQLite WAL sidecars (never commit)
+*.db-wal
+*.db-shm

@@ -22,11 +22,15 @@ title-mapping rationale, and Advisor plan v2 Section 2b for the full spec):
    via :func:`calendar_title_map.classify_release`. Rows with no mapping or
    no matching release-date window are quarantined, not guessed.
 3. Quality-gate the survivors:
-   a. per-indicator plausibility range (:data:`PLAUSIBILITY_RANGES`);
+   a. per-indicator plausibility range (:data:`PLAUSIBILITY_RANGES`) -- a
+      **hard quarantine**: a value outside these bounds is physically
+      impossible for the indicator, so it is a scale/units error and must
+      never enter the history pool;
    b. per-(country, title) outlier screen on the surprise
-      (``actual - forecast``): flag rows outside ``median ± 3*IQR`` of their
-      group. Groups with too few points (:data:`MIN_IQR_GROUP_SIZE`) or zero
-      IQR (see the docstring of :func:`_iqr_gate`) are passed through
+      (``actual - forecast``): rows outside ``median ± 3*IQR`` of their group
+      are **flagged for review but still inserted** (see :func:`_iqr_screen`
+      for why this is a flag and not a quarantine). Groups with too few
+      points (:data:`MIN_IQR_GROUP_SIZE`) or zero IQR are passed through
       unscreened rather than risk false positives.
 4. Dedupe against rows already in the target DB: same (country, ForexFactory
    title) with a release date within +/-1 day is skipped, so the 2026-03-30
@@ -40,8 +44,26 @@ title-mapping rationale, and Advisor plan v2 Section 2b for the full spec):
    reader sees; both only feed :func:`surprise_stats` history, which is
    impact- and time-of-day-agnostic).
 
-Every quarantined/deduped/inserted row is accounted for in the run summary --
-nothing is silently dropped.
+Every quarantined/flagged/deduped/inserted row is accounted for in the run
+summary -- nothing is silently dropped.
+
+History
+-------
+2026-08 (R-1 vendor reconciliation follow-up, "R3"): the IQR screen in step
+3b used to *quarantine* its hits. The R-1 reconciliation showed that of the
+8 rows it excluded, 3 were not contamination but genuine regime-shift
+surprises from the 2026 inflation re-acceleration (``EU.HICP_YOY``
+2026-04-16 ``+0.9``; ``US.CPI_YOY`` 2026-04-10 ``+1.0``;
+``US.CORECPI_YOY`` 2025-12-18 ``-0.5``). Cutting them shrank the
+``EUR Final CPI y/y`` sigma from 0.335 to 0.122 -- a 2.7x understatement
+that biases :func:`surprise_stats` consumers toward over-alerting (with
+sigma=0.122 a routine +0.25pp revision already trips |z|>2). Trimming the
+tail of a surprise distribution to then *estimate the width of that
+distribution* is self-defeating: the tail is the very information sigma is
+supposed to carry. The screen is therefore now a review flag, not an
+exclusion. The plausibility range in step 3a stays a hard quarantine --
+it defends against physically impossible values (a units error), which is
+a different question from "was this surprise large".
 
 Usage::
 
@@ -160,7 +182,15 @@ IQR_K = 3.0
 
 @dataclass(frozen=True)
 class QuarantineEntry:
-    """One row excluded from seeding, with the reason on record."""
+    """One row *excluded* from seeding, with the reason on record.
+
+    A quarantine is an exclusion decision: the row never reaches the target
+    DB and never contributes to sigma history. Reserved for rows we cannot
+    place (``unmapped``), rows whose value is physically impossible
+    (``range``), and rows already covered by an existing event (``dedupe``).
+    Contrast :class:`FlaggedEntry`, which is an annotation on a row that *is*
+    inserted.
+    """
 
     series_id: str
     release_date: str
@@ -171,22 +201,74 @@ class QuarantineEntry:
 
 
 @dataclass(frozen=True)
+class FlaggedEntry:
+    """One row kept for seeding but marked for human review.
+
+    Deliberately a separate type from :class:`QuarantineEntry`: a flag
+    changes nothing about the data that lands in the DB, it only asks a
+    human to look at the row. Introduced by the R-1 follow-up that demoted
+    the IQR outlier screen from an exclusion to a flag (see the module
+    docstring's History note) -- an unusually large surprise is exactly what
+    a regime shift looks like, so it belongs in the sigma history *and* in
+    the reviewer's inbox, not in a quarantine bucket.
+    """
+
+    series_id: str
+    release_date: str
+    country: str
+    ff_title: str
+    forecast_value: float | None
+    actual_value: float | None
+    surprise: float
+    reason: str
+    detail: str
+
+    @property
+    def key(self) -> tuple[str, str]:
+        """Identity used to cross-reference this flag against inserted rows."""
+        return (self.series_id, self.release_date)
+
+
+@dataclass(frozen=True)
+class InsertedRow:
+    """One row written (or, in a dry run, planned) into the target DB."""
+
+    country: str
+    ff_title: str
+    release_date: str
+    forecast_value: float
+    actual_value: float
+    series_id: str
+    #: True when the per-group IQR screen flagged this row for review. The
+    #: row is inserted either way; this only drives the run summary.
+    iqr_flagged: bool = False
+
+
+@dataclass(frozen=True)
 class SeedResult:
     """Full accounting of one seeding run -- every input row lands somewhere."""
 
     total_usable: int
     unmapped: list[QuarantineEntry]
     range_quarantined: list[QuarantineEntry]
-    iqr_quarantined: list[QuarantineEntry]
+    #: IQR outliers. These are *not* excluded -- each one also appears in
+    #: ``inserted`` (or in ``dedupe_skipped``, if an organic row already
+    #: covers it). Reported separately so a reviewer can check whether a
+    #: large surprise is a regime shift or a vendor error.
+    iqr_flagged: list[FlaggedEntry]
     iqr_skipped_groups: list[str]
     dedupe_skipped: list[QuarantineEntry]
-    inserted: list[tuple[str, str, str, float, float, str]]
+    inserted: list[InsertedRow]
     committed: bool
 
     @property
     def quarantined(self) -> list[QuarantineEntry]:
-        """All data-quality quarantines (unmapped + range + IQR), not dedupe."""
-        return [*self.unmapped, *self.range_quarantined, *self.iqr_quarantined]
+        """All data-quality quarantines (unmapped + range), not dedupe.
+
+        IQR outliers are intentionally absent: since the R-1 follow-up they
+        are flagged (:attr:`iqr_flagged`), not quarantined.
+        """
+        return [*self.unmapped, *self.range_quarantined]
 
 
 def _country_of(series_id: str) -> str:
@@ -240,7 +322,15 @@ def _classify_all(
 def _range_gate(
     classified: list[Classified],
 ) -> tuple[list[Classified], list[QuarantineEntry]]:
-    """Drop rows whose forecast/actual is outside the plausible range."""
+    """Drop rows whose forecast/actual is outside the plausible range.
+
+    This stays a **hard quarantine** (unlike the IQR screen below, which was
+    demoted to a flag by the R-1 follow-up). The two answer different
+    questions: this gate asks "is this value physically possible for this
+    indicator" -- an unemployment rate of 620 or a PMI of 4 is a units/scale
+    error whatever the market did -- while the IQR screen asks "was this
+    surprise large", which is a property of the world, not of the data.
+    """
     passed: list[Classified] = []
     quarantined: list[QuarantineEntry] = []
     warned_categories: set[str] = set()
@@ -281,15 +371,31 @@ def _range_gate(
     return passed, quarantined
 
 
-def _iqr_gate(
+def _iqr_screen(
     passed: list[Classified],
-) -> tuple[list[Classified], list[QuarantineEntry], list[str]]:
-    """Screen each (country, title) group's surprises for outliers.
+) -> tuple[list[FlaggedEntry], list[str]]:
+    """Flag (do not exclude) each (country, title) group's surprise outliers.
 
-    Flags rows whose ``actual - forecast`` falls outside
+    Marks rows whose ``actual - forecast`` falls outside
     ``median +/- IQR_K * IQR`` of its own group's surprise distribution.
+    **Every input row is still seeded** -- the return value carries only the
+    review annotations, so callers pass ``passed`` on to the dedupe step
+    untouched.
 
-    A group is skipped (passed through unscreened) when it has fewer than
+    Why a flag and not a gate (R-1 follow-up, 2026-08): this screen was
+    added to catch mis-scaled values, but the R-1 vendor reconciliation
+    found it was mostly catching *real* regime-shift prints instead -- 3 of
+    its 8 hits were the 2026 inflation re-acceleration (``EU.HICP_YOY``
+    2026-04-16 surprise ``+0.9``, ``US.CPI_YOY`` 2026-04-10 ``+1.0``,
+    ``US.CORECPI_YOY`` 2025-12-18 ``-0.5``). Excluding them collapsed
+    ``EUR Final CPI y/y`` sigma from 0.335 to 0.122, so downstream
+    :func:`surprise_stats` consumers over-alert on ordinary revisions. The
+    tail of a surprise distribution is not noise to be trimmed before
+    measuring that distribution's width -- it *is* what sigma is measuring.
+    Mis-scaled values are the plausibility gate's job (:func:`_range_gate`),
+    which remains a hard quarantine.
+
+    A group is skipped (not screened at all) when it has fewer than
     :data:`MIN_IQR_GROUP_SIZE` points, or when its IQR is exactly zero. The
     zero-IQR case matters more than it looks: several of these indicators
     report to one decimal place and frequently print exactly on consensus
@@ -297,15 +403,14 @@ def _iqr_gate(
     have zero surprise), so the median/Q1/Q3 all collapse to 0 and a naive
     "median +/- 3*0" bound would flag *every* nonzero surprise as an
     outlier -- including perfectly ordinary +-0.1pp misses. Skipping the
-    screen when IQR==0 avoids manufacturing false positives out of a
+    screen when IQR==0 avoids manufacturing review noise out of a
     tie-heavy distribution; those groups still went through the range gate.
     """
     groups: dict[tuple[str, str], list[int]] = defaultdict(list)
-    for idx, (row, mapping) in enumerate(passed):
+    for idx, (_row, mapping) in enumerate(passed):
         groups[(mapping.country, mapping.ff_title)].append(idx)
 
-    keep = [True] * len(passed)
-    quarantined: list[QuarantineEntry] = []
+    flagged: list[FlaggedEntry] = []
     skipped_groups: list[str] = []
 
     for (country, title), idxs in groups.items():
@@ -327,14 +432,16 @@ def _iqr_gate(
         for i, surprise in zip(idxs, surprises, strict=True):
             if lo_bound <= surprise <= hi_bound:
                 continue
-            keep[i] = False
             row, mapping = passed[i]
-            quarantined.append(
-                QuarantineEntry(
+            flagged.append(
+                FlaggedEntry(
                     series_id=row.series_id,
                     release_date=row.release_date,
+                    country=mapping.country,
+                    ff_title=mapping.ff_title,
                     forecast_value=row.forecast_value,
                     actual_value=row.actual_value,
+                    surprise=surprise,
                     reason="iqr_outlier",
                     detail=(
                         f"{mapping.ff_title}: surprise={surprise:+.3f} outside "
@@ -344,8 +451,7 @@ def _iqr_gate(
                 )
             )
 
-    kept = [passed[i] for i in range(len(passed)) if keep[i]]
-    return kept, quarantined, skipped_groups
+    return flagged, skipped_groups
 
 
 def _dedupe(
@@ -462,12 +568,14 @@ def run(
 
     classified, unmapped = _classify_all(usable)
     passed_range, range_q = _range_gate(classified)
-    passed_iqr, iqr_q, iqr_skipped = _iqr_gate(passed_range)
+    # Review annotations only -- passed_range flows on to dedupe unfiltered.
+    iqr_flags, iqr_skipped = _iqr_screen(passed_range)
+    flagged_keys = {f.key for f in iqr_flags}
 
     store = MacroStore(target_db)
-    to_insert, dedupe_q = _dedupe(store, passed_iqr)
+    to_insert, dedupe_q = _dedupe(store, passed_range)
 
-    inserted: list[tuple[str, str, str, float, float, str]] = []
+    inserted: list[InsertedRow] = []
     seen_ids: set[str] = set()
     for row, mapping in to_insert:
         event = _build_event(row, mapping)
@@ -483,13 +591,14 @@ def run(
             continue
         seen_ids.add(event.event_id)
         inserted.append(
-            (
-                mapping.country,
-                mapping.ff_title,
-                row.release_date,
-                row.forecast_value,
-                row.actual_value,
-                row.series_id,
+            InsertedRow(
+                country=mapping.country,
+                ff_title=mapping.ff_title,
+                release_date=row.release_date,
+                forecast_value=row.forecast_value,
+                actual_value=row.actual_value,
+                series_id=row.series_id,
+                iqr_flagged=(row.series_id, row.release_date) in flagged_keys,
             )
         )
         if commit:
@@ -499,7 +608,7 @@ def run(
         total_usable=len(usable),
         unmapped=unmapped,
         range_quarantined=range_q,
-        iqr_quarantined=iqr_q,
+        iqr_flagged=iqr_flags,
         iqr_skipped_groups=iqr_skipped,
         dedupe_skipped=dedupe_q,
         inserted=inserted,
@@ -507,17 +616,46 @@ def run(
     )
 
 
+def _print_flagged(result: SeedResult) -> None:
+    """Report IQR outliers as a review list, distinct from the quarantines.
+
+    Every entry here was seeded (or already existed, in which case it shows
+    as ``dedupe``): the label is an invitation to look, not an exclusion.
+    """
+    if not result.iqr_flagged:
+        return
+    inserted_keys = {
+        (r.series_id, r.release_date) for r in result.inserted if r.iqr_flagged
+    }
+    print(
+        f"-- flagged (IQR outlier -- possible regime shift, review) "
+        f"({len(result.iqr_flagged)}) --"
+    )
+    print(
+        "   these rows ARE seeded; a large surprise is information about "
+        "sigma, not an error"
+    )
+    for e in result.iqr_flagged:
+        disposition = "inserted" if e.key in inserted_keys else "dedupe/skipped"
+        print(f"  {e.series_id:16} {e.release_date}  [{disposition}]  {e.detail}")
+    print()
+
+
 def _print_summary(result: SeedResult) -> None:
     print()
     print("=" * 72)
     print(f"seed_calendar_history: {'COMMIT' if result.committed else 'DRY RUN'}")
     print("=" * 72)
+    inserted_flagged = sum(1 for r in result.inserted if r.iqr_flagged)
     print(f"total usable source rows (forecast+actual present): {result.total_usable}")
     print(f"  unmapped (skip):           {len(result.unmapped)}")
     print(f"  range-quarantined (skip):  {len(result.range_quarantined)}")
-    print(f"  IQR-outlier (skip):        {len(result.iqr_quarantined)}")
     print(f"  dedupe-skipped:            {len(result.dedupe_skipped)}")
     print(f"  inserted:                  {len(result.inserted)}")
+    print(
+        f"  IQR-flagged (kept, review): {len(result.iqr_flagged)}"
+        f"  [of which inserted: {inserted_flagged}]"
+    )
     print()
 
     def _print_entries(title: str, entries: list[QuarantineEntry]) -> None:
@@ -530,7 +668,7 @@ def _print_summary(result: SeedResult) -> None:
 
     _print_entries("unmapped", result.unmapped)
     _print_entries("range-quarantined", result.range_quarantined)
-    _print_entries("IQR-outlier-quarantined", result.iqr_quarantined)
+    _print_flagged(result)
     if result.iqr_skipped_groups:
         print(f"-- IQR screen skipped for {len(result.iqr_skipped_groups)} group(s) --")
         for g in result.iqr_skipped_groups:
@@ -540,10 +678,12 @@ def _print_summary(result: SeedResult) -> None:
 
     if result.inserted:
         print(f"-- inserted ({len(result.inserted)}) --")
-        for country, title, rel_date, forecast, actual, series_id in result.inserted:
+        for r in result.inserted:
+            marker = " [FLAGGED]" if r.iqr_flagged else ""
             print(
-                f"  {country:4} {title:32} {rel_date}  f={forecast} a={actual}  "
-                f"(src={series_id})"
+                f"  {r.country:4} {r.ff_title:32} {r.release_date}  "
+                f"f={r.forecast_value} a={r.actual_value}  "
+                f"(src={r.series_id}){marker}"
             )
         print()
     if not result.committed and result.inserted:
