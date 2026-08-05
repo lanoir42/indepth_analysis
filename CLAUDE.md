@@ -394,11 +394,19 @@ skills/euro_macro/
 - **advisory 전용**: temporal gate와 달리 발행을 차단하지 않음. `publish` 시 자문 출력만.
   HIGH = 저장소 값과 모순 또는 불가능 값 / INFO = 참조 부재로 대조 불가.
 - LLM 산문 섹션만 감사 (결정론적 섹션 A/B/G/H·부록 I/IV는 DB 산출물이라 재대조가 순환논증).
-- **R-1 벤더 게이트 (2026-08)**: 벤더 EU 헤드라인 HICP 스트림이 2026년 내부 모순 상태로
-  확인됨(같은 참조월 actual 1.7 vs previous 2.6). `macro_alerts.SIGMA_ALERT_BLOCKLIST`가
-  `EUR CPI Flash Estimate y/y`·`EUR Final CPI y/y`의 sigma alert를 소스에서 억제
-  (Telegram·본문 인용 모두). 해제 조건: 2026년 EA HICP를 Eurostat 1차 보도자료와 대사(R6)
-  후 블록리스트 삭제. Core HICP·GDP·실업률은 R-1 검증 통과로 정상 작동.
+- **벤더 게이트 이력 (R-1→R6, 2026-08)**: 벤더 EU 헤드라인 HICP flash 체인이 2026-01
+  ECOICOP v2 방법론 단절월부터 **참조월 +2 shift** 상태였음이 Eurostat 1차 보도자료
+  대사(R6)로 확정됨. 오염 행은 `scripts/apply_r6_hicp_corrections.py`로 교정(삭제 5·
+  forecast NULL 3), 재유입은 시더의 `VENDOR_QUARANTINE`이 차단, 검증된 Eurostat
+  프린트는 `scripts/backfill_golden_hicp.py`로 백필. 해제 조건 이행으로
+  `SIGMA_ALERT_BLOCKLIST`는 비움(메커니즘은 향후 벤더 사고 대비 존치).
+- **골든 재검증 절차**: Eurostat final 발표(매월 중순) 후 골든 표를 확장하고
+  `uv run python scripts/apply_r6_hicp_corrections.py --verify` 재실행 — 위반 0 유지
+  확인. 다음 확장 시점: **2026-08-19** (2026-07 final 발표).
+- **flash 신뢰 승격 프로토콜**: `EUR CPI Flash Estimate y/y`의 첫 실전 sigma alert는
+  발송 전 인간 리뷰 1회를 거쳐 신뢰 승격 (교정 후 히스토리 n=8, σ≈0.11 재캘리브레이션
+  직후이므로). 백필된 `json+golden:r6` 2행(04-30·07-01)은 FF forecast 스테일 의심으로
+  리뷰 플래그 상태 — 피드 vs Eurostat 교차감사에서 제외(순환논증).
 - sigma alert는 여전히 "리뷰 플래그"이며 자동 판정 근거가 아님.
 
 ## 매크로 백본 (optionsdeck 연동)
