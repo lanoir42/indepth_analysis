@@ -394,8 +394,12 @@ skills/euro_macro/
 - **advisory 전용**: temporal gate와 달리 발행을 차단하지 않음. `publish` 시 자문 출력만.
   HIGH = 저장소 값과 모순 또는 불가능 값 / INFO = 참조 부재로 대조 불가.
 - LLM 산문 섹션만 감사 (결정론적 섹션 A/B/G/H·부록 I/IV는 DB 산출물이라 재대조가 순환논증).
-- **주의(R-1 미해소)**: 시딩된 JBlanked 예측 레벨이 FF와 다른 사례 존재 — sigma alert는
-  벤더 대사 완료 전까지 "리뷰 플래그"로만 사용, 자동 판정 근거로 쓰지 말 것.
+- **R-1 벤더 게이트 (2026-08)**: 벤더 EU 헤드라인 HICP 스트림이 2026년 내부 모순 상태로
+  확인됨(같은 참조월 actual 1.7 vs previous 2.6). `macro_alerts.SIGMA_ALERT_BLOCKLIST`가
+  `EUR CPI Flash Estimate y/y`·`EUR Final CPI y/y`의 sigma alert를 소스에서 억제
+  (Telegram·본문 인용 모두). 해제 조건: 2026년 EA HICP를 Eurostat 1차 보도자료와 대사(R6)
+  후 블록리스트 삭제. Core HICP·GDP·실업률은 R-1 검증 통과로 정상 작동.
+- sigma alert는 여전히 "리뷰 플래그"이며 자동 판정 근거가 아님.
 
 ## 매크로 백본 (optionsdeck 연동)
 
