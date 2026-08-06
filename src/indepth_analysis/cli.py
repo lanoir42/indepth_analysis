@@ -319,6 +319,26 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     euro.add_argument(
+        "--no-masterclass",
+        action="store_true",
+        help="Skip the monthly masterclass lecture (해설서)",
+    )
+    euro.add_argument(
+        "--masterclass-only",
+        action="store_true",
+        help="Generate only the masterclass from an existing report",
+    )
+    euro.add_argument(
+        "--masterclass-skip-evaluator",
+        action="store_true",
+        help="Skip the masterclass Evaluator/R2 pass (faster test runs)",
+    )
+    euro.add_argument(
+        "--masterclass-publish",
+        action="store_true",
+        help="Publish the masterclass to Notion after generation",
+    )
+    euro.add_argument(
         "-v", "--verbose", action="store_true", help="Enable verbose logging"
     )
 
@@ -1259,6 +1279,17 @@ def _run_report(args: argparse.Namespace) -> None:
             sys.exit(1)
 
         from indepth_analysis.skills.euro_macro import run_euro_macro
+        from indepth_analysis.skills.euro_macro.masterclass import run_masterclass
+
+        if getattr(args, "masterclass_only", False):
+            run_masterclass(
+                args.year,
+                args.month,
+                model=args.model,
+                skip_evaluator=getattr(args, "masterclass_skip_evaluator", False),
+                publish=getattr(args, "masterclass_publish", False),
+            )
+            return
 
         run_euro_macro(
             year=args.year,
@@ -1275,6 +1306,23 @@ def _run_report(args: argparse.Namespace) -> None:
             force_refresh=getattr(args, "force_refresh", False),
             alert_abs_surprise=getattr(args, "alert_abs_surprise", None),
         )
+
+        if not collect_only and not getattr(args, "no_masterclass", False):
+            try:
+                run_masterclass(
+                    args.year,
+                    args.month,
+                    model=args.model,
+                    skip_evaluator=getattr(
+                        args, "masterclass_skip_evaluator", False
+                    ),
+                    publish=getattr(args, "masterclass_publish", False),
+                )
+            except Exception as exc:
+                # 리포트는 이미 저장됨 — 해설서 실패는 non-fatal.
+                console.print(
+                    f"[yellow]마스터클래스 생성 실패 (리포트는 정상): {exc}[/yellow]"
+                )
     elif args.report_type == "euro-macro-weekly":
         from indepth_analysis.skills.euro_macro.weekly_brief import run_weekly_brief
 
