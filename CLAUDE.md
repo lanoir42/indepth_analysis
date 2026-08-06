@@ -153,7 +153,26 @@ uv run indepth report euro-macro --year 2026 --month 5
 #   --collect-only    수집만 하고 findings JSON 저장 (합성 건너뜀)
 #   --from-findings   기존 findings JSON으로 재합성 (재실행 빠름)
 #   --slide           PowerPoint 슬라이드 함께 생성
+#   --no-masterclass  마스터클래스(해설서) 생성 생략
+#   --masterclass-only         기존 리포트에서 해설서만 생성
+#   --masterclass-skip-evaluator / --masterclass-publish
 ```
+
+### 마스터클래스 (월간 해설서 — 리포트 생성 시 기본 함께 생성)
+
+월간 리포트를 교재로 유럽 매크로·정치 전문성을 매월 축적하는 강의 시리즈
+(`skills/euro_macro/masterclass/`). 7장 구조(이달의 지도 / 매크로 사건 심화 ×2 /
+정치·제도 심화 / 숫자의 역사(백본 코드 산출 표) / 전월과의 대화 / 다음 달 시험 문제
+/ 용어사전 증분), 강당 3~5만 자.
+
+- **누적 커리큘럼**: `reports/euro_macro/masterclass/curriculum_state.json` — 커버 주제
+  29개 카탈로그(매크로 18·정치 11), 용어사전, 예측 채점 루프(6장의 예측을 다음 강
+  5장에서 채점). 매월 기초 반복 없이 depth 승급(intro→core→advanced).
+- 파이프라인: 컨텍스트 팩(결정론) → 주제 확정 → 3콜 병렬 집필(Opus) → Evaluator→R2
+  → temporal/numeric advisory 게이트 → 저장 `masterclass/{Y}-{MM}-masterclass.md`.
+- 발행: `uv run indepth publish reports/euro_macro/masterclass/{Y}-{MM}-masterclass.md`
+  후 리포트 페이지와 상호 링크 (또는 `--masterclass-publish`).
+- 수치 규약: 산문 수치는 컨텍스트 팩 값만, 4장 표는 코드 생성분 그대로 삽입 (무날조).
 
 ### 단계별 실행 (긴 파이프라인 분리 실행)
 
