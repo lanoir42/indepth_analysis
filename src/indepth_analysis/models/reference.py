@@ -47,6 +47,9 @@ class Report(BaseModel):
     extraction_cost_usd: float = 0.0
     embedding_cost_usd: float = 0.0
     created_at: str | None = None
+    # kcif 서브시스템 확장 컬럼 (kcif/store.py migrate가 추가)
+    md_path: str | None = None
+    file_url: str | None = None
 
 
 class Chunk(BaseModel):

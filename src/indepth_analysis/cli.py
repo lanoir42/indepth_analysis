@@ -494,6 +494,10 @@ def build_parser() -> argparse.ArgumentParser:
     issue_search.add_argument("query", help="Search query")
     issue_search.add_argument("--n", type=int, default=10, help="Number of results")
 
+    # --- kcif (일일 팔로업·토픽 타임라인·검색) ---
+    from indepth_analysis.kcif.cli_kcif import register_kcif_parser
+    register_kcif_parser(sub)
+
     return p
 
 
@@ -1466,6 +1470,7 @@ KNOWN_COMMANDS = (
     "issue",
     "macro-backfill",
     "macro-series",
+    "kcif",
     "-h",
     "--help",
 )
@@ -1559,6 +1564,9 @@ def main() -> None:
             _run_macro_backfill(args)
         elif args.command == "macro-series":
             _run_macro_series(args)
+        elif args.command == "kcif":
+            from indepth_analysis.kcif.cli_kcif import run_kcif
+            sys.exit(run_kcif(args))
     except KeyboardInterrupt:
         console.print("\n[yellow]Cancelled.[/yellow]")
         sys.exit(1)

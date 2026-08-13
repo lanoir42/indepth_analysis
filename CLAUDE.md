@@ -303,6 +303,13 @@ uv run indepth process
 uv run indepth search "query"
 uv run indepth status
 
+# KCIF 팔로업 (일일 자동화 — 상세는 "KCIF 팔로업 시스템" 섹션)
+uv run indepth kcif daily [--date D] [--skip-crawl]   # 크롤→추출→토픽→일간 리포트 (launchd 18:00 KST)
+uv run indepth kcif find "질의" [--since D] [--until D] [--category C] [-n N]  # 로컬 FTS 검색
+uv run indepth kcif topics add|list|show|run|seed|archive|unarchive|delete
+uv run indepth kcif extract-backfill [--limit N]      # 기존 PDF → 텍스트 원본 .md 일괄
+uv run indepth kcif schedule install|uninstall|status # launchd 잡 관리
+
 # 시점 정합성 lint (시대착오/연도 오인 1차 거름망)
 uv run indepth lint-temporal <report.md> [--as-of YYYY-MM-DD] [--window-years N] [--fail-on-high]
 
@@ -317,6 +324,17 @@ uv run indepth macro backfill --weeks 4 [--browser-cookie "cf_clearance=..."]
 ```
 
 ---
+
+## KCIF 팔로업 시스템 (`src/indepth_analysis/kcif/`, 2026-08-13)
+
+매일 18:00 KST launchd 잡(`com.lanoir42.kcif-daily`)이 `indepth kcif daily`를 실행 — 거시경제·정치 변화를 텔레그램 토픽 트래커와 같은 형식으로 관측한다.
+
+- **파이프라인** (각 단계 실패 격리 — 어떤 실패에도 일간 리포트는 생성되고 `## 실행 상태` 섹션이 저널의 장애 알림 역할): ①당월 카탈로그 크롤(월초 3일은 전월 포함, 요청 간 0.7~1.2s sleep) → ②신규 PDF 다운로드(최근 14일 PENDING만, 실행당 50건 캡, 최근 7일 FAILED 자동 재시도) → ③텍스트 원본 .md 추출 → ④토픽 증분 업데이트(haiku) → ⑤Executive summary → ⑥일간 리포트 렌더.
+- **텍스트 원본 .md**: `references/KCIF_md/{발행일}_{rpt_no}_{제목슬러그}.md` — frontmatter + 페이지 텍스트 + 래스터 이미지(`img/`, 페이지 끝 `![그림 N]` 상대경로, 50px 미만·극단 종횡비 스킵; 벡터 차트는 미포착 한계). 리포트·토픽 덤프가 이 경로를 출처로 달아 nvim `gf`로 본문 열람. `references/`는 저널 스캔 밖.
+- **DB (references.db 확장, `kcif/store.py` idempotent migrate)**: `reports`에 `md_path`/`file_url` 컬럼 추가; `report_texts`(본문 미러) + `report_texts_fts`(FTS5 trigram, 트리거 동기화); `kcif_topics`/`kcif_topic_events`/`kcif_topic_evidence`(텔레그램 topic_tracker 미러, 근거 단위=리포트). **워터마크 = report_texts.id (적재 순 단조)** — 늦게 도착한 본문도 커서 앞에 놓임. LLM 성공 시에만 전진. busy_timeout 5000ms + `references/kcif_daily.lock` flock 동시 실행 가드.
+- **토픽**: 키워드 LIKE 후보(캡 40, 발췌 1,200자, 예산 12k) → haiku 1콜(관련 필터+이벤트+롤링 요약; bgilib ClaudeClient에는 json schema 강제가 없어 `kcif/llm.py`가 JSON 검증·재시도 담당). 시드 6개: FOMC·미국 통화정책 / 원달러·외국인 자금흐름 / 중국 경제·정책 / 일본 BOJ·엔화 / 미국 재정·국채시장 / 지정학(중동·우크라이나). 등록 시 워터마크는 최근 90일 시작점으로 초기화(674건 전체 스캔 폭주 방지). 활성 캡 12.
+- **리포트**: 일간 `reports/kcif/{date}-kcif-topics.md` (저널 라벨 `indepth_analysis/kcif`, mtime 스캔 자동 포착) — 실행 상태 / Executive summary(토픽별 1문장) / 오늘 신규 리포트(원본 .md 경로) / 토픽별 타임라인(텔레그램 topics.md 형식). 월간 `{YYYY-MM}-kcif-monthly.md`·분기 `{YYYY}-Qn-kcif-quarterly.md`는 별도 스케줄 없이 **매 실행 자가치유**(전월/전분기 파일 부재 시 생성 — launchd misfire·전원 off에 강건, sonnet 종합 서술 포함). 토픽별 풀 덤프는 `references/KCIF_md/topics/{slug}.md`(롤링 덮어쓰기, 스캔 밖).
+- **검색/수시 리포트**: `indepth kcif find`(FTS 3자+ MATCH bm25, 짧은 키워드 LIKE 폴백, 결과에 md 경로) — 기존 `indepth search`(임베딩 시맨틱)와 별개. 시맨틱 인덱스는 daily가 갱신하지 않음(월간 런북의 수동 `process` 시점까지 정체 — 의도된 결정).
 
 ## Skills System
 
