@@ -91,16 +91,17 @@ def _prompt_candidates(cands: list[dict]) -> tuple[str, list[dict]]:
 
 
 def update_topic(slug: str) -> dict:
-    """증분 업데이트 1회. 반환: {ok, reason, events_added, evidence_added, candidates}."""
+    """증분 업데이트 1회. 반환: {ok, reason, events_added, evidence_added,
+    candidates(프롬프트 포함분), scanned(스캔된 후보 전체)}."""
     topic = store.get_topic(slug)
     if not topic:
         return {"slug": slug, "ok": False, "reason": "not_found",
-                "events_added": 0, "evidence_added": 0, "candidates": 0}
+                "events_added": 0, "evidence_added": 0, "candidates": 0, "scanned": 0}
     cands = store.scan_candidates(topic, cap=CANDIDATE_CAP)
     if not cands:
         store.advance_watermark(slug, store.max_text_id())
         return {"slug": slug, "ok": True, "reason": "no_candidates",
-                "events_added": 0, "evidence_added": 0, "candidates": 0}
+                "events_added": 0, "evidence_added": 0, "candidates": 0, "scanned": 0}
 
     recent_events = store.timeline(slug)[-20:]
     timeline_txt = "\n".join(
@@ -124,7 +125,8 @@ def update_topic(slug: str) -> dict:
     if data is None:
         # LLM 실패 + 후보 존재 → 커서 유지, 다음 실행 재시도 (telegram 정책 미러)
         return {"slug": slug, "ok": False, "reason": "llm_failed",
-                "events_added": 0, "evidence_added": 0, "candidates": len(included)}
+                "events_added": 0, "evidence_added": 0,
+                "candidates": len(included), "scanned": len(cands)}
 
     by_id = {c["report_id"] for c in included}
     relevant = [int(r) for r in (data.get("relevant_report_ids") or [])
@@ -150,24 +152,38 @@ def update_topic(slug: str) -> dict:
 
     store.advance_watermark(slug, max(c["text_id"] for c in included))
     return {"slug": slug, "ok": True, "reason": "ok", "events_added": events_added,
-            "evidence_added": evidence_added, "candidates": len(included)}
+            "evidence_added": evidence_added,
+            "candidates": len(included), "scanned": len(cands)}
+
+
+MAX_BACKLOG_PASSES = 12  # 패스당 프롬프트 예산 내 ~8-10건 소화 → 런당 최대 ~100건/토픽
 
 
 def update_all() -> list[dict]:
-    """전 활성 토픽 업데이트. 후보가 CAP만큼 꽉 찼던 토픽은 이어서 재스캔
-    (한 실행에서 큰 백로그를 청크로 소화, 최대 5패스)."""
+    """전 활성 토픽 업데이트. 후보가 남아 있는 토픽은 이어서 재스캔
+    (한 실행에서 큰 백로그를 청크로 소화, 최대 MAX_BACKLOG_PASSES패스).
+
+    2026-08-18 버그픽스: 기존 중단 조건이 `candidates < CAP`이었는데
+    candidates는 프롬프트 예산(12k자) 절단 *후* 포함 건수(~9)라 항상
+    1패스에서 중단 — 백로그 소화 루프가 한 번도 돌지 않아 토픽들이
+    6월 백로그에 두 달 넘게 갇혔다. scanned(절단 전) 기준으로 판단하고,
+    남은 후보가 없어질 때(no_candidates)까지 계속한다."""
     results = []
     for t in store.list_topics(status="active"):
         agg = {"slug": t["slug"], "ok": True, "reason": "ok",
                "events_added": 0, "evidence_added": 0, "candidates": 0}
-        for _ in range(5):
+        for _ in range(MAX_BACKLOG_PASSES):
             res = update_topic(t["slug"])
             agg["ok"] = res["ok"]
             agg["reason"] = res["reason"]
             agg["events_added"] += res["events_added"]
             agg["evidence_added"] += res["evidence_added"]
             agg["candidates"] += res["candidates"]
-            if not res["ok"] or res["candidates"] < CANDIDATE_CAP:
+            # 중단: 실패(커서 유지, 다음 실행 재시도) 또는 후보 소진.
+            # scanned == candidates 이면서 scanned < CAP 이면 이번 패스로 전부
+            # 소화된 것 — 한 패스 더 돌아 no_candidates로 워터마크를 head까지
+            # 점프시킨다 (LLM 호출 없는 스캔 1회 비용).
+            if not res["ok"] or res["reason"] == "no_candidates":
                 break
         results.append(agg)
     return results
