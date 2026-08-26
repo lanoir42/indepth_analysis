@@ -3,7 +3,7 @@
     indepth kcif daily [--date D] [--skip-crawl]   # 18:00 KST launchd 잡 본체
     indepth kcif find "질의" [옵션]                 # 로컬 아카이브 FTS 검색
     indepth kcif extract-backfill [--limit N]      # 기존 PDF → .md 일괄 추출
-    indepth kcif topics add|list|show|run|archive|unarchive|delete|seed
+    indepth kcif topics add|list|show|run|resummarize|archive|unarchive|delete|seed
     indepth kcif schedule install|uninstall|status # launchd 잡 관리
 """
 
@@ -40,6 +40,9 @@ def register_kcif_parser(subparsers) -> None:
     ts = tsub.add_parser("show", help="토픽 상세 (요약+타임라인+근거)")
     ts.add_argument("slug")
     tsub.add_parser("run", help="전 활성 토픽 증분 업데이트 1회")
+    tsub.add_parser("resummarize",
+                    help="전 활성 토픽의 '현재 상황'을 기존 타임라인으로 재생성 "
+                         "(요약 프롬프트를 바꾼 뒤 소급 적용용)")
     tsub.add_parser("seed", help="시드 토픽 6개 등록 (기존 것은 스킵)")
     for name in ("archive", "unarchive", "delete"):
         tp = tsub.add_parser(name)
@@ -107,6 +110,10 @@ def run_kcif(args) -> int:
             for r in topics_mod.update_all():
                 print(f"  {r['slug']}: {r['reason']} (+이벤트 {r['events_added']}, "
                       f"+근거 {r['evidence_added']})")
+        elif cmd == "resummarize":
+            for r in topics_mod.resummarize_all():
+                print(f"  {r['slug']}: {'재생성' if r['ok'] else '실패(기존 유지)'} "
+                      f"({r['chars']}자)")
         elif cmd == "seed":
             added = topics_mod.seed_topics()
             print(f"시드 등록: {', '.join(added) if added else '(전부 이미 존재)'}")

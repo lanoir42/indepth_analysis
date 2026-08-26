@@ -39,8 +39,15 @@ TOPIC_UPDATE_SYSTEM = (
     "(3) 헤드라인은 한 줄 한국어 사실 서술 (120자 이내). "
     "(4) event_date는 해당 리포트의 발행일(YYYY-MM-DD). "
     "(5) report_ids는 반드시 후보 id 중에서만. "
-    "(6) summary는 토픽 상황 자체만 서술 (500자 이내) — 선별 과정 언급 금지. "
-    "(7) 매수/매도/추천 등 행동 지시 금지."
+    # 리포트가 '현재 상황'을 주 콘텐츠로 읽히도록 바뀌면서(2026-08-26 사용자
+    # 요청), 이 요약 하나만 읽고도 시간 흐름이 잡혀야 한다. 그래서 날짜를
+    # 본문에 박아 넣도록 요구한다 — 타임라인은 별첨으로 내려갔고, 날짜가 없는
+    # 요약은 "언제 일" 인지 알 수 없는 서술이 된다.
+    "(6) summary는 토픽 상황 자체만 서술 (600자 이내) — 선별 과정 언급 금지. "
+    "(7) **summary의 각 사실에 날짜를 함께 적을 것** — '(8/20)' 또는 "
+    "'8월 20일'처럼. 날짜 없는 서술은 언제 일인지 알 수 없어 쓸모가 없다. "
+    "시간 순서대로 쓰고, 가장 최근 상황을 마지막에 둘 것. "
+    "(8) 매수/매도/추천 등 행동 지시 금지."
 )
 
 
@@ -157,6 +164,67 @@ def update_topic(slug: str) -> dict:
 
 
 MAX_BACKLOG_PASSES = 12  # 패스당 프롬프트 예산 내 ~8-10건 소화 → 런당 최대 ~100건/토픽
+
+
+RESUMMARIZE_SYSTEM = (
+    "당신은 특정 토픽의 '현재 상황'을 한국어로 서술하는 국제금융 분석가입니다. "
+    "주어진 타임라인만으로 지금 상황을 종합합니다. 규칙: "
+    "(1) 타임라인에 없는 사실을 지어내지 말 것. "
+    "(2) **각 사실에 날짜를 함께 적을 것** — '(8/20)' 또는 '8월 20일'처럼. "
+    "날짜 없는 서술은 언제 일인지 알 수 없어 쓸모가 없다. "
+    "(3) 시간 순서대로 쓰고, 가장 최근 상황을 마지막에 둘 것. "
+    "(4) 600자 이내, 서술형 문단. 불릿·머리말·꼬리말 금지. "
+    "(5) 매수/매도/추천 등 행동 지시 금지."
+)
+
+
+def resummarize_topic(slug: str, *, events: int = 40) -> str | None:
+    """Regenerate a topic's '현재 상황' from its EXISTING timeline.
+
+    Exists so the summary prompt can evolve without waiting for new candidate
+    reports: `update_topic` only regenerates a summary when fresh candidates
+    arrive, so a prompt change (e.g. 2026-08-26's "put dates inline") would
+    otherwise take weeks to reach every topic. The timeline already carries
+    dates, which makes it the right input for a dated summary.
+
+    Returns the new summary, or None on LLM failure (the old one is kept).
+    """
+    topic = store.get_topic(slug)
+    if not topic:
+        return None
+    timeline = store.timeline(slug)[-events:]
+    if not timeline:
+        return None
+    tl = "\n".join(f"- {e['event_date']} — {e['headline']}" for e in timeline)
+    prompt = (
+        f"토픽: {topic['title']} ({slug})\n"
+        f"설명: {topic.get('description') or '(없음)'}\n"
+        f"오늘(KST): {_kst_today()}\n\n"
+        f"[타임라인 {len(timeline)}건]\n{tl}\n\n"
+        '응답 형식: {"summary": "..."}'
+    )
+    data = llm.call_json(prompt, system=RESUMMARIZE_SYSTEM, model="haiku",
+                         timeout=180, required_keys=("summary",))
+    if not data:
+        return None
+    summary = str(data.get("summary") or "").strip()
+    if not summary:
+        return None
+    store.update_summary(slug, summary)
+    # 저장된 값을 되읽어 반환 — 상한 절단이 적용된 실제 내용이어야 호출부의
+    # 글자 수 보고가 거짓말을 하지 않는다.
+    saved = store.get_topic(slug) or {}
+    return (saved.get("summary_text") or summary)
+
+
+def resummarize_all() -> list[dict]:
+    """Regenerate every active topic's 현재 상황. One haiku call per topic."""
+    out = []
+    for t in store.list_topics(status="active"):
+        new = resummarize_topic(t["slug"])
+        out.append({"slug": t["slug"], "ok": new is not None,
+                    "chars": len(new or "")})
+    return out
 
 
 def update_all() -> list[dict]:

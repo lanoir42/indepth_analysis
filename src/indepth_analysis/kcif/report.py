@@ -28,13 +28,6 @@ DOWNLOAD_RECENT_DAYS = 14   # PENDING 재시도 대상 published_date 윈도우
 FAILED_RETRY_DAYS = 7       # FAILED → PENDING 리셋 윈도우
 SLEEP_BASE_S = 0.7
 
-EXEC_SUMMARY_SYSTEM = (
-    "당신은 KCIF 토픽 트래킹 리포트의 Executive summary를 쓰는 분석가입니다. "
-    "각 토픽의 '현황/변화'를 객관적·건조하게 정확히 1문장(120자 이내)으로 요약합니다. "
-    "오늘 신규 이벤트가 있으면 그 변화를 우선 서술하고, 없으면 '변화 없음'을 명시. "
-    "제공된 정보에 없는 사실 금지, 매수/매도/추천 금지."
-)
-
 MONTHLY_SYNTH_SYSTEM = (
     "당신은 국제금융 리서치 요약 분석가입니다. 한 달(또는 분기)간의 토픽별 "
     "타임라인을 바탕으로 거시경제·정치 관점의 변화를 한국어로 종합 서술합니다. "
@@ -148,63 +141,44 @@ def _crawl_and_ingest(status: dict, target: date_cls) -> None:
     db.close()
 
 
-# ── Executive summary ──────────────────────────────────────────────────────
-
-def _build_exec_summary(active: list[dict], date_str: str) -> list[str]:
-    day_start = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=KST).timestamp()
-    parts = [f"오늘(KST): {date_str}", "", "[토픽 목록]"]
-    for t in active:
-        evs = [e["headline"] for e in store.timeline(t["slug"])
-               if float(e.get("created_ts") or 0) >= day_start][:5]
-        parts.append(f"- slug={t['slug']} | 제목={t['title']}")
-        parts.append(f"  현재 요약: {(t.get('summary_text') or '').strip()[:300] or '(요약 없음)'}")
-        parts.append(f"  오늘 신규: {' / '.join(evs) if evs else '(오늘 신규 이벤트 없음)'}")
-    parts.append('\n응답 형식: {"lines": [{"slug": "...", "line": "..."}]}')
-    data = llm.call_json("\n".join(parts), system=EXEC_SUMMARY_SYSTEM, model="haiku",
-                         timeout=120, required_keys=("lines",))
-    by_slug = {}
-    if data:
-        for item in (data.get("lines") or []):
-            s, line = str(item.get("slug") or ""), str(item.get("line") or "").strip()
-            if s and line:
-                by_slug[s] = line
-    out = []
-    for t in active:
-        line = by_slug.get(t["slug"])
-        if not line:
-            summary = (t.get("summary_text") or "").strip()
-            line = (summary.split(". ")[0][:120] + "…") if len(summary) > 120 else (summary or "(요약 대기)")
-        out.append(f"- **{t['title']}**: {line}")
-    return out
-
-
 # ── 렌더 ───────────────────────────────────────────────────────────────────
 
 def _date_minus(date_str: str, days: int) -> str:
     return (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=days)).strftime("%Y-%m-%d")
 
 
-def render_daily(date_str: str, status: dict, exec_lines: list[str],
-                 dump_paths: dict[str, str], new_reports: list[dict]) -> str:
+def render_daily(date_str: str, status: dict, dump_paths: dict[str, str],
+                 new_reports: list[dict]) -> str:
+    """Daily topic report.
+
+    2026-08-26 재구성 (사용자 요청): the Executive summary IS the report. It
+    used to be a list of one-sentence-per-topic lines above a wall of
+    timelines; reading it meant reading the same ground twice, once compressed
+    beyond usefulness and once at full length. Now each topic's **현재 상황**
+    — which already reads as a paragraph and now carries inline dates (see
+    topics.TOPIC_UPDATE_SYSTEM rule 7) — is the main content, and the raw
+    timelines move to an appendix for when someone wants to audit a claim.
+    """
     active = store.list_topics(status="active")
     lines = [
-        f"# KCIF 토픽 타임라인 — {date_str}",
+        f"# KCIF 토픽 브리프 — {date_str}",
         "",
-        f"활성 토픽 {len(active)}개 — KCIF(국제금융센터) 리포트 기반 자동 추적 타임라인입니다.",
+        f"활성 토픽 {len(active)}개 — KCIF(국제금융센터) 리포트 기반 자동 추적. "
+        f"아래 각 토픽의 '현재 상황'이 본문이고, 근거 타임라인은 문서 끝 별첨에 있습니다.",
         "",
-        "## 실행 상태",
+        "## Executive summary",
         "",
     ]
-    for key, label in (("crawl", "크롤"), ("download", "다운로드"),
-                       ("extract", "텍스트 추출"), ("topics", "토픽 업데이트"),
-                       ("exec", "요약")):
-        lines.append(f"- {label}: {status.get(key, '실행 안 됨')}")
-    lines.append("")
-
-    if exec_lines:
-        lines.append("## Executive summary")
+    for t in active:
+        summary = (t.get("summary_text") or "").strip()
+        lines.append(f"### {t['title']}")
         lines.append("")
-        lines.extend(exec_lines)
+        lines.append(summary or "_(요약 대기 — 아직 수집된 근거가 없습니다)_")
+        lines.append("")
+        ev = store.evidence_stats(t["slug"])
+        cats = ", ".join(f"{c} {n}건" for c, n in ev["categories"]) or "(없음)"
+        lines.append(f"<sub>근거 {ev['total']}건 — {cats} · "
+                     f"타임라인은 [별첨](#별첨-토픽별-타임라인)</sub>")
         lines.append("")
 
     lines.append(f"## 오늘 신규 리포트 ({len(new_reports)}건)")
@@ -218,20 +192,32 @@ def render_daily(date_str: str, status: dict, exec_lines: list[str],
         lines.append("- 오늘 수집된 신규 리포트가 없습니다.")
     lines.append("")
 
+    lines.append("## 실행 상태")
+    lines.append("")
+    for key, label in (("crawl", "크롤"), ("download", "다운로드"),
+                       ("extract", "텍스트 추출"), ("topics", "토픽 업데이트")):
+        lines.append(f"- {label}: {status.get(key, '실행 안 됨')}")
+    lines.append("")
+
+    # ── 별첨 ────────────────────────────────────────────────────────────────
+    lines.append("---")
+    lines.append("")
+    lines.append("## 별첨: 토픽별 타임라인")
+    lines.append("")
+    lines.append("각 토픽의 최근 14일 이벤트입니다. 본문 '현재 상황'의 근거를 "
+                 "날짜별로 확인할 때 봅니다.")
+    lines.append("")
     cutoff = _date_minus(date_str, 13)  # 최근 14일 윈도우
     for t in active:
         slug = t["slug"]
-        lines.append(f"## {t['title']} ({slug})")
+        lines.append(f"### {t['title']} ({slug})")
         lines.append("")
-        summary = (t.get("summary_text") or "").strip() or "(요약 대기 — 아직 수집된 근거가 없습니다)"
-        lines.append(f"- **현재 상황**: {summary}")
         events = store.timeline(slug)
         recent = [e for e in events if str(e.get("event_date") or "") >= cutoff]
         older = len(events) - len(recent)
         if len(recent) > 20:
             older += len(recent) - 20
             recent = recent[-20:]
-        lines.append("- **타임라인**:")
         if recent:
             for e in recent:
                 lines.append(f"- {e['event_date']} — {e['headline']}")
@@ -239,9 +225,6 @@ def render_daily(date_str: str, status: dict, exec_lines: list[str],
             lines.append("- 최근 14일 신규 이벤트 없음")
         if older:
             lines.append(f"- (이전 이벤트 {older}건 — 원문 파일 참조)")
-        ev = store.evidence_stats(slug)
-        cats = ", ".join(f"{c} {n}건" for c, n in ev["categories"]) or "(없음)"
-        lines.append(f"- **근거**: 총 {ev['total']}건 — 카테고리: {cats}")
         dump = dump_paths.get(slug)
         if dump:
             lines.append("- **원문 조회**:")
@@ -379,14 +362,10 @@ def run_daily(date_str: str | None = None, *, skip_crawl: bool = False) -> dict:
             status["topics"] = f"실패 — {str(e)[:120]}"
 
         active = store.list_topics(status="active")
-        try:
-            exec_lines = _build_exec_summary(active, date_s)
-            status["exec"] = "성공"
-        except Exception as e:
-            logger.exception("kcif exec summary failed")
-            exec_lines = [f"- **{t['title']}**: {(t.get('summary_text') or '(요약 대기)')[:120]}"
-                          for t in active]
-            status["exec"] = f"실패(폴백) — {str(e)[:80]}"
+        # 2026-08-26: 토픽당 한 문장 요약(haiku 1콜)을 폐기했다. 사용자 요청으로
+        # 각 토픽의 '현재 상황' 전문이 본문이 됐고, 그 위에 압축본을 또 얹으면
+        # 같은 내용을 두 번 읽게 된다. 요약 품질은 이제 topics.py의 토픽 업데이트
+        # 단계(현재 상황 생성)가 전적으로 책임진다.
 
         dump_paths = topics_mod.write_topic_dumps(active)
 
@@ -398,7 +377,7 @@ def run_daily(date_str: str | None = None, *, skip_crawl: bool = False) -> dict:
 
         REPORTS_OUT_DIR.mkdir(parents=True, exist_ok=True)
         out = REPORTS_OUT_DIR / f"{date_s}-kcif-topics.md"
-        out.write_text(render_daily(date_s, status, exec_lines, dump_paths, new_reports),
+        out.write_text(render_daily(date_s, status, dump_paths, new_reports),
                        encoding="utf-8")
 
         made = _self_heal_periodics(today, dump_paths, status)

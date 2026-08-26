@@ -329,11 +329,15 @@ uv run indepth macro backfill --weeks 4 [--browser-cookie "cf_clearance=..."]
 
 매일 18:00 KST launchd 잡(`com.lanoir42.kcif-daily`)이 `indepth kcif daily`를 실행 — 거시경제·정치 변화를 텔레그램 토픽 트래커와 같은 형식으로 관측한다.
 
-- **파이프라인** (각 단계 실패 격리 — 어떤 실패에도 일간 리포트는 생성되고 `## 실행 상태` 섹션이 저널의 장애 알림 역할): ①당월 카탈로그 크롤(월초 3일은 전월 포함, 요청 간 0.7~1.2s sleep) → ②신규 PDF 다운로드(최근 14일 PENDING만, 실행당 50건 캡, 최근 7일 FAILED 자동 재시도) → ③텍스트 원본 .md 추출 → ④토픽 증분 업데이트(haiku) → ⑤Executive summary → ⑥일간 리포트 렌더.
+- **파이프라인** (각 단계 실패 격리 — 어떤 실패에도 일간 리포트는 생성되고 `## 실행 상태` 섹션이 저널의 장애 알림 역할): ①당월 카탈로그 크롤(월초 3일은 전월 포함, 요청 간 0.7~1.2s sleep) → ②신규 PDF 다운로드(최근 14일 PENDING만, 실행당 50건 캡, 최근 7일 FAILED 자동 재시도) → ③텍스트 원본 .md 추출 → ④토픽 증분 업데이트(haiku, '현재 상황' 요약 포함) → ⑤일간 리포트 렌더. (2026-08-26: 토픽당 한 문장 요약을 만들던 별도 Executive summary 단계 폐기 — haiku 1콜 절감)
 - **텍스트 원본 .md**: `references/KCIF_md/{발행일}_{rpt_no}_{제목슬러그}.md` — frontmatter + 페이지 텍스트 + 래스터 이미지(`img/`, 페이지 끝 `![그림 N]` 상대경로, 50px 미만·극단 종횡비 스킵; 벡터 차트는 미포착 한계). 리포트·토픽 덤프가 이 경로를 출처로 달아 nvim `gf`로 본문 열람. `references/`는 저널 스캔 밖.
 - **DB (references.db 확장, `kcif/store.py` idempotent migrate)**: `reports`에 `md_path`/`file_url` 컬럼 추가; `report_texts`(본문 미러) + `report_texts_fts`(FTS5 trigram, 트리거 동기화); `kcif_topics`/`kcif_topic_events`/`kcif_topic_evidence`(텔레그램 topic_tracker 미러, 근거 단위=리포트). **워터마크 = report_texts.id (적재 순 단조)** — 늦게 도착한 본문도 커서 앞에 놓임. LLM 성공 시에만 전진. busy_timeout 5000ms + `references/kcif_daily.lock` flock 동시 실행 가드.
 - **토픽**: 키워드 LIKE 후보(캡 40, 발췌 1,200자, 예산 12k) → haiku 1콜(관련 필터+이벤트+롤링 요약; bgilib ClaudeClient에는 json schema 강제가 없어 `kcif/llm.py`가 JSON 검증·재시도 담당). 시드 6개: FOMC·미국 통화정책 / 원달러·외국인 자금흐름 / 중국 경제·정책 / 일본 BOJ·엔화 / 미국 재정·국채시장 / 지정학(중동·우크라이나). 등록 시 워터마크는 최근 90일 시작점으로 초기화(674건 전체 스캔 폭주 방지). 활성 캡 12.
-- **리포트**: 일간 `reports/kcif/{date}-kcif-topics.md` (저널 라벨 `indepth_analysis/kcif`, mtime 스캔 자동 포착) — 실행 상태 / Executive summary(토픽별 1문장) / 오늘 신규 리포트(원본 .md 경로) / 토픽별 타임라인(텔레그램 topics.md 형식). 월간 `{YYYY-MM}-kcif-monthly.md`·분기 `{YYYY}-Qn-kcif-quarterly.md`는 별도 스케줄 없이 **매 실행 자가치유**(전월/전분기 파일 부재 시 생성 — launchd misfire·전원 off에 강건, sonnet 종합 서술 포함). 토픽별 풀 덤프는 `references/KCIF_md/topics/{slug}.md`(롤링 덮어쓰기, 스캔 밖).
+- **리포트 구조 (2026-08-26 재구성, 사용자 요청)**: 일간 `reports/kcif/{date}-kcif-topics.md` (저널 라벨 `indepth_analysis/kcif`, mtime 스캔 자동 포착). **`## Executive summary`가 본문이고 각 토픽의 '현재 상황' 전문을 그대로 싣는다** → 오늘 신규 리포트 → 실행 상태 → `## 별첨: 토픽별 타임라인`.
+  - 종전에는 토픽당 한 문장 요약을 맨 위에 얹고 그 아래 타임라인을 길게 나열했다. 같은 내용을 두 번 읽게 되는데 위쪽은 쓸모없을 만큼 압축돼 있었다. 한 문장 요약은 **폐기**했다(사용자: "각각 한문장씩으로 요약한 내용을 쓰지 말고").
+  - **'현재 상황' 본문에는 날짜가 박혀 있어야 한다** (`(8월20일)` 식). 타임라인이 별첨으로 내려간 이상, 요약만 읽고도 시간 흐름이 잡혀야 하기 때문. `topics.TOPIC_UPDATE_SYSTEM` 규칙 (7)이 이를 강제한다.
+  - **`indepth kcif topics resummarize`**: 기존 타임라인만으로 '현재 상황'을 재생성한다. `update_topic`은 신규 후보가 있을 때만 요약을 갱신하므로, 프롬프트를 바꿔도 소급 적용되지 않는다 — 이 명령이 그 간극을 메운다.
+  - 요약 저장 상한은 `store.SUMMARY_MAX_CHARS`(900자)이고 **문장 경계에서 자른다**. 종전 500자 하드컷은 한 줄 요약일 땐 안 보였지만 본문이 되자 문장이 반토막 났다("…국채 바이백 규모를 $2"). 월간 `{YYYY-MM}-kcif-monthly.md`·분기 `{YYYY}-Qn-kcif-quarterly.md`는 별도 스케줄 없이 **매 실행 자가치유**(전월/전분기 파일 부재 시 생성 — launchd misfire·전원 off에 강건, sonnet 종합 서술 포함). 토픽별 풀 덤프는 `references/KCIF_md/topics/{slug}.md`(롤링 덮어쓰기, 스캔 밖).
 - **검색/수시 리포트**: `indepth kcif find`(FTS 3자+ MATCH bm25, 짧은 키워드 LIKE 폴백, 결과에 md 경로) — 기존 `indepth search`(임베딩 시맨틱)와 별개. 시맨틱 인덱스는 daily가 갱신하지 않음(월간 런북의 수동 `process` 시점까지 정체 — 의도된 결정).
 
 ## Skills System

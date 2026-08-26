@@ -363,10 +363,36 @@ def add_events(slug: str, events: list[dict]) -> int:
     return added
 
 
+# 요약 저장 상한. 프롬프트가 요구하는 600자보다 넉넉하게 둔다 — 폭주 방지가
+# 목적이지 편집이 목적이 아니다. 2026-08-26 이전에는 500자에서 무조건 잘랐는데,
+# 요약이 리포트의 **본문**이 되면서(한 줄 요약 폐기) 문장이 반토막 나는 게
+# 그대로 드러났다("…국채 바이백 규모를 $2").
+SUMMARY_MAX_CHARS = 900
+
+
+def _cut_at_sentence(text: str, limit: int) -> str:
+    """Trim to `limit` on a sentence boundary — never mid-word.
+
+    A summary that ends "…규모를 $2" reads as data loss; one that ends a
+    sentence early reads as a summary.
+    """
+    if len(text) <= limit:
+        return text
+    head = text[:limit]
+    for end in ("다. ", "다.\n", "요. ", "니다. ", ". "):
+        i = head.rfind(end)
+        if i > limit * 0.5:
+            return head[: i + len(end)].rstrip()
+    i = max(head.rfind("다."), head.rfind("."))
+    if i > limit * 0.5:
+        return head[: i + 1]
+    return head.rstrip() + "…"
+
+
 def update_summary(slug: str, summary: str) -> None:
     conn = get_conn()
     conn.execute("UPDATE kcif_topics SET summary_text = ?, summary_ts = ? WHERE slug = ?",
-                 (summary[:500], time.time(), slug))
+                 (_cut_at_sentence(summary, SUMMARY_MAX_CHARS), time.time(), slug))
     conn.commit()
 
 
