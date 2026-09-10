@@ -371,6 +371,31 @@ def build_parser() -> argparse.ArgumentParser:
         "-v", "--verbose", action="store_true", help="Enable verbose logging"
     )
 
+    # --- euro-macro-monthly-brief (v2: BI + WEEKLY index + Sonnet research) ---
+    mbrief = report_sub.add_parser(
+        "euro-macro-monthly-brief",
+        help="Monthly European macro brief v2 — fetch/backbone/research stages",
+    )
+    mbrief.add_argument("--month", required=True, help="Target month YYYY-MM")
+    mbrief.add_argument(
+        "--as-of", default=None, help="Cut-off date YYYY-MM-DD (default: today)"
+    )
+    mbrief.add_argument(
+        "--stage",
+        nargs="+",
+        default=["fetch", "backbone"],
+        choices=["fetch", "backbone", "market", "research", "series"],
+        help="Deterministic/Sonnet stages (Opus stages run via 팀 Noir Workflow)",
+    )
+    mbrief.add_argument(
+        "--axes", nargs="*", default=None, help="Research axes (prefixes, e.g. N02 N03)"
+    )
+    mbrief.add_argument(
+        "--root",
+        default=None,
+        help="Output root (default reports/euro_macro/monthly_brief/<month>)",
+    )
+
     # --- dev-welfare ---
     dw = report_sub.add_parser(
         "dev-welfare", help="Development & welfare report"
@@ -1336,6 +1361,16 @@ def _run_report(args: argparse.Namespace) -> None:
             no_evaluator=getattr(args, "no_evaluator", False),
             publish=not getattr(args, "no_publish", False),
         )
+    elif args.report_type == "euro-macro-monthly-brief":
+        from indepth_analysis.skills.euro_macro.monthly_brief import run_stages
+
+        run_stages(
+            month=args.month,
+            as_of=getattr(args, "as_of", None),
+            stages=args.stage,
+            axes=getattr(args, "axes", None),
+            root=getattr(args, "root", None),
+        )
     elif args.report_type == "dev-welfare":
         collect_only = getattr(args, "collect_only", False)
         from_findings = getattr(args, "from_findings", None)
@@ -1390,7 +1425,7 @@ def _run_report(args: argparse.Namespace) -> None:
     else:
         console.print(
             "[red]Unknown report type. Use 'euro-macro', 'euro-macro-weekly', "
-            "'dev-welfare', or 'issue-track'.[/red]"
+            "'euro-macro-monthly-brief', 'dev-welfare', or 'issue-track'.[/red]"
         )
         sys.exit(1)
 

@@ -268,6 +268,15 @@ uv run indepth report euro-macro-weekly --date 2026-05-29
 
 ---
 
+## 월간 유럽 브리프 v2 (monthly_brief, 2026-09-10)
+
+BI(Mendeley `EUROPE YYYYMM`)·주간 덱 유럽 인덱스·Sonnet 9축 리서치 → 팀 Noir(Opus 5 medium) →
+preview/spot/review 3단계 세트(허브·풀 리포트(산문)·해설서·장표(개조식)·`slide_data.json`).
+운영 매뉴얼 `docs/euro_macro_monthly_brief/MANUAL.md`, 변경 이력 `CHANGELOG.md`, 작업일지 `WORKLOG.md`, 버전
+`monthly_brief.__version__`. CLI: `uv run indepth report euro-macro-monthly-brief --month YYYY-MM
+--stage fetch backbone market research series`. Opus 단계는 회차 루트의 `_work/noir_workflow.js`
+(Workflow 툴). Briefing 링크는 절대경로만 유효.
+
 ## 주요 장애 대응
 
 | 증상 | 원인 | 대응 |
