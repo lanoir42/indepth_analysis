@@ -44,3 +44,15 @@
 
 **다음**: spot 착수 시(사용자 요청) 절차는 MANUAL §3 그대로 — Workflow가 델타 리포트까지 만들고, `finalize_phase.sh spot 2026-09-14 <report_rN> <slide_rN> <explainer_rN> <delta_rN>` → 등록 → Notion 4건(리포트·해설서·장표·델타).
 
+## 2026-09-10 (오후 2) — preview 델타 리포트 + 다음 단계 반영 목록 (PD)
+
+**지시**: "프리뷰에도 델타리포트는 만들 수 있지 않나요? 스팟에는 이를 반영하여 고칠 수 있는 부분이 있다면 스팟 버전이라고 고쳐서 포함, 무엇을 고쳤는지 주석과 함께."
+
+**수행**
+1. `roles/delta_report.md`에 preview 모드(기준물 = 구판 8월 리포트 8/6·마스터클래스 예측·8/10 유럽 장표·D2 §3) + 모든 단계 필수 `## 다음 단계 반영 목록`(PD/SD/RD-xx: 대상·현재 문장·문제·권고·근거·확정 시점). `roles/delta_writer.md`에 항목별 반영·보류·기각 처리 + 본문 `[Spot 버전 수정 PD-xx: …]` 주석(장표는 발표자 노트) + 변경 이력 첫 표 규칙. `noir_workflow.js`에도 Delta Report 단계 추가. 분량 기준 명시(공백 제외·1~6절).
+2. preview 델타 r1(Opus, 8분) → 사실 감사(HIGH 2·MEDIUM 9·LOW 8)·문체 감사(PASS, MEDIUM 2) → r2(26/27 반영). 채점 22항목: 적중 1·부분 10·불일치 6·미판정 5. PD 12건(병합 후). 게이트: 금지어 0·아니라 1·상대날짜 0·temporal HIGH 0·numeric HIGH 1(7월 참조값 대비 8월 3.3% 오탐).
+3. `2026-09-10_europe_macro_preview_delta.md` 확정, 허브 재생성(델타 링크)·Briefing 등록, Notion 발행: https://app.notion.com/p/Preview-8-8-10-Preview-2026-09-10-3d7294e2c07881af98aaf
+4. 잔존: 본문 공백 포함 12,677자(공백 제외 9,990자 — 기준을 공백 제외로 확정), BI 산출값 8건 라벨 의존(Quant 등재 전까지 반복), PD-01·02/06·03·15는 spot 착수 전 처리 필요.
+
+**spot 착수 시 추가 절차**: Delta Writer가 `drafts/preview_delta_final.md` §7 PD 목록을 항목별 처리(스팟 착수 전 4건은 Quant/정본 정정 선행) → 본문 주석 → 변경 이력 표. 미커밋 변경: roles 3종·workflow 2종·hub.py 문구·MANUAL·CHANGELOG·WORKLOG.
+

@@ -59,8 +59,8 @@ uv run python -m indepth_analysis.skills.euro_macro.monthly_brief.research \
 
 ### 3-4. 마감 (게이트·파일명·허브·등록·Notion)
 ```bash
-# preview (델타 없음)
-_work/finalize_phase.sh preview 2026-09-10 preview_report_r6 preview_slide_r6 preview_explainer_r6
+# preview (델타 = 전월 리포트·마지막 장표 대비)
+_work/finalize_phase.sh preview 2026-09-10 preview_report_r6 preview_slide_r6 preview_explainer_r6 preview_delta_r2
 # spot / review (6번째 인자 = 델타 리포트 회차, 7번째 = 이전 단계; 생략 시 spot→preview, review→spot)
 _work/finalize_phase.sh spot 2026-09-14 spot_report_rS spot_slide_rS spot_explainer_rS spot_delta_r2
 # 게이트 로그 _work/gates_{phase}.log 확인 후 등록
@@ -76,7 +76,7 @@ uv run indepth publish reports/euro_macro/monthly_brief/2026-08/2026-09-14_europ
 게이트: 금지어 0·`아니라/아닌` ≤3(장표 0)·상대날짜 0·`lint-temporal` HIGH 0·`lint-numeric` 자문. 허브 문서가 Briefing 진입점(요약·장표 텍스트·전 문서 절대경로 링크·BI PDF 링크·델타 리포트 링크).
 Notion 페이지 제목은 파일의 H1에서 나오므로 H1이 `[Spot] …`로 시작해야 한다(장표 파일의 H1도 태그를 붙이되, 덱에 넣는 슬라이드 제목은 본문의 `Macroeconomic Brief: 유럽` 그대로). `lint-numeric` HIGH는 자문(정규식 오탐 — OIS 확률을 DFR로 읽는 등)이며 발행을 막지 않는다.
 
-**변경 비교 리포트(델타 리포트, v2.1)**: spot·review Workflow의 마지막 단계 `Delta Report`가 이전 단계 최종본과 현재 세트 정합본을 비교한 독립 문서 `drafts/{phase}_delta_rN.md`를 쓴다(역할 `roles/delta_report.md`, 사실·문체 감사 1회 + 수정 1회). 근거는 결정론 차이 파일 `_work/delta_diff_{phase}.md`뿐이다 — 이 파일에 없는 변화는 서술 금지, 있는 유의미한 변화는 누락 금지가 감사 기준. 수동 재생성:
+**변경 비교 리포트(델타 리포트, v2.1)**: 세 단계 모두 Workflow의 마지막 단계 `Delta Report`가 독립 문서 `drafts/{phase}_delta_rN.md`를 쓴다(역할 `roles/delta_report.md`, 사실·문체 감사 1회 + 수정 1회). preview는 전월 구판 리포트·마스터클래스 예측·마지막 유럽 장표 대비(결정론 차이 파일 없이 문서 대조), spot은 preview 대비, review는 spot 대비. 모든 델타 리포트는 `## 다음 단계 반영 목록`(PD/SD/RD-xx: 대상·현재 문장·문제·권고·근거·확정 시점)을 담고, 다음 단계 Delta Writer가 항목별로 반영·보류·기각을 처리하며 반영 문장 뒤에 `[Spot 버전 수정 PD-xx: …]` 주석(장표는 발표자 노트)을 남긴다. 근거는 결정론 차이 파일 `_work/delta_diff_{phase}.md`뿐이다 — 이 파일에 없는 변화는 서술 금지, 있는 유의미한 변화는 누락 금지가 감사 기준. 수동 재생성:
 ```bash
 uv run python -m indepth_analysis.skills.euro_macro.monthly_brief.delta_diff \
   --root reports/euro_macro/monthly_brief/2026-08 --base preview --phase spot --cur-suffix rS

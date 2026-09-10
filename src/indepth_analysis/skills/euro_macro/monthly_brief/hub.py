@@ -102,7 +102,7 @@ def build_hub(root: Path, report_date: str, month: str, phase: str = "spot") -> 
         (
             f"- 변경 비교 리포트(이전 단계 대비): [{delta.name}]({abs_root / delta.name})"
             if delta.exists()
-            else "- 변경 비교 리포트: (첫 단계 preview에는 없음 — spot·review부터 생성)"
+            else "- 변경 비교 리포트: (미생성 — Workflow의 Delta Report 단계 산출을 finalize_phase.sh 6번째 인자로 마감)"
         ),
         f"- 개발 계획서: `{abs_root / '00_dev_plan.md'}` (저널 스캔 제외 문서)",
         "",

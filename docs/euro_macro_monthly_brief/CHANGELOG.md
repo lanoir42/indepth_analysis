@@ -2,7 +2,7 @@
 
 ## v2.1.0 — 2026-09-10 오후 (단계 태그 제목·델타 리포트)
 - **제목 규약**: 모든 최종 문서 H1을 `[Preview]`/`[Spot]`/`[Review]` 태그로 시작 — Notion·Briefing 페이지 제목에 단계가 드러나도록(사용자 지시). preview 4종 소급 적용, `finalize_phase.sh`가 점검.
-- **변경 비교 리포트(델타 리포트)** 신설: spot은 preview 대비, review는 spot 대비 독립 문서 `{date}_europe_macro_{phase}_delta.md`(요약·사실의 변화·예상 대 실제 채점·판단의 변화·유지된 서술·다음 확인 항목 + 채점표·수치 변경표·문서별 변경 절 부록). 역할 `roles/delta_report.md`, `noir_spot_workflow.js`에 `Delta Report` 단계(집필 → 사실·문체 감사 → 수정 1회).
+- **변경 비교 리포트(델타 리포트)** 신설: preview는 전월 구판 리포트·마스터클래스 예측·마지막 유럽 장표 대비, spot은 preview 대비, review는 spot 대비 독립 문서 `{date}_europe_macro_{phase}_delta.md`(요약·사실의 변화·예상 대 실제 채점·판단의 변화·유지된 서술·다음 확인 항목 + 채점표·수치 변경표·문서별 변경 절 부록). 역할 `roles/delta_report.md`, 두 워크플로 모두에 `Delta Report` 단계(집필 → 사실·문체 감사 → 수정 1회). 각 델타 리포트의 `다음 단계 반영 목록`(PD/SD/RD-xx)을 다음 단계가 항목별 처리하고 본문에 `[Phase 버전 수정 ID]` 주석을 남긴다(사용자 지시).
 - 결정론 차이 추출기 `monthly_brief/delta_diff.py`: 이전 단계 `*_final.md`와 현재 회차를 절(`##`) 단위로 대조(회차·날짜 괄호는 같은 절로 취급), 변경 절은 문장 단위 unified diff, `datapack_{base}.json`·`slide_data_{base}.json` 스냅샷과 레코드·차트 증감 → `_work/delta_diff_{phase}.md`. 델타 리포트는 이 파일 밖의 변화를 서술할 수 없다.
 - `finalize_phase.sh`: 6·7번째 인자(델타 회차·이전 단계), 데이터 정본 스냅샷, 제목 태그 점검, `delta_diff` 재실행, Notion 발행 명령 안내. `hub.py`: 델타 링크·등록 대상 포함, 제목 태그 선행.
 - Notion 발행을 표준 절차에 편입(단계마다 별도 페이지, 장표 페이지에 `slide_data.json`·`slide_spec_{phase}.json` 첨부). preview 3종 발행 2026-09-10.
