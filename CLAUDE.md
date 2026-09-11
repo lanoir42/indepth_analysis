@@ -487,3 +487,13 @@ Check `requests/` directory for pending task requests from the orchestrator. The
 
 ## Portfolio Data Requirements
 When writing reports that reference TJAM portfolio positions, ALWAYS read the latest TJAM daily report from `~/projects/TJAM/reports/` to verify current holdings and weights. Never assume positions — hallucination risk is high.
+
+## Briefing의 KCIF 토픽 설정 연결 (2026-09-11)
+
+`uv run indepth kcif settings`는 토픽 설정 JSON snapshot을 반환한다.
+`uv run indepth kcif settings --write`는 stdin의 `{revision, topics}`를 검증해 원본
+kcif_topics에 저장한다. Briefing 리포트 설정이 사용하는 고정 CLI이며 LLM·수집·발행·일정 변경을 실행하지 않는다.
+변경은 다음 정기 실행부터 적용한다. kcif_daily.lock을 공유해 실행 중 변경을 막고,
+revision으로 동시 편집을 막는다. 기존 요약·이력·watermark는 유지하고 삭제 대신 비활성화한다.
+활성 최대 12개, 새 토픽은 90일 이전 watermark로 시작한다. 구현 `kcif/settings.py`, 검증 `tests/test_kcif_settings.py`.
+추적: lanoir42/orchestrator#46. 이 연결은 indepth의 LLM 공급자 마이그레이션을 의미하지 않는다.

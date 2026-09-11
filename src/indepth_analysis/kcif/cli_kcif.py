@@ -15,6 +15,8 @@ import json
 def register_kcif_parser(subparsers) -> None:
     p = subparsers.add_parser("kcif", help="KCIF 팔로업 (일일 크롤·토픽 타임라인·검색)")
     sub = p.add_subparsers(dest="kcif_cmd", required=True)
+    settings = sub.add_parser("settings", help="리포트 토픽 설정 JSON 조회/저장 (생성 실행 없음)")
+    settings.add_argument("--write", action="store_true", help="stdin의 revision/topics를 저장")
 
     d = sub.add_parser("daily", help="일일 파이프라인: 크롤→추출→토픽→리포트 (18:00 KST 잡)")
     d.add_argument("--date", default=None, help="대상 날짜 YYYY-MM-DD (기본: 오늘 KST)")
@@ -54,6 +56,10 @@ def register_kcif_parser(subparsers) -> None:
 
 def run_kcif(args) -> int:
     from indepth_analysis.kcif import store
+
+    if args.kcif_cmd == "settings":
+        from indepth_analysis.kcif.settings import run_cli
+        return run_cli(args.write)
 
     if args.kcif_cmd == "daily":
         from indepth_analysis.kcif.report import run_daily
