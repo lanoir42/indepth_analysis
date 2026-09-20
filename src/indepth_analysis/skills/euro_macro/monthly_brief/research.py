@@ -17,6 +17,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import hashlib
 import re
 from datetime import date
 from pathlib import Path
@@ -79,9 +80,11 @@ async def _run_claude(
             out, er = await asyncio.wait_for(proc.communicate(), timeout=TIMEOUT_S)
         except TimeoutError:
             proc.kill()
+            await proc.wait()
             err.write_text("timeout\nexit=124\n", encoding="utf-8")
             return 124
-        out_md.write_text(out.decode("utf-8", "replace"), encoding="utf-8")
+        if proc.returncode == 0:
+            out_md.write_text(out.decode("utf-8", "replace"), encoding="utf-8")
         err.write_text(
             er.decode("utf-8", "replace") + f"\nexit={proc.returncode}\n",
             encoding="utf-8",
@@ -107,6 +110,24 @@ def parse_series_json(text: str) -> dict | None:
         return None
 
 
+def _digest(text):
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+def _completed(output, prompt, receipt):
+    try:
+        state = json.loads(receipt.read_text())
+        return (state.get("prompt") == _digest(prompt) and state.get("model") == MODEL
+                and state.get("output") == _digest(output.read_text()))
+    except (OSError, ValueError):
+        return False
+
+
+def _save_completion(output, prompt, receipt):
+    receipt.write_text(json.dumps({"prompt": _digest(prompt), "model": MODEL,
+                                   "output": _digest(output.read_text())}))
+
+
 async def run(
     root: Path,
     month: str,
@@ -128,16 +149,20 @@ async def run(
     )
     sem = asyncio.Semaphore(MAX_CONCURRENCY)
     tasks: dict[str, asyncio.Task] = {}
+    completions = {}
     for key in axes:
         full = next((k for k in pr.RESEARCH_AXES if k.startswith(key)), None)
         if not full:
             raise SystemExit(f"unknown axis {key}")
         name = f"{full}{suffix}"
         out = research_dir / f"{name}.md"
-        if out.exists() and out.stat().st_size > 2000:
-            print(f"skip {name} (exists)")
-            continue
         prompt = build_axis_prompt(full, month, as_of, known)
+        receipt = logs / f"{name}.complete.json"
+        if _completed(out, prompt, receipt):
+            print(f"skip {name} (validated receipt)")
+            continue
+        completions[name] = (out, prompt, receipt)
+        receipt.unlink(missing_ok=True)
         (logs / f"{name}.prompt.txt").write_text(prompt, encoding="utf-8")
         tasks[name] = asyncio.create_task(
             _run_claude(prompt, out, logs / f"{name}.err", sem)
@@ -147,10 +172,14 @@ async def run(
         if not full:
             raise SystemExit(f"unknown series agent {key}")
         out = research_dir / f"{full}.md"
-        if (data_dir / f"series_{full}.json").exists():
-            print(f"skip {full} (exists)")
-            continue
         prompt = build_series_prompt(full, as_of)
+        destination = data_dir / f"series_{full}.json"
+        receipt = logs / f"{full}.complete.json"
+        if _completed(destination, prompt, receipt):
+            print(f"skip {full} (validated receipt)")
+            continue
+        completions[full] = (destination, prompt, receipt)
+        receipt.unlink(missing_ok=True)
         (logs / f"{full}.prompt.txt").write_text(prompt, encoding="utf-8")
         tasks[full] = asyncio.create_task(
             _run_claude(prompt, out, logs / f"{full}.err", sem)
@@ -167,6 +196,12 @@ async def run(
                 )
             else:
                 results[key] = 65  # EX_DATAERR
+        if results[key] == 0:
+            output, prompt, receipt = completions[key]
+            if not output.exists() or not output.read_text().strip():
+                results[key] = 65
+            else:
+                _save_completion(output, prompt, receipt)
         print(f"{key}: exit={results[key]}")
     return results
 
