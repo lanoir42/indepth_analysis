@@ -19,6 +19,10 @@ def issue_web_search(
     timeout: int = _TIMEOUT,
 ) -> list[dict]:
     """Run a Claude CLI web search and return parsed JSON array."""
+    from indepth_analysis.report_cli import enabled, complete
+    if enabled():
+        return _parse_json_array(complete(prompt, tier=model, timeout=timeout, web=True))
+
     with span(
         project="indepth_analysis",
         provider="anthropic",

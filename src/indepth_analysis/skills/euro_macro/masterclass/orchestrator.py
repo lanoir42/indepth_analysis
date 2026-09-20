@@ -1179,6 +1179,10 @@ class MasterclassOrchestrator:
         retries: int = 1,
     ) -> str:
         """Claude CLI call with one retry; no extra tools (pure generation)."""
+        from indepth_analysis.report_cli import enabled
+        if enabled():
+            # The transport owns the two attempts and their shared deadline.
+            return self._exec_claude(user_prompt, system_prompt, timeout, label)
         last_exc: Exception | None = None
         for attempt in range(retries + 1):
             try:
@@ -1207,6 +1211,9 @@ class MasterclassOrchestrator:
         label: str,
     ) -> str:
         """Single ``claude -p`` subprocess round-trip. Returns parsed text."""
+        from indepth_analysis.report_cli import enabled, complete
+        if enabled():
+            return complete(system_prompt + "\n\n" + user_prompt, tier=self.model, timeout=timeout)
         cmd = [
             "claude",
             "-p", user_prompt,

@@ -65,6 +65,9 @@ def _collect_text_from_stream(stdout: str) -> str:
 
 def _run_claude(prompt: str, system: str, model: str, timeout: int = 300) -> str:
     """Run a Claude CLI subprocess and return the text output."""
+    from indepth_analysis.report_cli import enabled, complete
+    if enabled():
+        return complete(system + "\n\n" + prompt, tier=model, timeout=timeout)
     with span(
         project="indepth_analysis",
         provider="anthropic",

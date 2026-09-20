@@ -31,6 +31,20 @@ def _strip_fences(text: str) -> str:
 def call_json(prompt: str, *, system: str, model: str = "haiku",
               timeout: int = 180, required_keys: tuple[str, ...] = ()) -> dict | None:
     """JSON 응답 1회 + 파싱 실패 시 1회 재시도. 최종 실패는 None."""
+    from indepth_analysis.report_cli import enabled, complete, ReportCLIError
+    if enabled():
+        def validate(text):
+            value = json.loads(_strip_fences(text))
+            if not isinstance(value, dict) or any(key not in value for key in required_keys):
+                raise ValueError("JSON contract")
+        try:
+            text = complete(system + _JSON_ONLY + "\n\n" + prompt, tier=model,
+                            timeout=timeout, validate=validate)
+            return json.loads(_strip_fences(text))
+        except ReportCLIError:
+            logger.warning("kcif report providers unavailable; watermark must stay unchanged")
+            return None
+
     from bgilib.llm.claude import ClaudeClient, LLMError, LLMTimeoutError
 
     client = ClaudeClient(model=model, timeout=timeout)
@@ -55,6 +69,14 @@ def call_json(prompt: str, *, system: str, model: str = "haiku",
 def call_text(prompt: str, *, system: str, model: str = "sonnet",
               timeout: int = 300) -> str | None:
     """자유 텍스트 1회 (월간/분기 종합 서술용). 실패는 None."""
+    from indepth_analysis.report_cli import enabled, complete, ReportCLIError
+    if enabled():
+        try:
+            return complete(system + "\n\n" + prompt, tier=model, timeout=timeout)
+        except ReportCLIError:
+            logger.warning("kcif report providers unavailable")
+            return None
+
     from bgilib.llm.claude import ClaudeClient, LLMError, LLMTimeoutError
 
     try:

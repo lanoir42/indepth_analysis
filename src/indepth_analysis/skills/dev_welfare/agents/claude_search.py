@@ -56,6 +56,10 @@ def claude_web_search(
         category=category,
     )
 
+    from indepth_analysis.report_cli import enabled, complete
+    if enabled():
+        return _parse_findings(complete(prompt, tier=model, timeout=_TIMEOUT, web=True), category)
+
     with span(
         project="indepth_analysis",
         provider="anthropic",

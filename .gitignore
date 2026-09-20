@@ -38,3 +38,7 @@ presentations/
 # SQLite WAL sidecars (never commit)
 *.db-wal
 *.db-shm
+
+# Local subscription report transport state
+/data/report_inference.db*
+/data/report-fallback.enabled

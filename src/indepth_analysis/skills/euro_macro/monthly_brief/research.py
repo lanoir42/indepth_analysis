@@ -63,6 +63,16 @@ async def _run_claude(
     prompt: str, out_md: Path, err: Path, sem: asyncio.Semaphore
 ) -> int:
     async with sem:
+        from indepth_analysis.report_cli import enabled, acomplete, ReportCLIError
+        if enabled():
+            try:
+                text = await acomplete(prompt, tier=MODEL, timeout=TIMEOUT_S, web=True)
+            except ReportCLIError as error:
+                err.write_text(f"report_inference:{error}\nexit=1\n", encoding="utf-8")
+                return 1
+            out_md.write_text(text, encoding="utf-8")
+            err.write_text("exit=0\n", encoding="utf-8")
+            return 0
         proc = await asyncio.create_subprocess_exec(
             "claude",
             "-p",

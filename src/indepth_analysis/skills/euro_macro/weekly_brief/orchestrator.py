@@ -157,6 +157,9 @@ class WeeklyBriefOrchestrator:
     async def _run_agent(self, prompt: str, name: str) -> str:
         """Run a single Claude CLI agent (async). Returns parsed text or ''."""
         timeout = self.AGENT_TIMEOUTS.get(name, self.AGENT_TIMEOUT)
+        from indepth_analysis.report_cli import enabled, acomplete
+        if enabled():
+            return await acomplete(prompt, tier=self.model, timeout=timeout, web=True)
         cmd = [
             "claude",
             "-p", prompt,
@@ -289,6 +292,9 @@ class WeeklyBriefOrchestrator:
         label: str,
     ) -> str:
         """Synchronous Claude CLI call — no extra tools, pure text generation."""
+        from indepth_analysis.report_cli import enabled, complete
+        if enabled():
+            return complete(system_prompt + "\n\n" + user_prompt, tier=self.model, timeout=timeout)
         cmd = [
             "claude",
             "-p", user_prompt,

@@ -216,42 +216,46 @@ class DevWelfareOrchestrator:
                 f"Model {model!r} not in allowed list: {sorted(_ALLOWED_MODELS)}"
             )
 
-        with span(
-            project="indepth_analysis",
-            provider="anthropic",
-            model=model,
-            call_kind=CallKind.CLI_SUBPROCESS,
-            function_name="DevWelfareOrchestrator._synthesize",
-        ) as obs_handle:
-            obs_handle.set_text_len(len(prompt))
-            result = subprocess.run(
-                [
-                    "claude",
-                    "-p",
-                    prompt,
-                    "--model",
-                    model,
-                    "--output-format",
-                    "text",
-                ],
-                capture_output=True,
-                text=True,
-                timeout=300,
-            )
-
-            if result.returncode != 0:
-                obs_handle.set_error(f"exit {result.returncode}")
-                raise RuntimeError(
-                    f"Claude CLI failed (exit {result.returncode}): {result.stderr}"
+        from indepth_analysis.report_cli import enabled, complete
+        if enabled():
+            body = complete(prompt, tier=model, timeout=300)
+        else:
+            with span(
+                project="indepth_analysis",
+                provider="anthropic",
+                model=model,
+                call_kind=CallKind.CLI_SUBPROCESS,
+                function_name="DevWelfareOrchestrator._synthesize",
+            ) as obs_handle:
+                obs_handle.set_text_len(len(prompt))
+                result = subprocess.run(
+                    [
+                        "claude",
+                        "-p",
+                        prompt,
+                        "--model",
+                        model,
+                        "--output-format",
+                        "text",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=300,
                 )
 
-            try:
-                cli_result = parse_stream_json_text(result.stdout)
-                obs_handle.set_usage(cli_result.usage)
-            except Exception:
-                logger.debug("usage extraction failed for dev_welfare synthesize")
+                if result.returncode != 0:
+                    obs_handle.set_error(f"exit {result.returncode}")
+                    raise RuntimeError(
+                        f"Claude CLI failed (exit {result.returncode}): {result.stderr}"
+                    )
 
-            body = result.stdout.strip()
+                try:
+                    cli_result = parse_stream_json_text(result.stdout)
+                    obs_handle.set_usage(cli_result.usage)
+                except Exception:
+                    logger.debug("usage extraction failed for dev_welfare synthesize")
+
+                body = result.stdout.strip()
         sections = self._parse_sections(body)
         title = self._build_title(year, month, week, report_type)
 
@@ -263,7 +267,7 @@ class DevWelfareOrchestrator:
             report_type=report_type,
             sections=sections,
             agent_results=agent_results,
-            model_used=model,
+            model_used=getattr(body, "model", model),
             total_findings=total_findings,
             generated_at=datetime.now(UTC).isoformat(),
         )

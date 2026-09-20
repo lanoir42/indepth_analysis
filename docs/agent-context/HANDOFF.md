@@ -58,3 +58,7 @@ KCIF 원본 설정의 revision 충돌·같은 daily lock·입력 검증·활성 
 `tests/test_kcif_settings.py` 5개 통과. Briefing에서 실제 CLI 조회로 기존 7개 활성 토픽 연결 확인.
 실제 설정 저장/생성/발행/일정 변경은 실행하지 않았다. 추적 lanoir42/orchestrator#46.
 기존 배치의 추론 공급자 전환은 이번 변경에 포함하지 않는다.
+
+## 2026-09-20 리포트 폴백 구현
+
+이 절이 앞선 환경 구성 전용 상태보다 최신입니다. [구현·롤백·미검증 사항](REPORT-FALLBACK.md)을 확인합니다. 기존 CLAUDE.md와 사용자 작업은 보존했습니다.

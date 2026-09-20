@@ -317,6 +317,10 @@ class WebResearchAgent(BaseResearchAgent):
             query = topic.query_ko.format(year=year, month=month)
             domains_str = ", ".join(topic.target_domains)
             prompt = _TOPIC_PROMPT.format(query=query, domains=domains_str)
+            from indepth_analysis.report_cli import enabled, acomplete
+            if enabled():
+                text = await acomplete(prompt, tier=self.model, timeout=self.timeout_per_topic, web=True)
+                return _parse_findings(text, topic.category)
 
             cmd = [
                 "claude",

@@ -59,10 +59,19 @@ def _make_run_id() -> str:
 def _extract_slug(topic: str) -> str:
     """Use Claude to extract a slug from the topic."""
     prompt = SLUG_EXTRACT_PROMPT.format(topic=topic)
-    items = issue_web_search(prompt, model="claude-haiku-4-5-20251001", timeout=30)
     # issue_web_search returns JSON array, but slug prompt returns plain text
     # Fall back to simple slug generation
     raw = ""
+    from indepth_analysis.report_cli import enabled, complete, ReportCLIError
+    if enabled():
+        try:
+            raw = complete(prompt, tier="haiku", timeout=30).strip().lower()
+        except ReportCLIError:
+            pass
+        if raw and re.fullmatch(r"[a-z0-9-]+", raw):
+            return raw[:60]
+        words = re.sub(r"[^a-z0-9\s]", "", topic.lower()).split()[:5]
+        return "-".join(words)[:60] or "issue"
     try:
         with span(
             project="indepth_analysis",
@@ -96,7 +105,6 @@ def _extract_slug(topic: str) -> str:
 def _extract_keywords(topic: str) -> list[str]:
     """Use Claude Haiku to extract search keywords."""
     prompt = KEYWORDS_EXTRACT_PROMPT.format(topic=topic)
-    items = issue_web_search(prompt, model="claude-haiku-4-5-20251001", timeout=30)
     if items and all(isinstance(k, str) for k in items):
         return [str(k) for k in items[:8]]
     return [topic]
@@ -146,6 +154,10 @@ def _synthesize(
 
     if model not in _ALLOWED_MODELS:
         raise ValueError(f"Model {model!r} not in allowed list")
+
+    from indepth_analysis.report_cli import enabled, complete
+    if enabled():
+        return complete(full_prompt, tier=model, timeout=600)
 
     with span(
         project="indepth_analysis",
