@@ -1,4 +1,7 @@
-"""launchd 스케줄 — 매일 18:00 KST `indepth kcif daily` (단발 잡).
+"""launchd 스케줄 — 평일(월~금) 18:00 KST `indepth kcif daily` (단발 잡).
+
+2026-09-23: KCIF가 토·일에 쉬므로 주말 발화를 뺐다. 정본 판정은 코드
+(`report.run_daily`의 주말 가드)이고 이 스케줄은 헛실행을 줄이는 보조다.
 
 tgagent install.py 패턴 미러 (실행 시점 경로 resolve → drift 없음). 단발
 StartCalendarInterval 잡이므로 KeepAlive 없음. 시크릿은 절대 넣지 않는다.
@@ -17,6 +20,7 @@ from indepth_analysis.kcif.paths import LOG_DIR, PROJECT_ROOT
 LABEL = "com.lanoir42.kcif-daily"
 PLIST_PATH = Path.home() / "Library" / "LaunchAgents" / f"{LABEL}.plist"
 HOUR, MINUTE = 18, 0
+WEEKDAYS = (1, 2, 3, 4, 5)   # launchd Weekday: 0/7=일, 1=월 … 5=금
 
 
 def _build_plist() -> dict:
@@ -30,7 +34,9 @@ def _build_plist() -> dict:
         "ProgramArguments": [uv, "run", "--project", str(PROJECT_ROOT),
                              "indepth", "kcif", "daily"],
         "WorkingDirectory": str(PROJECT_ROOT),
-        "StartCalendarInterval": {"Hour": HOUR, "Minute": MINUTE},
+        "StartCalendarInterval": [
+            {"Weekday": wd, "Hour": HOUR, "Minute": MINUTE} for wd in WEEKDAYS
+        ],
         "RunAtLoad": False,
         "StandardOutPath": str(LOG_DIR / "kcif-daily.log"),
         "StandardErrorPath": str(LOG_DIR / "kcif-daily.err.log"),

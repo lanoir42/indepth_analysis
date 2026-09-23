@@ -1,6 +1,6 @@
 """`indepth kcif` 서브커맨드 — argparse 배선 (cli.py 침습 최소화).
 
-    indepth kcif daily [--date D] [--skip-crawl]   # 18:00 KST launchd 잡 본체
+    indepth kcif daily [--date D] [--skip-crawl] [--force]  # 평일 18:00 KST launchd 잡 본체
     indepth kcif find "질의" [옵션]                 # 로컬 아카이브 FTS 검색
     indepth kcif extract-backfill [--limit N]      # 기존 PDF → .md 일괄 추출
     indepth kcif topics add|list|show|run|resummarize|archive|unarchive|delete|seed
@@ -21,6 +21,8 @@ def register_kcif_parser(subparsers) -> None:
     d = sub.add_parser("daily", help="일일 파이프라인: 크롤→추출→토픽→리포트 (18:00 KST 잡)")
     d.add_argument("--date", default=None, help="대상 날짜 YYYY-MM-DD (기본: 오늘 KST)")
     d.add_argument("--skip-crawl", action="store_true", help="크롤/다운로드/추출 스킵 (토픽·리포트만)")
+    d.add_argument("--force", action="store_true",
+                   help="주말·휴일(신규 0건) 판정을 무시하고 리포트를 만든다")
 
     f = sub.add_parser("find", help="로컬 KCIF 아카이브 전문 검색 (FTS5, 오프라인)")
     f.add_argument("query")
@@ -50,7 +52,7 @@ def register_kcif_parser(subparsers) -> None:
         tp = tsub.add_parser(name)
         tp.add_argument("slug")
 
-    s = sub.add_parser("schedule", help="launchd 18:00 KST 잡 관리")
+    s = sub.add_parser("schedule", help="launchd 평일 18:00 KST 잡 관리")
     s.add_argument("schedule_cmd", choices=["install", "uninstall", "status"])
 
 
@@ -63,7 +65,8 @@ def run_kcif(args) -> int:
 
     if args.kcif_cmd == "daily":
         from indepth_analysis.kcif.report import run_daily
-        res = run_daily(args.date, skip_crawl=args.skip_crawl)
+        res = run_daily(args.date, skip_crawl=args.skip_crawl,
+                        force=getattr(args, "force", False))
         print(json.dumps(res, ensure_ascii=False, indent=2))
         return 0
 
@@ -136,7 +139,7 @@ def run_kcif(args) -> int:
     if args.kcif_cmd == "schedule":
         from indepth_analysis.kcif import schedule
         if args.schedule_cmd == "install":
-            print(f"설치됨: {schedule.install()} (매일 18:00 KST)")
+            print(f"설치됨: {schedule.install()} (평일 월~금 18:00 KST)")
         elif args.schedule_cmd == "uninstall":
             print("제거됨" if schedule.uninstall() else "미설치 상태")
         else:

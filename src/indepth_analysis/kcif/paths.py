@@ -20,6 +20,9 @@ MD_DIR = REFERENCES_DIR / "KCIF_md"          # 추출 텍스트 원본 (저널 �
 IMG_DIR = MD_DIR / "img"
 TOPIC_DUMP_DIR = MD_DIR / "topics"           # 토픽별 풀 덤프 (롤링 덮어쓰기)
 REPORTS_OUT_DIR = PROJECT_ROOT / "reports" / "kcif"  # 저널 스캔 대상
+# 주말·휴일로 일간 리포트를 쉬었다는 표지 — `.` 접두 디렉토리라 저널 스캔 밖이다.
+# orchestrator 예정 리포트 카드가 이 표지를 보고 그날 KCIF 항목을 뺀다.
+SKIP_MARKER_DIR = REPORTS_OUT_DIR / ".skipped"
 LOCK_PATH = REFERENCES_DIR / "kcif_daily.lock"
 LOG_DIR = Path.home() / "Library" / "Logs"
 

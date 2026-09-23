@@ -62,3 +62,7 @@ KCIF 원본 설정의 revision 충돌·같은 daily lock·입력 검증·활성 
 ## 2026-09-20 리포트 폴백 구현
 
 이 절이 앞선 환경 구성 전용 상태보다 최신입니다. [구현·롤백·미검증 사항](REPORT-FALLBACK.md)을 확인합니다. 기존 CLAUDE.md와 사용자 작업은 보존했습니다.
+
+## 2026-09-23 KCIF 일간 리포트 — 당일 하이라이트 우선 · 주말/휴일 쉼
+
+작성: Claude. 사용자 요청으로 `kcif/report.py` 레이아웃을 `## 오늘의 KCIF`(발행처 요약 문단 LLM 0 인용 + 반영 토픽 + md 경로) → `## Executive summary` → 실행 상태 → 별첨으로 바꾸고, 토·일과 평일 휴일(크롤 성공·신규 0건)에는 리포트를 쉬며 `reports/kcif/.skipped/{date}.json` 표지를 남긴다(`indepth kcif daily --force`로 강제). launchd plist를 `Weekday 1~5` 18:00으로 재설치(`indepth kcif schedule install`). 검증: `uv run pytest tests/test_kcif_daily_layout.py tests/test_kcif_settings.py tests/test_kcif_report_fallback.py tests/test_kcif_client.py` 통과, 실제 `kcif daily`는 실행하지 않았고 2026-09-22 미리보기는 DB 읽기 전용으로만 렌더했다. orchestrator 쪽 예정 리포트 카드(`expectations.py` `kcif-daily` 평일 전용 + 표지 시 제외)는 같은 날 별도 커밋. 첫 실운영 확인 지점: 2026-09-23(수) 18:00 산출물의 `## 오늘의 KCIF` 섹션.
