@@ -127,8 +127,11 @@ def update_topic(slug: str) -> dict:
         '"events": [{"event_date": "YYYY-MM-DD", "headline": "...", '
         '"detail": "...", "report_ids": [int]}], "summary": "..."}'
     )
+    # W-a1 (2026-09-29): 라우팅 정책의 caller id는 계약(REPORT-ROUTING.md §7-1)
+    # caller 목록과 글자 그대로 같아야 parity report가 집계한다.
     data = llm.call_json(prompt, system=TOPIC_UPDATE_SYSTEM, model="haiku", timeout=180,
-                         required_keys=("relevant_report_ids", "events", "summary"))
+                         required_keys=("relevant_report_ids", "events", "summary"),
+                         caller="kcif.update_topic")
     if data is None:
         # LLM 실패 + 후보 존재 → 커서 유지, 다음 실행 재시도 (telegram 정책 미러)
         return {"slug": slug, "ok": False, "reason": "llm_failed",

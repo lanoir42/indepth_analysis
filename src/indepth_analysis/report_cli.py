@@ -17,6 +17,19 @@ MODELS = {'haiku': 'gpt-5.6-luna', 'sonnet': 'gpt-5.6-terra', 'opus': 'gpt-5.6-s
 LEDGER = Path(__file__).resolve().parents[2] / 'data' / 'report_inference.db'
 QUOTA = re.compile(r"^(?:you(?:'ve| have)? (?:hit|reached)|claude ai usage limit|usage limit reached|rate.?limit exceeded)", re.I)
 
+# W-a1 (2026-09-29): Codex usage-limit / rate-limit classification, symmetric to
+# ``QUOTA`` above. Matched against the ``message`` text of a top-level
+# ``error``/``turn.failed`` event only (never the full stdout, never stderr) so a
+# legitimate report that happens to discuss "rate limits" can't trip it. Mirrors
+# telegram's ``agent/codex_cli._CODEX_QUOTA_RE`` (independent copy — no imports
+# between sibling repos).
+CODEX_QUOTA = re.compile(
+    r"rate_limit_exceeded|insufficient_quota|usage_limit_reached|"
+    r"you'?ve hit your usage limit|you have reached your usage limit|"
+    r"quota exceeded|too many requests|\"status\"\s*:\s*429\b|\b429\b",
+    re.IGNORECASE,
+)
+
 
 ENABLE_FILE = Path(__file__).resolve().parents[2] / 'data' / 'report-fallback.enabled'
 
@@ -30,7 +43,8 @@ class ReportCLIError(RuntimeError):
     pass
 
 
-def _record(request_id, provider, model, started, status, usage, error=None):
+def _record(request_id, provider, model, started, status, usage, error=None,
+            route_mode=None, policy_version=None, decision_reason=None):
     LEDGER.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(LEDGER) as conn:
         conn.execute('''CREATE TABLE IF NOT EXISTS attempts (
@@ -38,9 +52,19 @@ def _record(request_id, provider, model, started, status, usage, error=None):
           started REAL, finished REAL, status TEXT, input_tokens INTEGER,
           output_tokens INTEGER, cached_tokens INTEGER, error_code TEXT,
           UNIQUE(request_id, provider))''')
-        conn.execute('INSERT INTO attempts(request_id,provider,model,started,finished,status,input_tokens,output_tokens,cached_tokens,error_code) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(request_id,provider) DO UPDATE SET finished=excluded.finished,status=excluded.status,input_tokens=excluded.input_tokens,output_tokens=excluded.output_tokens,cached_tokens=excluded.cached_tokens,error_code=excluded.error_code',
+        # W-a1 (2026-09-29): 라우팅 결정 기록 — 계약 REPORT-ROUTING.md §6의 여섯
+        # 필드 중 route_mode/policy_version/사유. 기존 DB에는 ALTER로 얹는다(신규
+        # DB는 CREATE TABLE에 없어도 여기서 채워진다) — caller 없는 기존 호출부는
+        # 셋 다 NULL로 남아 행 모양이 그대로다.
+        cols = {row[1] for row in conn.execute('PRAGMA table_info(attempts)')}
+        for name, decl in (('route_mode', 'TEXT'), ('policy_version', 'INTEGER'),
+                           ('decision_reason', 'TEXT')):
+            if name not in cols:
+                conn.execute(f'ALTER TABLE attempts ADD COLUMN {name} {decl}')
+        conn.execute('INSERT INTO attempts(request_id,provider,model,started,finished,status,input_tokens,output_tokens,cached_tokens,error_code,route_mode,policy_version,decision_reason) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(request_id,provider) DO UPDATE SET finished=excluded.finished,status=excluded.status,input_tokens=excluded.input_tokens,output_tokens=excluded.output_tokens,cached_tokens=excluded.cached_tokens,error_code=excluded.error_code,route_mode=excluded.route_mode,policy_version=excluded.policy_version,decision_reason=excluded.decision_reason',
                      (request_id,provider,model,started,None if status == 'started' else time.time(),status,usage.get('input_tokens'),usage.get('output_tokens'),
-                      usage.get('cached_input_tokens', usage.get('cache_read_input_tokens')),error))
+                      usage.get('cached_input_tokens', usage.get('cache_read_input_tokens')),error,
+                      route_mode,policy_version,decision_reason))
 
 
 def command(provider, model, web):
@@ -89,6 +113,17 @@ def _parse(provider, stdout, usage):
             if not isinstance(event, dict):
                 continue
             if event.get('type') in ('error', 'turn.failed'):
+                # W-a1: classify Codex usage-limit errors the same way Claude's
+                # QUOTA regex does above, so ``complete()``'s existing
+                # ``if last == 'quota': block_provider(provider)`` cools Codex
+                # down too — before this it fell through to the generic
+                # ``provider_error`` and never cooled down (asymmetric with Claude).
+                msg = event.get('message')
+                err = event.get('error')
+                if isinstance(err, dict):
+                    msg = err.get('message') or msg
+                if isinstance(msg, str) and CODEX_QUOTA.search(msg):
+                    raise ReportCLIError('quota')
                 raise ReportCLIError('provider_error')
             item = event.get('item') or {}
             if not isinstance(item, dict): raise ReportCLIError('invalid_envelope')
@@ -128,7 +163,18 @@ def _run(cmd, *, input, timeout, env, cwd):
                 stream.close()
 
 
-def complete(prompt, *, tier='sonnet', timeout=180, web=False, validate=None):
+def complete(prompt, *, tier='sonnet', timeout=180, web=False, validate=None, caller=None):
+    """``caller`` is the W-a1 routing hook (opt-in, per call site).
+
+    ``caller=None`` (every existing call site except ``kcif.update_topic``) is
+    byte-identical to before this change — the provider order is the same
+    hardcoded ``[claude, codex]`` list and no routing/parity code runs at all.
+    Passing a caller name looks it up in ``config/report_routing.toml`` via
+    ``report_routing.decide()``; with the global switch at its default
+    (``INDEPTH_REPORT_PRIMARY`` unset/``claude``) that still resolves to the
+    legacy chain (see ``report_routing._legacy``), so arming a caller in the
+    policy file alone changes nothing until the global switch is flipped.
+    """
     requested = tier
     tier = tier_of(tier)
     request_id = uuid.uuid4().hex
@@ -137,16 +183,28 @@ def complete(prompt, *, tier='sonnet', timeout=180, web=False, validate=None):
         'OPENAI_API_KEY','CODEX_API_KEY','ANTHROPIC_API_KEY','ANTHROPIC_AUTH_TOKEN',
         'ANTHROPIC_BASE_URL','CLAUDE_CODE_USE_BEDROCK','CLAUDE_CODE_USE_VERTEX',
         'CLAUDE_CODE_USE_FOUNDRY','CLAUDECODE','CLAUDE_CODE'}}
+    route = None
+    if caller is not None:
+        from indepth_analysis.report_routing import decide
+        route = decide(caller, tier)
+        order = [(p, requested if p == 'claude' else MODELS[tier]) for p in route.chain]
+    else:
+        order = [('claude', requested), ('codex', MODELS[tier])]
+    route_mode = route.mode if route else None
+    policy_version = route.policy_version if route else None
     last = 'unavailable'
-    for provider, model in [('claude', requested), ('codex', MODELS[tier])]:
+    for provider, model in order:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             break
         started, usage = time.time(), {}
         if provider_blocked(provider):
-            _record(request_id, provider, model, started, 'skipped', {}, 'quota_cooldown')
+            _record(request_id, provider, model, started, 'skipped', {}, 'quota_cooldown',
+                    route_mode, policy_version, route.reason if route else None)
             continue
-        _record(request_id, provider, model, started, 'started', {})
+        _record(request_id, provider, model, started, 'started', {},
+                route_mode=route_mode, policy_version=policy_version,
+                decision_reason=route.reason if route else None)
         try:
             payload = prompt
             if provider == 'codex':
@@ -175,15 +233,36 @@ def complete(prompt, *, tier='sonnet', timeout=180, web=False, validate=None):
         except ReportCLIError as exc:
             last = str(exc)
         except BaseException:
-            _record(request_id, provider, model, started, 'cancelled', usage, 'interrupted')
+            _record(request_id, provider, model, started, 'cancelled', usage, 'interrupted',
+                    route_mode, policy_version, route.reason if route else None)
             raise
         else:
-            _record(request_id, provider, model, started, 'success', usage)
+            _record(request_id, provider, model, started, 'success', usage,
+                    route_mode=route_mode, policy_version=policy_version,
+                    decision_reason=route.reason if route else None)
+            if caller is not None:
+                _maybe_capture(caller, tier, prompt)
             return ReportOutput(text, provider, model)
         if last == 'quota':
             block_provider(provider)
-        _record(request_id, provider, model, started, 'failed', usage, last)
+        _record(request_id, provider, model, started, 'failed', usage, last,
+                route_mode, policy_version, route.reason if route else None)
     raise ReportCLIError(last)
+
+
+def _maybe_capture(caller, tier, prompt):
+    """W-a1 섀도 캡처 드롭 — 성공한 호출의 정확한 프롬프트만 남긴다.
+
+    실패는 절대 리포트 생성(워터마크 전진)을 막지 않는다(계약 §7-2) — 이 함수
+    자체가 실패해도 ``complete()``의 반환값에는 영향이 없다.
+    """
+    try:
+        from indepth_analysis import parity_capture
+        parity_capture.maybe_write(caller=caller, repo='indepth_analysis', tier=tier,
+                                   prompt=prompt, scope='general')
+    except Exception:  # noqa: BLE001 — 섀도는 부수 효과일 뿐
+        pass
+
 
 
 async def acomplete(prompt, *, tier='sonnet', timeout=180, web=False):

@@ -1,0 +1,36 @@
+# 리포트 라우팅 정책 — indepth_analysis(KCIF) 호출부별 주 공급자 (2026-09-29 · W-a1)
+#
+# 형식 정본: ~/projects/orchestrator/contracts/REPORT-ROUTING.md (형제 저장소도 같은
+# 의미론을 구현한다 — orchestrator 코드는 import하지 않는다).
+# 설계: ~/projects/orchestrator/docs/issues/2026-09-29-gpt-first-reports-design.md §3·§5·§10.
+#
+# 판정 순서 (src/indepth_analysis/report_routing.py `decide`):
+#   ① 전역 `INDEPTH_REPORT_PRIMARY` = claude(기본) → 전 호출부 종전 그대로(Claude→Codex)
+#   ② 호출부 scope가 nc·gb → 종전 그대로(하드 제외, 이 저장소엔 해당 caller 없음)
+#   ③ budget_policy = native_only → 종전 그대로
+#   ④ 호출부 primary = claude → 종전 그대로
+#   ⑤ primary = gpt → GPT → Claude / primary = auto → Codex 주간 사용률로 판정
+# **전역 스위치 기본값은 claude** — 이 파일에 primary="auto"가 적혀 있어도 전역을
+# auto/gpt로 올리기 전까지는 동작 변화 0. 이번 라운드는 W-a1 caller 1개만 "auto"로
+# 무장하고(섀도 캡처로 증거 수집), 실제 전환 여부는 별도 승인 사항이다.
+
+version = 1
+
+[defaults]
+primary = "claude"
+budget_policy = "deadline_and_size"
+scope = "general"
+
+[thresholds]
+gpt_first_below = 70
+claude_first_at = 90
+stale_after_hours = 24
+
+# --- W-a1 (haiku) — 계약 §7-1 caller 목록과 글자 그대로 동일해야 parity report가 집계한다 ---
+[[caller]]
+caller = "kcif.update_topic"
+tier = "haiku"
+primary = "auto"
+budget_policy = "deadline_and_size"
+scope = "general"
+wave = "W-a1"

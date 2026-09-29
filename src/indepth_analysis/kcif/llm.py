@@ -29,8 +29,14 @@ def _strip_fences(text: str) -> str:
 
 
 def call_json(prompt: str, *, system: str, model: str = "haiku",
-              timeout: int = 180, required_keys: tuple[str, ...] = ()) -> dict | None:
-    """JSON 응답 1회 + 파싱 실패 시 1회 재시도. 최종 실패는 None."""
+              timeout: int = 180, required_keys: tuple[str, ...] = (),
+              caller: str | None = None) -> dict | None:
+    """JSON 응답 1회 + 파싱 실패 시 1회 재시도. 최종 실패는 None.
+
+    ``caller``는 W-a1 라우팅 훅(opt-in) — 지금은 ``kcif.update_topic``만 넘긴다.
+    나머지 호출부(``expand_keywords``·``resummarize_topic``)는 그대로 ``None``이라
+    동작이 한 글자도 바뀌지 않는다.
+    """
     from indepth_analysis.report_cli import enabled, complete, ReportCLIError
     if enabled():
         def validate(text):
@@ -39,7 +45,7 @@ def call_json(prompt: str, *, system: str, model: str = "haiku",
                 raise ValueError("JSON contract")
         try:
             text = complete(system + _JSON_ONLY + "\n\n" + prompt, tier=model,
-                            timeout=timeout, validate=validate)
+                            timeout=timeout, validate=validate, caller=caller)
             return json.loads(_strip_fences(text))
         except ReportCLIError:
             logger.warning("kcif report providers unavailable; watermark must stay unchanged")

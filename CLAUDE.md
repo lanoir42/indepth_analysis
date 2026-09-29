@@ -498,3 +498,26 @@ kcif_topics에 저장한다. Briefing 리포트 설정이 사용하는 고정 CL
 revision으로 동시 편집을 막는다. 기존 요약·이력·watermark는 유지하고 삭제 대신 비활성화한다.
 활성 최대 12개, 새 토픽은 90일 이전 watermark로 시작한다. 구현 `kcif/settings.py`, 검증 `tests/test_kcif_settings.py`.
 추적: lanoir42/orchestrator#46. 이 연결은 indepth의 LLM 공급자 마이그레이션을 의미하지 않는다.
+
+## W-a1 리포트 라우팅 — kcif.update_topic (2026-09-29)
+
+계약 정본: `~/projects/orchestrator/contracts/REPORT-ROUTING.md`. `kcif.update_topic`
+(`src/indepth_analysis/kcif/topics.py`)만 라우팅 훅을 받는다 — 나머지 호출부
+(`expand_keywords`·`resummarize_topic`)는 `caller=None`이라 동작이 한 글자도 안 바뀐다.
+
+- **전역 스위치 기본값은 `claude`**(`INDEPTH_REPORT_PRIMARY` 미설정 시). `config/report_routing.toml`에
+  `kcif.update_topic`이 `primary = "auto"`로 등록돼 있어도 전역을 `auto`/`gpt`로 올리기
+  전까지는 `report_cli.complete()`가 종전과 같은 `[claude, codex]` 순서를 그대로 탄다
+  (`report_routing.py` `decide()`, 회귀 `tests/test_report_routing.py`).
+- **Codex quota 분류가 Claude와 대칭**이 됐다(`report_cli.CODEX_QUOTA`) — 이전에는 Codex의
+  사용량 한도 이벤트가 일반 `provider_error`로 떨어져 쿨다운(`block_provider`)이 걸리지
+  않았다. telegram `agent/codex_cli._CODEX_QUOTA_RE`와 같은 정규식(독립 사본, import 없음).
+- **섀도 캡처 드롭**(`src/indepth_analysis/parity_capture.py`, 기본 켜짐
+  `INDEPTH_PARITY_SHADOW`): 성공한 호출의 정확한 프롬프트를
+  `~/projects/orchestrator/journal/parity/_captures/kcif.update_topic/`에 JSON으로 남긴다
+  (LLM 추가 호출 0회 — orchestrator의 밤 틱이 양쪽 공급자로 재현·판정한다). caller당 3건/일
+  상한, 같은 입력은 한 번만. 원장(`data/report_inference.db` `attempts`)에는
+  `route_mode`/`policy_version`/`decision_reason` 세 컬럼이 ALTER로 얹혔다(기존 호출부는
+  전부 NULL).
+- **범위 밖**: earnings·telegram·TJAM 쪽 W-a1 작업은 각 저장소가 별도로 한다. 이 라운드가
+  건드린 것은 indepth_analysis 하나뿐이다.
