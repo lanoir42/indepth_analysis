@@ -164,10 +164,11 @@ def _run(cmd, *, input, timeout, env, cwd):
 
 
 def complete(prompt, *, tier='sonnet', timeout=180, web=False, validate=None, caller=None):
-    """``caller`` is the W-a1 routing hook (opt-in, per call site).
+    """``caller`` is the W-a1/W-b routing hook (opt-in, per call site).
 
-    ``caller=None`` (every existing call site except ``kcif.update_topic``) is
-    byte-identical to before this change — the provider order is the same
+    ``caller=None`` (every existing call site except ``kcif.update_topic`` and
+    the monthly ``kcif.monthly`` render) is byte-identical to before this
+    change — the provider order is the same
     hardcoded ``[claude, codex]`` list and no routing/parity code runs at all.
     Passing a caller name looks it up in ``config/report_routing.toml`` via
     ``report_routing.decide()``; with the global switch at its default

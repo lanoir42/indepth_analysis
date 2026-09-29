@@ -5,9 +5,9 @@
 import하지 않는다 — 형제 저장소는 파일 계약(정책 TOML·사용률 상태 파일)만
 공유한다.
 
-이 저장소가 실제로 정책에 올리는 caller는 W-a1 범위 하나뿐이다:
-`kcif.update_topic`(계약 §7-1 caller 목록과 글자 그대로 같아야 parity report가
-집계한다).
+이 저장소가 실제로 정책에 올리는 caller는 둘뿐이다: W-a1 `kcif.update_topic`
+(haiku)과 W-b `kcif.monthly`(sonnet, `kcif/report.py:_render_period`의 도구 없는
+서술 콜 — 계약 §7-1 caller 목록과 글자 그대로 같아야 parity report가 집계한다).
 
 **기본값은 동작 변화 0이다.** 전역 `INDEPTH_REPORT_PRIMARY`가 없거나 `claude`면
 `decide()`는 `legacy=True`를 돌려주고 `report_cli.complete()`는 caller를 몰랐을

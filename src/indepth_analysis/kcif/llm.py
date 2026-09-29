@@ -73,12 +73,18 @@ def call_json(prompt: str, *, system: str, model: str = "haiku",
 
 
 def call_text(prompt: str, *, system: str, model: str = "sonnet",
-              timeout: int = 300) -> str | None:
-    """자유 텍스트 1회 (월간/분기 종합 서술용). 실패는 None."""
+              timeout: int = 300, caller: str | None = None) -> str | None:
+    """자유 텍스트 1회 (월간/분기 종합 서술용). 실패는 None.
+
+    ``caller``는 W-a1과 같은 opt-in 라우팅/섀도 훅 — 지금은 ``kcif.monthly``만
+    넘긴다(``kcif/report.py``의 월간 호출 1곳). 분기 호출은 그대로 ``None``이라
+    동작이 한 글자도 바뀌지 않는다.
+    """
     from indepth_analysis.report_cli import enabled, complete, ReportCLIError
     if enabled():
         try:
-            return complete(system + "\n\n" + prompt, tier=model, timeout=timeout)
+            return complete(system + "\n\n" + prompt, tier=model, timeout=timeout,
+                            caller=caller)
         except ReportCLIError:
             logger.warning("kcif report providers unavailable")
             return None

@@ -428,8 +428,12 @@ def _month_events(topic_slug: str, ym: str) -> list[dict]:
 
 
 def _render_period(title: str, period_label: str, prefixes: list[str],
-                   dump_paths: dict[str, str]) -> str:
-    """월간/분기 공용 렌더 — prefixes: event_date가 시작해야 하는 YYYY-MM 목록."""
+                   dump_paths: dict[str, str], *, caller: str | None = None) -> str:
+    """월간/분기 공용 렌더 — prefixes: event_date가 시작해야 하는 YYYY-MM 목록.
+
+    ``caller`` — W-b 섀도 훅(opt-in, 월간 호출부만 ``kcif.monthly``를 넘긴다).
+    분기 호출은 그대로 ``None``이라 동작이 한 글자도 바뀌지 않는다.
+    """
     active = store.list_topics(status="active")
     conn = store.get_conn()
     likes = " OR ".join("COALESCE(published_date,'') LIKE ?" for _ in prefixes)
@@ -459,7 +463,7 @@ def _render_period(title: str, period_label: str, prefixes: list[str],
         synth = llm.call_text(
             f"{period_label} 토픽별 타임라인:\n\n" + "\n\n".join(synth_input) +
             "\n\n토픽별로 '- **토픽명**: 종합 서술' 형식으로.",
-            system=MONTHLY_SYNTH_SYSTEM, model="sonnet", timeout=300)
+            system=MONTHLY_SYNTH_SYSTEM, model="sonnet", timeout=300, caller=caller)
     if synth:
         lines.append("## 기간 종합")
         lines.append("")
@@ -491,7 +495,8 @@ def _self_heal_periodics(today: date_cls, dump_paths: dict[str, str], status: di
     ym = prev_month_end.strftime("%Y-%m")
     monthly = REPORTS_OUT_DIR / f"{ym}-kcif-monthly.md"
     if not monthly.exists():
-        body = _render_period(f"KCIF 월간 타임라인 — {ym}", f"{ym} 한 달간", [ym], dump_paths)
+        body = _render_period(f"KCIF 월간 타임라인 — {ym}", f"{ym} 한 달간", [ym], dump_paths,
+                              caller="kcif.monthly")
         monthly.write_text(body, encoding="utf-8")
         made.append(str(monthly))
 

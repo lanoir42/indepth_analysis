@@ -1,11 +1,18 @@
-"""W-a1 섀도 캡처 드롭 — `kcif.update_topic` (계약 REPORT-ROUTING.md §7).
+"""W-a1/W-b 섀도 캡처 드롭 — `kcif.update_topic`·`kcif.monthly` (계약
+REPORT-ROUTING.md §7).
 
 정본 계약: `~/projects/orchestrator/contracts/REPORT-ROUTING.md` §7-1(캡처
-드롭)·§7-3(캡처 JSON 형식). `kcif.update_topic`은 평문 프롬프트 1개로 재현 가능한
-호출(도구·스키마 파일 없음)이라 **캡처 드롭** 대상이다 — 이 저장소가 하는 일은
-실제 호출에 보낸 정확한 프롬프트를 JSON으로 남기는 것뿐이고, LLM 추가 호출은
-0회다. orchestrator의 밤 틱(`parity nightly`)이 그 캡처를 양쪽 공급자로 재현해
-쌍을 만들고 판정한다.
+드롭)·§7-3(캡처 JSON 형식). `kcif.update_topic`(W-a1, haiku)과 `kcif.monthly`
+(W-b, sonnet — `kcif/report.py:_render_period`의 월간 종합 서술 콜, 도구 없음)는
+평문 프롬프트 1개로 재현 가능한 호출(도구·스키마 파일 없음)이라 **캡처 드롭**
+대상이다 — 이 저장소가 하는 일은 실제 호출에 보낸 정확한 프롬프트를 JSON으로
+남기는 것뿐이고, LLM 추가 호출은 0회다. orchestrator의 밤 틱(`parity nightly`)이
+그 캡처를 양쪽 공급자로 재현해 쌍을 만들고 판정한다.
+
+`monthly_brief research`(웹 검색 도구 사용, 1800초·동시 8)는 이 캐처 대상이
+**아니다** — 그 호출은 WebSearch/WebFetch를 쓰고 GPT 쪽이 동일 도구를 못 가질
+수 있어 재현 불가(설계 §5-1 W-b 비고). `kcif.monthly`는 그 결과물 위에서 돌아가는
+별개의, 도구 없는 서술 전용 콜이라 재현 가능하다.
 
 기본 켜짐(`INDEPTH_PARITY_SHADOW`, `0`으로 끌 수 있음). 쓰기 실패는 삼킨다 —
 리포트 생성(워터마크 전진)을 절대 막지 않는다(계약 §7-2).

@@ -34,3 +34,14 @@ primary = "auto"
 budget_policy = "deadline_and_size"
 scope = "general"
 wave = "W-a1"
+
+# --- W-b (sonnet) — KCIF 월간 기간 종합, `kcif/report.py:_render_period`의 도구 없는
+# 서술 한 콜뿐(월간 호출만; 분기 호출은 caller=None이라 이 정책을 안 탄다). ReportSpec
+# `contracts/report_specs/kcif_monthly.toml`. 섀도만 — 전역 스위치가 claude인 한 동작 변화 0.
+[[caller]]
+caller = "kcif.monthly"
+tier = "sonnet"
+primary = "auto"
+budget_policy = "deadline_and_size"
+scope = "general"
+wave = "W-b"
