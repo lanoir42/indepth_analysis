@@ -622,12 +622,26 @@ CHARTS: list[Chart] = [
             S("ois_dfr_asof", "OIS 내재 DFR(기준일)", "primary"),
             S("ois_dfr_prev", "OIS 내재 DFR(1개월 전)", "neutral"),
             S("sma_dfr_median", "ECB 통화분석가 설문 중앙값", "accent"),
+            S("bbg_survey_dfr", "Bloomberg 이코노미스트 설문 중앙값", "secondary"),
         ],
         lambda c: "ECB 예금금리 기대 경로 — 시장 내재·설문",
         lambda c: "회의별 기대 DFR(웹 리서치 수집, 기준일·1개월 전 비교)",
         [Y("%", 2, "내재 DFR(%)")],
         optional=True,
         notes="OIS 내재 경로는 무료 결정론 소스 부재 — 웹 리서치 수집값",
+    ),
+    Chart(
+        "ecb_hike_prob",
+        "monetary",
+        4,
+        "bar",
+        "C",
+        [S("ois_hike_prob", "인상 확률", "primary")],
+        lambda c: "ECB 회의별 금리 인상 확률(시장 내재)",
+        lambda c: "보도 인용 시장 가격 기준(웹 리서치 수집, 기준일 확률)",
+        [Y("%", 0, "확률(%)")],
+        optional=True,
+        notes="회의별 인상 확률: 무료 결정론 소스 부재, 보도 인용값",
     ),
     # ---------------- markets ----------------
     Chart(
@@ -1307,6 +1321,12 @@ def build(root: Path, charts: list[Chart] | None = None) -> dict:
         if "_error" in c:
             skipped.append({"id": ch.id, "reason": c["_error"]})
             continue
+        empty = [
+            x["key"] for x in c.get("series", []) if all(v is None for v in x["values"])
+        ]
+        if empty and len(empty) < len(c.get("series", [])):
+            c["series"] = [x for x in c["series"] if x["key"] not in empty]
+            c["dropped_series"] = empty  # 전 구간 결측 계열 제외(범례 혼란 방지)
         if not _has_values(c):
             skipped.append({"id": ch.id, "reason": "전 계열 전 구간 결측"})
             continue

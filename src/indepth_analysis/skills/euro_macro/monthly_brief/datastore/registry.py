@@ -704,6 +704,7 @@ WEB_SERIES_MAP: dict[str, tuple[str, str, str]] = {
     "ois_cum_bp_asof": ("ois_cum_bp", "OIS 내재 누적 변화(bp)", "bp"),
     "sma_dfr_median": ("sma_dfr_median", "ECB 통화분석가 설문(SMA) DFR 중앙값", "%"),
     "ois_hike_prob": ("ois_hike_prob", "회의별 인상 확률(시장 내재)", "%"),
+    "bbg_survey_dfr": ("bbg_survey_dfr", "Bloomberg 이코노미스트 설문 DFR 중앙값", "%"),
 }
 # llm_web 계열 교차검증 허용오차 (concept → 절대값)
 XCHECK_TOL = {"pmi_manufacturing_ea": 0.3, "pmi_services_ea": 0.3}
