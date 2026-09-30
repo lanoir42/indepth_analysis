@@ -1,5 +1,28 @@
 # CHANGELOG — 유럽 매크로 월간 리포트
 
+## v3.0.0 — 2026-09-30 (전면 개편, 첫 회차 2026-09호)
+8월호(v2.1) 감사 결과(정치 5%·메타 27%·산문 문체·장표 해설서·LLM 수집 시계열) 대응. 설계 `V3_PLAN.md`, 계약 `V3_CONTRACTS.md`.
+
+**입력**
+- BI 컬렉션 intake(`intake.py`): 1면 헤더에서 발행 시각·실제 제목·저자 파싱(Mendeley 제목·등록일 무시), 본문 정규화 sha16, 월 간 재수록·월 내 편집본 중복 판정, 조각·기간 외 판정, `references.db europe_docs`.
+- 문서 카드(`cards.py`, Sonnet): 한국어 요지·핵심 수치(원문 대조 자동검증)·주장·전망·정치 행위자. 10그룹 섹션 스캐폴드.
+- `session.json`: earnings SSR 계약 동형(Briefing 연동 준비).
+- 결정론 데이터(`datastore/`): Eurostat(HICP `prc_hicp_minr` ECOICOP v2·속보·기여도, GDP, 실업, ESI, 산업생산, 소매, 재정)·ECB(정책금리, €STR, 대출, 환율 EUR/KRW 포함)·Bundesbank·FRED·yfinance 91시리즈, 원응답 캐시·오프라인 재빌드. LLM 시계열은 PMI·OIS만(llm_web 등급).
+- 리서치 12축(`prompts.py` 재작성): 월 하드코딩 제거(`edition.json` 주입), 정치 3축(FR·DE·IT/ES/기타) + EU 제도·통상 + ECB 1차 원문 + 신용·은행·주택 신설, BI 섹션·facts를 프롬프트 맥락으로, 보충 리서치(gap) 모드.
+
+**산출**
+- 풀 리포트 + 해설본(리포트 장과 1:1 교재) 분리, 장표 텍스트 폐지.
+- `chart_pack.json`(30종+, kind·축·소수·색 역할·등급·각주, 결측 null 격자) + 차트별 CSV, `table_pack.json`(9종+, 변화 열 코드 계산) + `tables.md`, `facts.md`, `validate_pack`(빈도 단일성·격자·제목 수치 대조·최신성·중복 개념).
+- 3회 보고 preview·interim·final(태그 `[Preview]`·`[Interim]`·`[Final]`), final에 10장 '보고 간 판단 변화'.
+
+**품질·오케스트레이션**
+- `STYLE_BRIEF.md`(KCIF식 개조식 4단 계층), `coverage.yaml`(장별 목표 분량·필수 항목·국가 템플릿·독자 질문 18), 역할 지시서 17종을 저장소로 이전(회차 폴더 복사 폐지).
+- 범용 Workflow `workflow/noir_v3.js` + 인자 생성기 `workflow/args.py`: BI 섹션∥Quant → Advisor(high) → 장별 리포트→해설본 pipeline → Polish → 8중 감사(커버리지·독자질문 신설) → 보충 리서치 → 수정(최대 2라운드) → 정합 → 게이트 수정 → 편집기록.
+- `finalize.py`: 파이프라인 용어·조사 라벨·거부 문장·문체 금지어·상대 날짜·차트 참조·시점 lint 차단 게이트, 최종본 확정·스냅샷·허브 v3·session.json 단계 기록·등록.
+- Opus effort: Advisor·통화정책·정치·전망·Polish high, 나머지 medium.
+
+**예정(v3.1, 10/6 이후)**: interim·final 증분 모드(변경 장만 재집필, `BASE_DRAFT`), delta_diff v3 연동, Briefing EUROPE 탭.
+
 ## v2.1.0 — 2026-09-10 오후 (단계 태그 제목·델타 리포트)
 - **제목 규약**: 모든 최종 문서 H1을 `[Preview]`/`[Spot]`/`[Review]` 태그로 시작 — Notion·Briefing 페이지 제목에 단계가 드러나도록(사용자 지시). preview 4종 소급 적용, `finalize_phase.sh`가 점검.
 - **변경 비교 리포트(델타 리포트)** 신설: preview는 전월 구판 리포트·마스터클래스 예측·마지막 유럽 장표 대비, spot은 preview 대비, review는 spot 대비 독립 문서 `{date}_europe_macro_{phase}_delta.md`(요약·사실의 변화·예상 대 실제 채점·판단의 변화·유지된 서술·다음 확인 항목 + 채점표·수치 변경표·문서별 변경 절 부록). 역할 `roles/delta_report.md`, 두 워크플로 모두에 `Delta Report` 단계(집필 → 사실·문체 감사 → 수정 1회). 각 델타 리포트의 `다음 단계 반영 목록`(PD/SD/RD-xx)을 다음 단계가 항목별 처리하고 본문에 `[Phase 버전 수정 ID]` 주석을 남긴다(사용자 지시).

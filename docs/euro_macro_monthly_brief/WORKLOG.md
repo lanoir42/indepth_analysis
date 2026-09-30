@@ -56,3 +56,22 @@
 
 **spot 착수 시 추가 절차**: Delta Writer가 `drafts/preview_delta_final.md` §7 PD 목록을 항목별 처리(스팟 착수 전 4건은 Quant/정본 정정 선행) → 본문 주석 → 변경 이력 표. 미커밋 변경: roles 3종·workflow 2종·hub.py 문구·MANUAL·CHANGELOG·WORKLOG.
 
+
+## 2026-09-30 (수) — v3 개편 설계·개발
+
+**지시**: 8월호 품질 부족(정치·경제 상세 부족, 풀 리포트·해설본 분리, PPT용 raw data JSON) → 파이프라인 재검토·개발 후 9월호(`EUROPE 202609`). 후속으로 Briefing이 SSR 컬렉션처럼 EUROPE 컬렉션 처리 예정(설계 반영). 결정: 3회 보고 10/5 preview(기준 10/2)·10/12 interim(10/9)·10/19 final(10/16, 판단 변화 고찰 장), 장표 텍스트 생략, 리포트 5~7만·해설본 4~5만 자, Opus 핵심 장 high. 개발은 오늘 전량, 증분 모드만 10/6 이후.
+
+**수행**
+1. 진단(감사 에이전트 2): 정치 5%·메타 27%·거부 문장 12·산문 문체·장표 해설서(중복 45~50%); 시계열 LLM 수집·수기 전사·결측·축 혼합·표 JSON 부재. 프롬프트 8월 하드코딩, spot·review 미실행. Eurostat HICP 신규 데이터셋 `prc_hicp_minr` 발견(2026-08까지).
+2. 계획 `V3_PLAN.md`, 계약 `V3_CONTRACTS.md`. 병렬 개발 3팩(에이전트) + 통합.
+   - WP1 intake·cards·contract: 202609 84건 + 202608 창 내 14건 = 98건 전량 카드, 월 간 재수록 12, 월 내 편집본 중복 4, key_numbers 725 중 미검증 1.
+   - WP2 datastore·chart/table pack·facts·validate: 91시리즈(api 78·market 10·local 3, 오류 0), 차트 30(PMI·OIS 3종은 웹 시계열 대기), 표 9, 검증 WARN 6·FAIL 0, 결정론 비율 100%.
+   - WP3/4 prompts(12축+W1·W2+gap)·research v3·STYLE_BRIEF·coverage.yaml·roles 17종.
+   - 통합: `edition.py`, `finalize.py`(게이트·promote·허브 v3·session 단계), `workflow/noir_v3.js`·`args.py`, `__init__.run_stages` v3, CLI.
+3. 검증: pytest 582 통과, ruff 통과, CLI `--stage intake data workflow-args` 종단 실행, 8월 리포트에 게이트 적용 시 FAIL(정본 46·§ 22 등) 확인, 워크플로 구문 검사.
+4. 문서: MANUAL v3(v2 보존), CHANGELOG v3.0.0, CLAUDE.md.
+
+**다음 (preview)**
+- 10/2(금) 오후(9월 HICP 속보 공개 후): `edition init`(as-of 10/2) → `--stage fetch intake cards data research` → `--stage data workflow-args` → Workflow `noir_v3.js` → `finalize promote --register` → 10/5 보고.
+- 확인 필요: 9월 HICP 속보 공개일(로컬 캘린더 10/2, 리서치로 확정), Brent dated(FRED) 지연 WARN.
+- 10/6~: v3.1 증분 모드(interim·final), delta_diff v3.

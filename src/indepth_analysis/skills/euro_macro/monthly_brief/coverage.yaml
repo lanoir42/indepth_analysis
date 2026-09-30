@@ -1,0 +1,514 @@
+# 유럽 매크로 월간 리포트 v3 — 커버리지 요건표
+#
+# 사용처: Advisor(장 골자 매핑), Chief(장 집필 체크리스트), 커버리지 감사(audit_coverage),
+#          독자 질문 감사(audit_reader), 해설본 집필(explainer_chapter).
+# 월 독립: 날짜·연도는 쓰지 않는다. "직전 회의", "다음 회의", "대상 월"은 edition.json 값으로 해석.
+#
+# must_have 어휘(감사가 항목별로 존재 여부를 판정)
+#   mechanism            작동 원리·인과 경로 설명(왜 그렇게 되는가)
+#   number               기간·기관이 붙은 수치
+#   date                 절대 날짜
+#   actor                실명 행위자(직함 포함)
+#   quote                1차 원문 인용(발언자·날짜)
+#   source               1차 출처 기관 명시
+#   comparison           직전 값·컨센서스·타국·전 회차 대비
+#   country_split        국가별 분해
+#   seats                의회 의석 산술(과반선·필요 표)
+#   timeline             날짜순 사건 일지 + 예정 일정
+#   policy_content       정책·예산의 실제 내용(항목·금액·%GDP)
+#   market_transmission  시장 전달경로(스프레드·등급·환율·주가·재정 충격)
+#   poll                 여론조사(기관·조사일)
+#   scenario             시나리오(기본·위험·완화)
+#   trigger              시나리오 트리거(날짜·조건)
+#   probability          확률(출처 또는 추정 표기)
+#   chart                [차트: id] 참조
+#   table                [표: id] 참조
+#   judgement            두괄식 판단 문장(리드)
+
+version: "3.0.0"
+
+effort_policy:
+  high: [advisor, ch02_monetary, ch06_politics, ch09_outlook]
+  medium: [summary, ch01_judgement, ch03_inflation, ch04_growth_labour,
+           ch05_markets_credit, ch07_external_energy, ch08_uk_periphery,
+           ch10_changes, appendix, explainer, audits, fixer, harmonizer, polish]
+
+report:
+  total_chars: [50000, 70000]
+  chapters:
+    - key: summary
+      title: 요약
+      target_chars: 3000
+      effort: medium
+      phases: [preview, interim, final]
+      written_by: polish
+      items:
+        - id: sum_judgements
+          description: ▲ 판단 5~7개. 불릿당 수치 2~3개 이하. 각 판단은 본문 장 하나와 연결
+          must_have: [judgement, number, date]
+        - id: sum_perception_gap
+          description: 시장·보고자 인식과 실측이 어긋나는 지점 1개 이상을 판단으로 명시
+          must_have: [judgement, comparison]
+        - id: sum_watch
+          description: 다음 보고일까지·다음 ECB 회의까지 관전 일정 3~5개
+          must_have: [date]
+
+    - key: ch01_judgement
+      title: 1. 이달의 판단
+      target_chars: 4000
+      effort: medium
+      phases: [preview, interim, final]
+      items:
+        - id: j_thesis
+          description: 대상 월 유럽 매크로를 관통하는 핵심 서사 1개와 이를 떠받치는 근거 3개
+          must_have: [judgement, mechanism, number]
+        - id: j_tensions
+          description: 핵심 긴장 3~5개(예 물가 재가속 vs 성장 둔화, 스프레드 vs 정책 여력) — 양쪽 근거와 해소 관측 지표
+          must_have: [mechanism, number, comparison]
+        - id: j_perception_gap
+          description: 사용자·시장 통념과 실측의 괴리를 정면 서술(통념 → 실측 수치 → 해석)
+          must_have: [comparison, number, judgement]
+        - id: j_change_vs_prior_month
+          description: 전월 대비 판단이 바뀐 지점(전월 리포트 요지 대비)
+          must_have: [comparison, judgement]
+
+    - key: ch02_monetary
+      title: 2. 통화정책
+      target_chars: 8000
+      effort: high
+      phases: [preview, interim, final]
+      items:
+        - id: m_decision
+          description: 직전 회의 결정(3대 정책금리·발효일·표결)과 성명서 핵심 문구 원문 인용
+          must_have: [number, date, quote, source]
+        - id: m_staff_projections
+          description: 최신 스태프 전망 GDP·HICP·코어 전 연도(당해·익년·익익년)와 직전 전망 회차 대비 변화, 기술적 가정
+          must_have: [number, comparison, table]
+        - id: m_press_conference
+          description: 기자회견 Q&A의 경로 가이던스·리스크 평가·의견 분포
+          must_have: [quote, actor, date]
+        - id: m_minutes
+          description: 조사 기간에 공개된 의사록 요지와 소수 의견
+          must_have: [date, quote]
+        - id: m_council_map
+          description: 정책위원 5명 이상(목표 8명) 발언과 매파–비둘기 지형
+          must_have: [actor, quote, date, table]
+        - id: m_ois_path
+          description: OIS 내재 경로(현재 vs 약 1개월 전), 다음 회의 변경 확률
+          must_have: [number, comparison, chart]
+        - id: m_balance_sheet_tpi
+          description: APP·PEPP 잔액 감소 속도, 초과유동성, TPI 발동 요건 4개와 국가 스프레드와의 관계
+          must_have: [mechanism, number]
+        - id: m_transmission
+          description: 정책금리 → 대출금리·신용·환율 전달경로 현황(5장 신용과 연결)
+          must_have: [mechanism, number]
+        - id: m_next_meeting
+          description: 다음 회의 전망(기본 경로·대안)과 판단을 바꿀 데이터·일정
+          must_have: [judgement, date, scenario, trigger]
+
+    - key: ch03_inflation
+      title: 3. 물가
+      target_chars: 6000
+      effort: medium
+      phases: [preview, interim, final]
+      items:
+        - id: i_headline_core
+          description: 최신 HICP 속보·확정 헤드라인·코어·서비스·NEIG·식품·에너지(컨센서스·전월 병기)
+          must_have: [number, date, comparison, chart]
+        - id: i_contributions
+          description: 항목별 기여도(%p, 코드 계산 표)와 헤드라인 변화의 출처
+          must_have: [number, table, mechanism]
+        - id: i_base_effects
+          description: 기저효과가 헤드라인을 올리고 내리는 시점(월별 방향)과 이유
+          must_have: [mechanism, date, number]
+        - id: i_countries
+          description: DE·FR·IT·ES 국가별 헤드라인·코어와 국가 특이 요인
+          must_have: [country_split, number]
+        - id: i_wages
+          description: 임금 지표(협상임금·wage tracker·보상/근로자·ULC)의 방향과 물가 압력의 부호(상방/하방)
+          must_have: [number, mechanism, judgement]
+        - id: i_expectations
+          description: 기대인플레(CES·SPF·5y5y)와 기업 가격 기대
+          must_have: [number, date]
+        - id: i_energy_passthrough
+          description: 유가·가스 → 소비자 에너지 가격 전가 시차와 규제 요금
+          must_have: [mechanism, number]
+        - id: i_outlook
+          description: 기관 전망·목표 복귀 시점
+          must_have: [number, comparison, source]
+
+    - key: ch04_growth_labour
+      title: 4. 성장·고용
+      target_chars: 9000
+      effort: medium
+      phases: [preview, interim, final]
+      items:
+        - id: g_gdp_expenditure
+          description: 분기 GDP(속보·수정)와 지출 항목 기여도(소비·투자·정부·순수출·재고), 아일랜드 등 특이 요인
+          must_have: [number, mechanism, table]
+        - id: g_netexports_inventories
+          description: 순수출과 재고 기여가 왜 그 숫자가 됐는지(선수출·재고 소진 등) 인과 설명
+          must_have: [mechanism, number]
+        - id: g_surveys
+          description: PMI(종합·제조·서비스, 속보/확정)·ESI·소비자신뢰
+          must_have: [number, chart, comparison]
+        - id: g_pmi_vs_ip
+          description: PMI와 산업생산 괴리의 원인(일시 요인 vs 추세) 판정
+          must_have: [mechanism, number, judgement]
+        - id: g_labour
+          description: 실업률·고용 증가·구인율·노동 비축
+          must_have: [number, mechanism]
+        - id: g_nowcast
+          description: 다음 분기 나우캐스트와 연간 성장 전망 비교
+          must_have: [number, comparison, source]
+      country_subsections:
+        min_chars_each: 1500
+        countries: [DE, FR, IT, ES]
+        template:
+          - id: c_gdp
+            description: 최신 분기 GDP와 지출 구성
+            must_have: [number, date]
+          - id: c_activity
+            description: 산업생산·서베이(Ifo/ZEW, INSEE/BdF, ISTAT, INE 등)·소비
+            must_have: [number, comparison]
+          - id: c_driver
+            description: 국가 고유 성장 동인·제약(재정패키지, 정치 불확실성, PNRR, 이민·관광 등) 메커니즘
+            must_have: [mechanism, judgement]
+          - id: c_outlook
+            description: 국가별 전망과 위험
+            must_have: [number, source]
+
+    - key: ch05_markets_credit
+      title: 5. 금융시장·신용
+      target_chars: 7500
+      effort: medium
+      phases: [preview, interim, final]
+      items:
+        - id: mk_rates
+          description: Bund 곡선(2y·10y·30y)과 기간프리미엄·공급
+          must_have: [number, chart, mechanism]
+        - id: mk_spreads
+          description: OAT·BTP·Bonos–Bund 스프레드 추이와 원인 분해(정치·재정·등급·공급)
+          must_have: [number, chart, mechanism]
+        - id: mk_eurusd
+          description: EUR/USD 동인(금리차·위험선호·흐름)
+          must_have: [number, mechanism, chart]
+        - id: mk_eurkrw
+          description: EUR/KRW 동인(유로 측·원화 측 분해)
+          must_have: [number, mechanism]
+        - id: mk_equities
+          description: 지수·섹터 성과, 실적, 밸류에이션
+          must_have: [number, comparison]
+        - id: cr_banks
+          description: 은행 실적·NII 민감도·자산건전성·은행세·M&A
+          must_have: [number, mechanism]
+        - id: cr_lending
+          description: BLS 기준·수요 변화, 대출 증가율, 대출금리 전가
+          must_have: [number, date, mechanism]
+        - id: cr_corporate
+          description: 회사채 IG·HY 스프레드·발행
+          must_have: [number]
+        - id: cr_housing
+          description: 주택가격(유로존·국가별)과 주담대 금리
+          must_have: [number, country_split]
+
+    - key: ch06_politics
+      title: 6. 정치
+      target_chars: 13000
+      effort: high
+      phases: [preview, interim, final]
+      items:
+        - id: p_overview
+          description: 유럽 정치 리스크의 공통 서사와 시장 가격 반영 정도(스프레드·등급) 판단
+          must_have: [judgement, market_transmission, number]
+        - id: p_calendar
+          description: 다음 30일 정치 일정표(예산 제출·표결·불신임·선거·등급 평가·EU 정상회의)
+          must_have: [timeline, date, table]
+      country_subsections:
+        min_chars_each: 1500
+        countries: [FR, DE, IT, ES, EU, UK]
+        # 국가 템플릿 5요소 + 여론·시나리오. EU는 seats를 이사회·의회 표결 구도로 대체.
+        template:
+          - id: pt_actors
+            description: 행위자 실명·직함과 입장
+            must_have: [actor]
+          - id: pt_arithmetic
+            description: 의회 구도 산술(의석·과반선·필요 표, 제2원 포함)
+            must_have: [seats, number]
+          - id: pt_timeline
+            description: 대상 기간 사건 일지와 예정 일정
+            must_have: [timeline, date]
+          - id: pt_policy
+            description: 예산·개혁안의 실제 내용(항목·금액·적자 목표 %GDP)
+            must_have: [policy_content, number]
+          - id: pt_transmission
+            description: 시장 전달경로(스프레드·CDS·등급·재정 충격·주가)
+            must_have: [market_transmission, number]
+          - id: pt_polls
+            description: 최신 여론조사(기관·조사일)
+            must_have: [poll, date]
+          - id: pt_scenarios
+            description: 시나리오와 트리거·확률
+            must_have: [scenario, trigger, probability]
+        country_notes:
+          FR: 대통령·총리·예산장관, 국민의회 577석 정파별, 불신임 289표, 49.3조, PLF/PLFSS 일정, 등급 평가일, 차기 대선 레이스
+          DE: 총리·재무장관, 연정 의석, 헌법 개정 2/3와 차단 소수, 연방참사원, 부채제동·특별기금 집행, AfD 지지율·주선거
+          IT: 총리·재무장관·연정 3당, 예산(DPB)·EDP 종료, 등급, BTP 스프레드
+          ES: 총리와 소수정부 지지 구조(과반 176), 예산 통과 가능성, 사법 이슈, 조기총선
+          EU: MFF, SAFE·방위, 우크라이나 재원·러시아 동결자산, 미–EU 관세 이행, 대중 무역방어, 재정규칙
+          UK: 총리·재무장관, 노동당 리더십, Reform UK 지지율, 예산·재정 여유, 길트
+        also_required: 기간 중 선거·정부 구성 사건이 있던 기타 회원국(NL·PL·BE·PT·AT 등)은 국가당 3~6불릿으로 반드시 기술. "관측 대상에서 제외" 금지
+
+    - key: ch07_external_energy
+      title: 7. 대외·에너지
+      target_chars: 4500
+      effort: medium
+      phases: [preview, interim, final]
+      items:
+        - id: x_middle_east_oil
+          description: 중동 분쟁·원유 공급 차질·Brent 경로
+          must_have: [number, date, mechanism]
+        - id: x_gas
+          description: TTF·저장률·LNG, 유가보다 가스가 유럽에 더 큰 이유(전기요금 연동·산업)
+          must_have: [number, mechanism, chart]
+        - id: x_china
+          description: 중국 수출 충격(물량·가격·업종)과 GDP 영향 추정
+          must_have: [number, mechanism, source]
+        - id: x_us_trade
+          description: 미–EU 관세 현황(세율·대상 교역액)과 전달경로
+          must_have: [number, policy_content, date]
+        - id: x_russia_ukraine
+          description: 전황·협상·제재·에너지 인프라
+          must_have: [date, actor]
+        - id: x_sensitivity
+          description: 에너지 10% 충격의 HICP·GDP 민감도(기관 추정)
+          must_have: [number, mechanism, source]
+
+    - key: ch08_uk_periphery
+      title: 8. 영국·주변부
+      target_chars: 3500
+      effort: medium
+      phases: [preview, interim, final]
+      items:
+        - id: uk_boe
+          description: BOE 결정·표결 분포·QT·가이던스
+          must_have: [number, date, actor]
+        - id: uk_data
+          description: CPI·임금·GDP
+          must_have: [number, comparison]
+        - id: uk_gilts_fiscal
+          description: 길트·재정 여유·예산 일정(정치는 6장과 교차 참조)
+          must_have: [number, date, mechanism]
+        - id: periphery
+          description: SNB·Riksbank·Norges 결정과 통화
+          must_have: [number, date]
+
+    - key: ch09_outlook
+      title: 9. 전망·시나리오
+      target_chars: 5000
+      effort: high
+      phases: [preview, interim, final]
+      items:
+        - id: o_scenarios
+          description: Base/Bear/Bull 시나리오 표(확률·트리거·GDP·HICP·DFR·스프레드 함의)
+          must_have: [scenario, probability, trigger, table]
+        - id: o_institutions
+          description: 기관 전망 비교(ECB 스태프·EC·IMF·OECD·컨센서스)
+          must_have: [table, number, source]
+        - id: o_watch
+          description: 다음 30일 관전 일정과 각 이벤트가 어느 판단을 흔드는지
+          must_have: [date, trigger, judgement]
+        - id: o_implications
+          description: 자산·환율 함의(EUR/USD·EUR/KRW·Bund·스프레드·유럽 주식)
+          must_have: [judgement, market_transmission]
+
+    - key: ch10_changes
+      title: 10. 보고 간 판단 변화
+      target_chars: 4000
+      effort: medium
+      phases: [final]
+      written_by: change_review
+      items:
+        - id: d_held
+          description: 프리뷰·중간보고 판단 중 유지된 것과 이를 확인한 지표·사건
+          must_have: [judgement, number, date]
+        - id: d_revised
+          description: 수정·철회된 판단과 원인(어떤 지표·사건이 판단을 바꿨는지)
+          must_have: [judgement, mechanism, number, date]
+        - id: d_expected_vs_actual
+          description: 예상 대비 실제(독자용 서술, 채점 통계 없이)
+          must_have: [comparison, number]
+        - id: d_lessons
+          description: 다음 달 판단에 반영할 신호
+          must_have: [judgement]
+
+    - key: appendix
+      title: 부록
+      target_chars: 0   # 결정론 표 위주, 본문 분량에 미산입
+      effort: medium
+      phases: [preview, interim, final]
+      written_by: polish
+      items:
+        - id: a_indicators
+          description: 최근 4주 지표 실적표(data/tables.md 또는 table_pack)
+          must_have: [table]
+        - id: a_calendar
+          description: 향후 30일 일정표
+          must_have: [table, date]
+        - id: a_references
+          description: 참고문헌(제목·기관·날짜·URL / BI 문서는 PDF 절대경로)
+          must_have: [source]
+
+reader_questions:
+  # 2026-08호 발행 후 사용자가 직접 물은 질문(seed_user)과 선제 질문(seed)
+  - id: rq01
+    origin: seed_user
+    question: GDP 기여도에서 순수출과 재고는 각각 무엇이고, 순수출 기여가 재고 기여를 상쇄했다는 말은 무슨 뜻인가
+    report_chapter: ch04_growth_labour
+    explainer_chapter: ex04_growth_labour
+  - id: rq02
+    origin: seed_user
+    question: 이번 분기 순수출과 재고 기여가 왜 그런 숫자가 됐는가(선수출·재고 소진·아일랜드 등)
+    report_chapter: ch04_growth_labour
+    explainer_chapter: ex04_growth_labour
+  - id: rq03
+    origin: seed_user
+    question: '%와 %p(포인트), 수준 기여와 성장률 기여는 어떻게 다르고 어떻게 읽어야 하나'
+    report_chapter: null
+    explainer_chapter: ex01_judgement
+  - id: rq04
+    origin: seed_user
+    question: 기저효과는 언제부터 헤드라인을 올리거나 내리며, 지금 수치에는 어떻게 작용하고 있나
+    report_chapter: ch03_inflation
+    explainer_chapter: ex03_inflation
+  - id: rq05
+    origin: seed_user
+    question: 현재 임금 지표는 물가에 상방 압력인가 하방 압력인가
+    report_chapter: ch03_inflation
+    explainer_chapter: ex03_inflation
+  - id: rq06
+    origin: seed_user
+    question: 기대 지표(PMI)와 실제 지표(산업생산)가 크게 어긋나는 이유는 무엇인가
+    report_chapter: ch04_growth_labour
+    explainer_chapter: ex04_growth_labour
+  - id: rq07
+    origin: seed_user
+    question: 공장 가동 중단 같은 일시 요인으로 산업생산이 급감했다면 현황 판단에서 어떻게 다뤄야 하나(구조조정·감원과의 관계 포함)
+    report_chapter: ch04_growth_labour
+    explainer_chapter: ex04_growth_labour
+  - id: rq08
+    origin: seed
+    question: ECB는 성장이 약한데도 왜 금리를 올리거나 내리지 않는가 — 반응함수는 무엇인가
+    report_chapter: ch02_monetary
+    explainer_chapter: ex02_monetary
+  - id: rq09
+    origin: seed
+    question: OIS 프라이싱은 무엇이고 회의별 인상·인하 확률은 어떻게 계산되나
+    report_chapter: ch02_monetary
+    explainer_chapter: ex02_monetary
+  - id: rq10
+    origin: seed
+    question: TPI는 언제 발동될 수 있고 프랑스 스프레드 확대에 쓰일 수 있나
+    report_chapter: ch02_monetary
+    explainer_chapter: ex02_monetary
+  - id: rq11
+    origin: seed
+    question: 프랑스 예산은 어떤 절차로 통과되며 49.3조와 불신임은 어떻게 맞물리나
+    report_chapter: ch06_politics
+    explainer_chapter: ex06_politics
+  - id: rq12
+    origin: seed
+    question: 독일 부채제동과 특별기금은 무엇이며 재정 확장이 성장에 언제 얼마나 반영되나
+    report_chapter: ch06_politics
+    explainer_chapter: ex06_politics
+  - id: rq13
+    origin: seed
+    question: 신용등급 강등은 국채 수요와 스프레드에 어떤 경로로 영향을 주나
+    report_chapter: ch05_markets_credit
+    explainer_chapter: ex05_markets_credit
+  - id: rq14
+    origin: seed
+    question: 유가와 가스 중 어느 쪽이 유럽 물가·성장에 더 중요하고 왜 그런가
+    report_chapter: ch07_external_energy
+    explainer_chapter: ex07_external_energy
+  - id: rq15
+    origin: seed
+    question: EUR/KRW는 유로 요인과 원화 요인 중 무엇이 더 움직였나
+    report_chapter: ch05_markets_credit
+    explainer_chapter: ex05_markets_credit
+  - id: rq16
+    origin: seed
+    question: 아일랜드 GDP는 왜 유로존 전체 성장률을 왜곡하며 어떻게 걸러 읽나
+    report_chapter: ch04_growth_labour
+    explainer_chapter: ex04_growth_labour
+  - id: rq17
+    origin: seed
+    question: 은행대출서베이(BLS)의 순비율은 어떻게 읽고 실제 대출 증가와 어떤 시차가 있나
+    report_chapter: ch05_markets_credit
+    explainer_chapter: ex05_markets_credit
+  - id: rq18
+    origin: seed
+    question: 영국 재정 여유(headroom)와 길트 금리는 어떻게 서로 영향을 주나
+    report_chapter: ch08_uk_periphery
+    explainer_chapter: ex08_uk_periphery
+
+explainer:
+  total_chars: [40000, 50000]
+  max_overlap_with_report: 0.20
+  chapters:
+    - key: ex01_judgement
+      maps_to: ch01_judgement
+      title: 1. 이달의 판단을 읽기 위한 기초
+      target_chars: 3500
+      topics: [유로존 거시 지표 체계(물가·성장·고용·금융의 연결), '%와 %p·기여도 읽는 법', 속보·확정·수정의 차이, 전년~올해 유럽 경기 경과]
+    - key: ex02_monetary
+      maps_to: ch02_monetary
+      title: 2. ECB 통화정책의 작동 원리
+      target_chars: 6500
+      topics: [3대 정책금리와 금리 회랑(DFR·MRO·MLF), 반응함수와 데이터 의존, 스태프 전망 주기(3·6·9·12월)와 가정, 정책위원회 구성과 표결 관행, OIS 프라이싱 계산 예제, APP·PEPP·양적긴축, TPI 발동 요건 4개, 전년~올해 금리 경로]
+    - key: ex03_inflation
+      maps_to: ch03_inflation
+      title: 3. 물가 지표의 구조와 읽는 법
+      target_chars: 5000
+      topics: [HICP 구성과 가중치, 코어 정의, 기여도 계산 예제, 기저효과 월별 예제, 임금→서비스 물가 경로, 기대인플레 지표, 에너지 전가 시차]
+    - key: ex04_growth_labour
+      maps_to: ch04_growth_labour
+      title: 4. 성장·고용 지표의 구조
+      target_chars: 6500
+      topics: [GDP 지출 항목 기여도 계산 예제, 순수출·재고, 아일랜드 왜곡, PMI 확산지수 vs 산업생산 수준지표, 일시 요인 판별, 노동 비축, 국가별 성장 모델(DE 제조·FR 소비·IT PNRR·ES 이민·관광)]
+    - key: ex05_markets_credit
+      maps_to: ch05_markets_credit
+      title: 5. 금리·스프레드·환율·신용의 연결
+      target_chars: 6000
+      topics: [수익률 곡선과 기간프리미엄, 스프레드 계산과 등급 경로, 환율 결정 요인(금리차·위험·흐름), EUR/KRW 교차환율 분해 예제, BLS 읽는 법, 은행 NII 민감도, 회사채 스프레드, 주택 가격과 금리]
+    - key: ex06_politics
+      maps_to: ch06_politics
+      title: 6. 유럽 정치 제도와 시장
+      target_chars: 8000
+      topics: [프랑스 제5공화국 권력 구조·예산 절차(PLF·PLFSS·헌법 기한)·49.3조·불신임 산술·해산권, 독일 연정·연방참사원·부채제동·특별기금, 이탈리아 예산·EDP, 스페인 소수정부와 예산 연장, EU MFF·SAFE·재정규칙(순지출 경로)·만장일치 사안, 영국 예산·OBR·재정 규칙, 정치 이벤트가 스프레드·등급으로 전달되는 경로]
+    - key: ex07_external_energy
+      maps_to: ch07_external_energy
+      title: 7. 에너지·대외 충격의 전달경로
+      target_chars: 3500
+      topics: [TTF 가격 형성과 저장률, 유가 vs 가스 민감도, 관세의 수출·물가 전달, 중국 수출 충격 메커니즘]
+    - key: ex08_uk_periphery
+      maps_to: ch08_uk_periphery
+      title: 8. 영국·주변국 통화정책
+      target_chars: 3000
+      topics: [BOE 통화정책위원회 표결 구조, 길트와 재정 규칙, SNB 환율 정책]
+    - key: ex09_outlook
+      maps_to: ch09_outlook
+      title: 9. 전망과 시나리오를 읽는 법
+      target_chars: 3000
+      topics: [기관 전망의 차이와 발표 시점, 시나리오 확률의 의미, 관전 지표가 판단을 바꾸는 조건]
+    - key: ex10_changes
+      maps_to: ch10_changes
+      title: 10. 판단이 바뀌는 과정
+      target_chars: 2500
+      phases: [final]
+      topics: [속보→확정 수정이 판단에 미친 영향, 새 정보가 시나리오 확률을 바꾸는 방식]
+    - key: glossary
+      maps_to: appendix
+      title: 용어사전
+      target_chars: 4500
+      topics: [40~70개, 용어 | 뜻 2~3문장 | 이번 호 관련 수치]

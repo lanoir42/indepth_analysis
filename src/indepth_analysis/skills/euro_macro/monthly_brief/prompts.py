@@ -1,42 +1,173 @@
 # ruff: noqa: E501
-"""월간 유럽 매크로 브리프 v2 — Sonnet 웹리서치·시계열 수집 프롬프트.
+"""월간 유럽 매크로 리포트 v3 — Sonnet 웹리서치·웹 시계열·보충 리서치 프롬프트.
 
-모든 프롬프트는 ``claude -p`` 사용자 프롬프트로 전달된다(``<system>`` 태그 금지).
-플레이스홀더: ``{month_label}``(예 "2026년 8월"), ``{as_of}``(예 "2026-09-10"),
-``{window}``(예 "2026-08-01 ~ 2026-09-10"), ``{known}``(재조사 금지 사실 블록).
+v2 상수(월 하드코딩)는 ``prompts_v2.py``에 그대로 보존한다.
+
+v3 원칙
+- **월 독립**: 날짜·연도·회의일·이벤트는 전부 ``Edition``(``ROOT/edition.json``)에서
+  주입한다. 템플릿 본문에 특정 연도·월을 쓰지 않는다(테스트가 강제).
+- 알려진 사실은 ``ROOT/data/facts.md``(결정론 수집)에서, BI 맥락은
+  ``ROOT/sections/<GROUP>.md`` 스캐폴드에서 축별로 잘라 주입한다.
+- 모든 프롬프트는 ``claude -p`` 사용자 프롬프트(``<system>`` 태그 금지).
+
+공개 API
+- ``RESEARCH_AXES`` (R01~R12), ``WEB_SERIES`` (W1·W2)
+- ``edition_vars(ed)`` → 템플릿 변수 dict
+- ``build_axis_prompt(key, ed, known, bi_context)``
+- ``build_web_series_prompt(key, ed, known)``
+- ``build_gap_prompt(round_id, n, items, ed, known)``
+- ``AXIS_GROUPS`` (축 → BI 섹션 그룹), ``BI_GROUPS``
 """
 
 from __future__ import annotations
 
+import json
+from datetime import date, timedelta
+from typing import Any
+
+BI_GROUPS = (
+    "ECB",
+    "EA_MACRO",
+    "DE",
+    "FR",
+    "IT",
+    "ES",
+    "UK",
+    "EU_POLICY",
+    "ENERGY_EXTERNAL",
+    "GLOBAL",
+)
+
+KNOWN_PLACEHOLDER = (
+    "- (data/facts.md 미생성 — 결정론 수집 이전 실행. 이 축의 모든 수치를 1차 출처로 "
+    "직접 확인할 것)"
+)
+BI_PLACEHOLDER = (
+    "- (BI 섹션 스캐폴드 없음 — sections/<GROUP>.md 미생성. BI 주장 검증 절은 "
+    "'해당 없음'으로 두고 조사 질문에 집중할 것)"
+)
+
+
+# ---------------------------------------------------------------------------
+# 회차 변수
+# ---------------------------------------------------------------------------
+
+
+def _d(s: str) -> date:
+    return date.fromisoformat(s)
+
+
+def _month_label(month: str) -> str:
+    y, m = month.split("-")
+    return f"{y}년 {int(m)}월"
+
+
+def _prev_month(month: str) -> str:
+    y, m = (int(x) for x in month.split("-"))
+    y, m = (y - 1, 12) if m == 1 else (y, m - 1)
+    return f"{y:04d}-{m:02d}"
+
+
+def edition_vars(ed: Any) -> dict[str, str]:
+    """Edition → 템플릿 변수. 모든 날짜·연도 문자열의 유일한 공급원."""
+    as_of = _d(ed.as_of)
+    year = int(ed.month[:4])
+    window = ed.window or {"from": f"{ed.month}-01", "to": ed.as_of}
+    ecb = ed.ecb or {}
+    return {
+        "month_label": _month_label(ed.month),
+        "prior_month_label": _month_label(_prev_month(ed.month)),
+        "as_of": ed.as_of,
+        "report_date": ed.report_date,
+        "window_from": window.get("from", f"{ed.month}-01"),
+        "window_to": window.get("to", ed.as_of),
+        "window": f"{window.get('from', '')} ~ {window.get('to', ed.as_of)}",
+        "year": str(year),
+        "prev_year": str(year - 1),
+        "next_year": str(year + 1),
+        "next2_year": str(year + 2),
+        "series_start": f"{year - 3}-01",
+        "last_meeting": ecb.get("last_meeting")
+        or "(edition 미기재 — 직전 ECB 회의일을 확인)",
+        "next_meeting": ecb.get("next_meeting")
+        or "(edition 미기재 — 다음 ECB 회의일을 확인)",
+        "lookback_from": (as_of - timedelta(days=28)).isoformat(),
+        "horizon_from": (as_of + timedelta(days=1)).isoformat(),
+        "horizon_to": (as_of + timedelta(days=30)).isoformat(),
+        "ois_prev_date": (as_of - timedelta(days=30)).isoformat(),
+        "phase_ko": getattr(ed, "phase_ko", ed.phase),
+    }
+
+
+def events_block(ed: Any, geos: tuple[str, ...] = ()) -> str:
+    """edition.events → 마크다운 목록. geos가 있으면 해당 지역·전역 이벤트만."""
+    rows = []
+    for ev in ed.events or []:
+        geo = str(ev.get("geo", "")).upper()
+        if geos and geo and geo not in geos and geo not in ("EU", "GLOBAL", "EA"):
+            continue
+        rows.append(
+            f"- {ev.get('date', '?')} [{geo or '-'}·{ev.get('kind', '-')}] "
+            f"{ev.get('title', '')}"
+        )
+    if not rows:
+        return (
+            "- (edition.json에 등록된 이벤트 없음 — 조사 대상 기간의 일정을 직접 확인)"
+        )
+    return "\n".join(rows)
+
+
+# ---------------------------------------------------------------------------
+# 공통 헤더 (v2 공통 규약 계승 + v3 보강)
+# ---------------------------------------------------------------------------
+
 RESEARCH_HEADER = """\
-당신은 팀 Noir의 유럽 매크로 웹리서처(Sonnet)입니다. 기준 시점 **{as_of} (KST)**. \
-조사 대상 기간은 **{window}** (대상 월 {month_label}, 이후 발표된 확정치·사건 포함).
+유럽 거시경제 월간 리포트용 웹리서처(Sonnet) 과제. 기준 시점 **{as_of} (KST)**. \
+조사 대상 기간 **{window}** (대상 월 {month_label}; 기간 안에 발표된 확정치·사건 포함). \
+리포트 보고일 {report_date}({phase_ko}). ECB 직전 회의 {last_meeting}, 다음 회의 {next_meeting}.
 
 ## 공통 규약 (위반 시 산출물 폐기)
-- 모든 사실에 **발표일·수치·기관(1차 출처 우선)·URL**을 붙일 것. 1차 출처: ECB·\
-Eurostat·각국 통계청·S&P Global·Ifo·ZEW·EU집행위·재무부. 2차: Reuters·Bloomberg·FT·\
-Politico·Handelsblatt·Les Echos.
+- 모든 사실에 **발표일·수치·기관(1차 출처 우선)·URL**을 붙일 것. 1차 출처: ECB·Eurostat·\
+각국 통계청(Destatis·INSEE·ISTAT·INE·CBS)·각국 중앙은행·S&P Global/HCOB·Ifo·ZEW·EU 집행위·\
+각국 재무부·의회(Assemblée nationale·Bundestag·Camera·Congreso)·신용평가사 발표문. \
+2차: Reuters·Bloomberg·FT·Politico Europe·Handelsblatt·Les Echos·Il Sole 24 Ore·El País.
 - 라벨 5종을 문장 끝에 표기: [확정](1차 출처) / [보도] / [추정](리서치사·애널리스트) / \
 [시장](가격·프라이싱 스냅샷, 조회 시각 명시) / [미확인].
-- **연도 혼동 금지**: 2025년 사건과 2026년 사건을 뒤섞지 말 것. 반복형 사건(ECB 회의·\
-HICP flash·PMI)은 발생 연·월을 반드시 표기. "지난달"류 상대 표현 금지.
-- 컨센서스가 있는 지표는 `실제(예상, 전월)` 형식으로 기록(예: HICP 3.3%(e3.3%, 전월 2.9%)).
-- 미확인은 추정으로 채우지 말 것. 검색 예산 30~40회, WebFetch로 1차 원문 확인 우선.
-- 산출은 **표준출력 마크다운**. 파일을 쓰지 말 것. 한국어(고유명사·수치 원문 유지). \
+- **연도 혼동 금지**: {prev_year}년 사건과 {year}년 사건을 뒤섞지 말 것. 반복형 사건(ECB 회의·\
+HICP 속보·PMI·예산 표결)은 발생 연·월·일을 반드시 표기. "지난달·최근·이번 주"류 상대 표현 금지 — \
+절대 날짜만.
+- 컨센서스가 있는 지표는 `실제(예상, 전월)` 형식으로 기록(예: `HICP 2.1%(e2.0%, 전월 2.0%)`). \
+참조 기간(예 "8월분")과 발표일을 구분해 쓸 것.
+- 미확인은 추정으로 채우지 말 것. 대신 **무엇을 어디서 찾았는데 없었는지**를 `미확인·공백`에 \
+남길 것(추가 조사 목록으로 쓰인다). "범위에서 제외" 같은 판단은 쓰지 말 것 — 조사 대상은 전부 조사.
+- 공개된 1차 수치(예: ECB 스태프 전망의 모든 연도, 통계청 세부 항목)는 빠짐없이 기록. \
+수치가 있는데 기록하지 않는 것은 결함.
+- 검색 예산 30~40회. 핵심 1차 원문은 WebFetch로 직접 확인(보도 재인용 금지 원칙).
+- 산출은 **표준출력 마크다운 한 덩어리**. 파일을 쓰지 말 것. 한국어(고유명사·원문 인용·수치 원문 유지). \
 개조식·명사형 종결. 1인칭·메타서술 금지.
 
-## 이미 확인된 사실 (재조사 금지, 그대로 인용 가능)
+## 이미 확인된 사실 (결정론 수집 — 재조사 금지, 그대로 인용 가능)
 {known}
+
+## 이 축과 관련된 Bloomberg Intelligence(BI) 문서 맥락 (발췌)
+{bi_context}
+
+## 조사 기간 등록 일정 (edition.json)
+{events}
 
 ## 출력 형식 (엄수)
 ```
 ## 핵심 발견
-- (불릿 6~10개, 문장 끝 라벨)
+- (불릿 8~12개, 각 1~2문장, 문장 끝 라벨. 이 축에서 리포트 판단을 바꿀 사실 순)
 
 ## 상세
 ### Q1. <질문 요지>
-- (사실. 발표일·수치·기관·URL)
+- (사실. 발표일·수치·기관·URL. 원문 인용은 영문/원어 + 번역)
 ...
+
+## BI 주장 검증
+| BI 주장(요지·문서 날짜) | 판정(지지/반박/부분/미결) | 1차 근거 | URL |
+|---|---|---|---|
 
 ## 수치 레코드
 | metric | value | unit | period | geo | consensus | previous | label | source_name | url | published | note |
@@ -44,168 +175,303 @@ HICP flash·PMI)은 발생 연·월을 반드시 표기. "지난달"류 상대 �
 
 ## 시장 스냅샷 (해당 시)
 | instrument | value | as_of(UTC 또는 KST 명시) | change_vs | source | url |
+|---|---|---|---|---|---|
 
 ## 미확인·공백
-- (조사했으나 확인 실패)
+- (질문 번호 · 찾은 곳 · 찾지 못한 것 · 공개 예정일이 있으면 그 날짜)
 
 ## 출처 목록
 | # | 제목 | 기관 | URL | 발행일 |
+|---|---|---|---|---|
 ```
 """
 
-RESEARCH_AXES: dict[str, dict[str, str]] = {
-    "N01_ecb_september": {
-        "title": "ECB 9월 통화정책회의 결정·성명·스태프 전망·기자회견·시장 반응",
+POLITICS_REQUIREMENTS = """\
+## 정치 축 필수 요건 (국가·사안마다 전부 채울 것)
+1. **행위자 실명**: 대통령·총리·재무장관·주요 정당 대표·원내 지도부·핵심 반대파 — 이름·직함·소속.
+2. **의회 구도(산술)**: 원내 의석 총수, 정파·정당별 의석, 과반선, 불신임·예산 통과에 필요한 표 계산, \
+기권·결석 시나리오. 상원·연방참사원 등 제2원 구도 포함.
+3. **사건 일지**: {window} 동안의 사건을 날짜순 표(날짜 | 사건 | 행위자 | 출처)로. 기간 이후 \
+{horizon_to}까지 예정 일정도 별도 표.
+4. **정책 내용**: 예산안·개혁안의 실제 수치(세입·세출 항목, 적자 목표 %GDP, 부채비율, 절감액, \
+증세·감세 항목)와 쟁점 조항. "예산 갈등" 같은 요약어로 끝내지 말 것.
+5. **시장 전달경로**: 국채 스프레드(대 Bund, bp, 날짜별), CDS, 신용등급·전망과 다음 평가 일정\
+(S&P·Moody's·Fitch·DBRS·Scope 날짜), 재정 충격(%GDP), 은행주·주가 반응.
+6. **여론조사**: 최신 정당 지지율·지도자 지지도(조사기관·조사일·표본), 추세.
+7. **시나리오**: 기본·위험·완화 각 시나리오의 **트리거(날짜·표결·조건)**, 대략 확률(출처가 있으면 \
+출처 확률, 없으면 [추정] 표기), 스프레드·등급 함의.
+"""
+
+
+# ---------------------------------------------------------------------------
+# 리서치 축 (R01~R12)
+# ---------------------------------------------------------------------------
+
+RESEARCH_AXES: dict[str, dict[str, Any]] = {
+    "R01_ecb": {
+        "title": "ECB 1차 원문 — 결정·성명·스태프 전망·기자회견·의사록·위원 발언 지형·TPI/대차대조표·OIS",
+        "groups": ("ECB",),
+        "geos": ("EA", "ECB"),
         "questions": """\
-1. 2026-09-10 ECB 통화정책 결정: 3대 정책금리(DFR·MRO·MLF) 결정치·변경폭·발효일. \
-성명서 원문(ecb.europa.eu press release) 핵심 문장 인용(영문 원문 + 번역).
-2. 9월 ECB 스태프 거시전망: 실질GDP 2026·2027·2028, HICP 헤드라인·코어 2026·2027·2028 \
-— 6월 전망 대비 변경폭. 에너지 가격 가정(유가·가스).
-3. 라가르드 기자회견(14:45 CET): 향후 경로 가이던스 문구, 12월 추가 인상 여지, \
-데이터 의존·회의별 접근 표현, 성장 리스크 평가, 임금·기대인플레 언급, 표결 만장일치 여부.
-4. 시장 반응(9/10 종가·9/11 아시아 오전): EUR/USD, Bund 2y·10y, OAT-Bund·BTP-Bund 스프레드, \
-STOXX 600·은행지수, OIS 내재 12월·2027년 경로(회의 전 vs 후).
-5. 이코노미스트·IB 반응: Bloomberg 설문 사전 컨센서스(인상 확률·전망 분포), 회의 후 \
-주요 IB(GS·JPM·DB·Barclays·Nomura·BNP) 경로 수정 요지.
-6. 6월(6/11)·7월(7/23) 회의와의 연속성: 6월 인상 25bp → 7월 동결 → 9월 결정. \
-7월 의사록(8월 공개) 요지 재확인.
-7. 다음 회의 일정(10월·12월)과 12월 회의 스태프 전망 갱신 여부. TPI·PEPP·APP 재투자 등 \
-대차대조표 언급.""",
-        "budget": "Q1~Q3 ECB 원문 12회, Q4 시장 10회, Q5~Q7 10회",
+1. {last_meeting} 통화정책 결정: DFR·MRO·MLF 결정치·변경폭·발효일, 표결 구도(만장일치 여부·반대 위원). \
+보도자료(Monetary policy decisions)와 통화정책 성명(Monetary policy statement) 원문의 **경로 문구·\
+리스크 평가·데이터 의존 문구**를 영문 원문 + 번역으로 인용(ecb.europa.eu URL).
+2. 스태프 거시전망: 가장 최근 전망 회차(3·6·9·12월 회의; {last_meeting}이 전망 회차면 해당 회차)의 \
+실질GDP·HICP 헤드라인·HICP 코어 {year}·{next_year}·{next2_year} 수치와 **직전 전망 회차 대비 변화폭**, \
+기술적 가정(Brent·가스·EUR/USD·금리 경로), 대안 시나리오(있으면 수치 포함). 전 연도 수치를 빠짐없이 기록.
+3. 기자회견 Q&A: 총재 발언 중 향후 경로·인상/인하 논의 여부·의견 분포·에너지 충격 대응·임금·기대인플레·\
+환율·국가 스프레드(특히 프랑스)·TPI 관련 문답을 원문 인용. 시장이 주목한 문구와 그 해석.
+4. 의사록(Account of the monetary policy meeting): 조사 기간 안에 공개된 의사록 전부 — 공개일, 대상 회의, \
+정책위원회 논의 쟁점, 소수 의견, 핵심 문장 원문 인용. {next_meeting} 이전에 공개될 의사록 일정.
+5. 정책위원회 위원 발언 지형: 조사 기간 중 공개 발언한 위원 **8명 이상**(집행이사회 + 주요국 중앙은행 총재\
+— 독·프·이·스·네·오스트리아·벨기에·핀란드·발트·포르투갈 등). 위원마다 날짜·장소/매체·원문 인용·URL·\
+다음 회의 함의. 마지막에 **매파–중도–비둘기 5단 지형표**(위원 | 직함 | 성향 | 근거 발언 날짜) 작성.
+6. 대차대조표·TPI: APP·PEPP 보유 잔액과 감소 속도(최근 월 공시), 총자산, 초과유동성, 대출(TLTRO) 잔액, \
+운영체계 개편 현황. TPI 발동 요건(4개 적격성 기준)·조사 기간 중 TPI·국가 스프레드에 대한 위원·총재 언급 원문.
+7. 시장 프라이싱: €STR OIS 기준 {next_meeting} 회의 및 이후 회의별 내재 DFR·누적 bp·변경 확률 — \
+{as_of} 시점과 {ois_prev_date} 무렵 비교. 결정일 전후 Bund 2y·EUR/USD 반응.
+8. 전망 분포: Bloomberg·Reuters 이코노미스트 설문(조사일·중앙값·분포), 주요 IB(GS·JPM·MS·DB·BNP·\
+Barclays·UBS·ING 등) 경로 전망과 {next_meeting} 회의 컨센서스.
+9. {next_meeting} 회의 전 관전 일정: 위원 연설 일정, 의사록 공개일, 주요 데이터.""",
+        "budget": "Q1~Q4 ECB 원문 14회, Q5 위원 발언 10회, Q6~Q9 12회",
     },
-    "N02_inflation": {
-        "title": "유로존 물가 — 8월 HICP flash·구성·국가별·기대인플레·임금·PPI",
+    "R02_inflation": {
+        "title": "유로존 물가 — HICP 속보·확정·구성 기여도·국가별·기저효과·에너지 전가·임금·기대인플레",
+        "groups": ("EA_MACRO", "ECB"),
+        "geos": ("EA", "DE", "FR", "IT", "ES"),
         "questions": """\
-1. 8월 HICP flash(2026-09-02 Eurostat): 헤드라인·코어(식품·에너지·주류·담배 제외)·\
-서비스·비에너지 산업재·식품·에너지 YoY 및 MoM, 컨센서스 대비. 7월 확정치(8/19 발표) 대비.
-2. 8월 국가별 HICP flash: 독일(연방통계청 8/28~31)·프랑스(INSEE)·이탈리아(ISTAT)·스페인(INE) \
-헤드라인·코어, 각국 에너지 기여.
-3. 에너지 인플레 경로: 이란 전쟁發 유가(Brent 8월 평균·9월 초 수준), 유럽 가스(TTF) 8월 \
-추이, 소비자 에너지가격 전가 시차 논의. 2025년 8월과의 기저효과.
-4. ECB 협상임금 지표(negotiated wages) 2Q26(8월 말 발표)·Indeed 임금 트래커·ECB 임금 \
-트래커 3Q~4Q 전망. 단위노동비용.
-5. 기대인플레: ECB 소비자기대조사(CES) 7·8월 1년·3년, SPF 3Q26, 5y5y 인플레 스왑 8월 말.
-6. 7월 PPI(9/3)·수입물가, 서비스 물가 끈끈함(패키지 휴가·항공 등 8월 특이요인).
-7. 2026년 하반기~2027년 HICP 컨센서스(Bloomberg 설문 8월·9월), 3% 상회 지속 기간 논의.""",
-        "budget": "Q1~Q2 12회, Q3~Q4 10회, Q5~Q7 10회",
+1. 조사 기간에 발표된 유로존 HICP 속보·확정(참조월 명시): 헤드라인·코어(에너지·식품·주류·담배 제외)·\
+서비스·비에너지 공산품·식품·에너지 YoY·MoM, 컨센서스, 전월치, 수정 여부. Eurostat 분류·데이터셋 변경\
+(분류 체계 개편 여부)이 있으면 그 내용과 시계열 비교 주의점.
+2. 구성 기여도: Eurostat 가중치 또는 ECB·기관이 공표한 항목별 기여도(%p). 헤드라인 변화가 어떤 \
+항목에서 나왔는지 수치로.
+3. 국가별: 독일(Destatis)·프랑스(INSEE)·이탈리아(ISTAT)·스페인(INE)·네덜란드(CBS) HICP 헤드라인·코어와 \
+발표일, 국가별 에너지·서비스 요인(규제 요금·세금 변경 포함).
+4. **기저효과 시점**: {prev_year}년 같은 달~향후 6개월 에너지·서비스 가격 흐름을 근거로 향후 몇 개월에 \
+헤드라인이 기저효과로 오르고 내리는지 — 기관(ECB·EC·IB)의 월별 경로 추정을 수치로 인용.
+5. 에너지 전가: 원유·가스 도매가 → 소비자 에너지 가격 전가 시차(연료 즉시, 전기·가스 요금 수개월), \
+각국 규제 요금 개편 일정, 에너지 가격 상한·보조금 종료 일정.
+6. **임금 방향**: ECB 협상임금 지표(최신 분기), ECB wage tracker의 향후 분기 경로, Indeed 임금 추적기, \
+근로자 1인당 보상·단위노동비용(최신 분기), 주요 단체협약(독일 금속·공공부문 등) 타결률 — 가속/둔화 판단 근거.
+7. 기대인플레: ECB 소비자기대조사(CES) 1년·3년·5년, SPF 최신 회차, 5y5y 인플레이션 스왑(날짜), \
+EC 서베이 기업 판매가격 기대.
+8. 생산자물가·수입물가 최신 발표, 식품 원자재 가격.
+9. 전망: ECB 스태프·EC·컨센서스·IB의 {year}·{next_year} HICP·코어, 목표(2%) 복귀 시점 논쟁.""",
+        "budget": "Q1~Q3 12회, Q4~Q6 12회, Q7~Q9 10회",
     },
-    "N03_real_economy": {
-        "title": "유로존 실물 — 2Q GDP 확정·국가별·8월 PMI·서베이·산업생산·소비·고용",
+    "R03_growth_labour": {
+        "title": "유로존 실물·고용 — GDP 지출 구성·PMI vs 산업생산·서베이·DE/FR/IT/ES 각국·노동시장·나우캐스트",
+        "groups": ("EA_MACRO", "DE", "FR", "IT", "ES"),
+        "geos": ("EA", "DE", "FR", "IT", "ES"),
         "questions": """\
-1. 2Q26 GDP: Eurostat 2차 추정(8/14)·3차(9/5) 유로존·EU QoQ/YoY, 국가별(DE·FR·IT·ES·NL·IE) \
-확정치와 수정 내역(프랑스 하향 수정 포함). 지출항목별 기여(소비·투자·순수출·재고).
-2. 8월 PMI 최종(9/1 제조·9/3 서비스·종합) 유로존·독일·프랑스·이탈리아·스페인, 신규주문·\
-고용·투입/산출가격 하위지수. 9월 flash 예정일.
-3. 독일: 8월 Ifo(8/25)·ZEW(8/18)·7월 산업생산(9/8)·제조업 수주(9/5)·수출(9/8). 재정패키지·\
-인프라 지출 집행 상황.
-4. 프랑스: INSEE 기업심리 8월, 소비자 저축의향, 2Q GDP 하향과 3Q 전망(Banque de France 8월 말 \
-월간 서베이).
-5. 이탈리아·스페인: 8월 신뢰지수, 산업생산, 스페인 고용·관광.
-6. 유로존 7월 실업률(9/1)·6월 확정, 고용 성장, 구인율. 7월 소매판매(9/4), 소비자신뢰 8월 flash·확정.
-7. 3Q26 GDP 나우캐스트(ECB·Bloomberg·은행), 2026·2027 성장 컨센서스 8~9월 갱신.""",
-        "budget": "Q1~Q2 12회, Q3~Q5 12회, Q6~Q7 8회",
+1. 유로존 GDP: 조사 기간에 발표된 분기 GDP 추정(속보·2차·3차) QoQ·YoY와 수정 내역, **지출 항목별 기여도\
+(가계소비·정부소비·고정투자·순수출·재고, %p)**. 아일랜드 등 특이 요인의 영향(아일랜드 제외 성장률 공표치 포함). \
+**순수출과 재고가 서로 상쇄된 구조인지** 수치로.
+2. 서베이: 유로존 PMI(종합·제조·서비스, 속보/확정 구분)와 하위지수(신규주문·고용·가격), EC 경제심리지수(ESI)·\
+소비자신뢰, Sentix.
+3. **PMI와 산업생산의 괴리**: 제조업 PMI와 유로존·독일 산업생산(최신 월, MoM·YoY)이 어긋날 때의 원인 \
+(에너지 집약 업종, 선주문, 아일랜드 제약, 재고, 조사 대상 차이) — 기관·이코노미스트 해설 인용.
+4. 독일: 분기 GDP(Destatis, 지출 구성), Ifo·ZEW, 산업생산·제조업 수주·수출, 재정패키지(인프라 특별기금·국방) \
+집행 실적, 에너지 집약 산업.
+5. 프랑스: GDP(INSEE), INSEE 기업심리, Banque de France 월간 서베이·나우캐스트, 가계 저축률, 정치 불확실성의 \
+투자·소비 영향 분석.
+6. 이탈리아: GDP(ISTAT), 산업생산, 신뢰지수, PNRR(회복기금) 집행 속도.
+7. 스페인: GDP(INE), 고용(사회보장 가입자)·관광·이민 효과, 투자.
+8. 노동시장: 유로존 실업률(최신 월)·고용 증가율·구인율·근로시간, 노동 비축(labour hoarding) 논의, 국가별 실업률.
+9. 나우캐스트·전망: 다음 분기 GDP 나우캐스트(ECB·각국 중앙은행·IB), {year}·{next_year} 성장 전망(ECB 스태프·EC·IMF·OECD·컨센서스).""",
+        "budget": "Q1~Q3 12회, Q4~Q7 16회, Q8~Q9 8회",
     },
-    "N04_markets": {
-        "title": "유럽 금융시장 — 환율·국채·스프레드·주식·글로벌 채권 매도·은행",
+    "R04_markets_fx": {
+        "title": "유럽 금융시장·환율 — 금리 곡선·국채 스프레드·EUR/USD·EUR/KRW 동인·주식·섹터·자금흐름",
+        "groups": ("ECB", "EA_MACRO", "GLOBAL"),
+        "geos": ("EA", "DE", "FR", "IT", "ES", "US"),
         "questions": """\
-1. EUR/USD: 7/31·8/29·9/9 종가, 8월 고저, 월간 변동 요인(ECB 인상 기대·Fed·달러). \
-EUR/GBP·EUR/JPY·EUR/CHF 8월 말 수준.
-2. 독일 Bund 2y·10y·30y: 7/31·8/29·9/9 수준과 8월 변동폭, 실질금리·기간프리미엄 논의.
-3. 스프레드: OAT-Bund 10y, BTP-Bund 10y, Bonos-Bund 8월 추이와 9월 초 수준 — 프랑스 \
-정치·예산 리스크 반영, 이탈리아 등급 상향 여부.
-4. 8월 글로벌 채권 매도(global bond rout): 배경(재정·공급·인플레·일본 JGB)과 유럽 파급, \
-ECB 시각(BI 'What Global Bond Market Rout Means for Policy' 논지와 대조).
-5. 주식: STOXX 600 8월 수익률·YTD, 섹터(은행·자동차 SXAP·에너지·방산·유틸리티), DAX·CAC·\
-FTSE MIB·IBEX 8월, 밸류에이션(12M fwd PER), 2Q 실적 시즌 결과(EPS 성장·서프라이즈 비율).
-6. 은행: 유로존 은행지수 8월, NII 민감도, ECB 인상 수혜 논의, 대출 성장(7월 M3·대출 통계 8/27).
-7. 자금흐름: 유럽 주식·채권 펀드 8월 순유입(EPFR·LSEG), 외국인 유로존 채권 매입.
-8. 시장 내재 ECB 경로(ESTR OIS) 8/1·8/29·9/9 시점별: 9월·12월·2027년 6월 내재 DFR.""",
-        "budget": "Q1~Q3 12회, Q4~Q6 12회, Q7~Q8 8회",
+1. 금리: 독일 Bund 2y·10y·30y — {window_from}·{window_to} 수준과 기간 중 고저, 곡선 기울기(2s10s·10s30s), \
+기간프리미엄·스왑 스프레드 논의, 발행 공급(각국 분기 발행계획·입찰 결과).
+2. 스프레드: OAT·BTP·Bonos·기타(벨기에·오스트리아·포르투갈)–Bund 10y 스프레드의 기간 중 추이와 변동 **원인별 \
+분해**(정치·재정·등급·공급). 프랑스와 이탈리아 스프레드 역전 여부 등 구조 변화.
+3. **EUR/USD 동인**: 기간 초·말 수준, 고저, 금리차(2y 독·미), 위험선호, 연준 경로, 무역·자금흐름 — 기관 해설 인용.
+4. **EUR/KRW 동인**: EUR/KRW·USD/KRW 기간 초·말·고저, 원화 측 요인(한국 수출·외국인 주식 자금·BOK·국민연금 \
+환헤지), 유로 측 요인. 한국은행·KCIF 등 국내 기관 해설 포함.
+5. 기타 통화: EUR/GBP·EUR/CHF·EUR/JPY·EUR/CNY 수준과 변화 요인.
+6. 주식: STOXX 600·Euro Stoxx 50·DAX·CAC 40·FTSE MIB·IBEX 35 기간 수익률·연초 대비, 섹터(은행·자동차·방산·\
+에너지·유틸리티·럭셔리·헬스케어) 성과, 12M 선행 PER, 실적 시즌 결과(EPS 증가율·서프라이즈 비율), VSTOXX.
+7. 자금흐름: 유럽 주식·채권 펀드 순유출입(EPFR·LSEG Lipper·BofA), 외국인 유로존 국채 순매수(ECB 국제수지).
+8. 시장 이벤트: 기간 중 글로벌 채권 매도·위험회피 사건과 유럽 파급(날짜·폭).""",
+        "budget": "Q1~Q2 12회, Q3~Q5 12회, Q6~Q8 12회",
     },
-    "N05_politics_fiscal": {
-        "title": "유럽 정치·재정 — 프랑스·독일·이탈리아·스페인·EU 예산·방위비·정치 캘린더",
+    "R05_credit_banks_housing": {
+        "title": "신용·은행·주택 — BLS·대출·대출금리·은행 실적·자산건전성·회사채·주택가격",
+        "groups": ("EA_MACRO", "ECB"),
+        "geos": ("EA", "DE", "FR", "IT", "ES"),
         "questions": """\
-1. 프랑스: 2027 예산안 준비·2026 예산 집행, 정부 안정성(불신임·개각), 신용등급 이벤트(Fitch·\
-Moody's·S&P 9~10월 일정), 재정적자·부채 목표, OAT 스프레드와의 연계. 8~9월 주요 사건 일지.
-2. 독일: 8월 주(州)선거 결과(AfD 승리·연정 파장, BI 'AfD Win Poses New Test'), 연방 연정 \
-안정성, 2026 예산·재정패키지 집행, 부채제동 개혁, 산업정책(전기요금·에너지).
-3. 이탈리아: 2027 예산 방향(DPFP 9월), 적자 3% 하회·EDP 탈출 전망, 등급 상향, 멜로니 정부 \
-지지율.
-4. 스페인·네덜란드·기타: 예산 통과 가능성, 선거 일정, 정치 리스크.
-5. EU 차원: 2028~2034 MFF 협상, SAFE 방위대출·방위비 지출, 우크라이나 지원·재건, 러시아 \
-동결자산, 디지털·경쁩력(Draghi 후속), 8~9월 EU 정상회의·EU 집행위 연설(9월 State of the Union).
-6. 정치 캘린더 2026-09~2026-12: 각국 선거·예산 표결·등급 평가·EU 정상회의 일정표(날짜 확정분만).
-7. BI 'Higher Political Risk Clouds Policy Outlook'·'Election Blitz' 논지와 대조할 1차 사실.""",
-        "budget": "Q1~Q2 14회, Q3~Q5 12회, Q6~Q7 8회",
+1. ECB 은행대출서베이(BLS) 최신 회차(발표일·대상 분기): 기업·가계(주택·소비) 대출 기준 변화·수요 변화 순비율, \
+다음 분기 예상, 기준 강화 요인. 다음 BLS 발표 예정일.
+2. 대출 증가율: 가계·비금융기업 대출(최신 월, YoY, M3 발표), 통화량 M1·M3, 신규 대출 흐름.
+3. 대출 금리(MIR): 신규 주택담보대출·기업대출 금리 최신 월, 정책금리 전가 속도 해설.
+4. 은행 실적·수익성: 최근 분기 유럽 주요 은행 실적(순이자이익·ROE·충당금), 금리 인상/동결의 NII 민감도, \
+은행세(이탈리아·스페인 등) 논의, 은행 M&A(국경 간 통합 포함) 진행 상황.
+5. 자산건전성: NPL 비율(EBA 리스크 대시보드·ECB 감독 통계), 상업용 부동산 익스포저, Stage 2 대출 비중.
+6. 회사채: 유로 IG·HY 스프레드(iTraxx Main·Crossover 또는 지수 OAS) 기간 중 추이, 발행량, 디폴트율 전망.
+7. 주택: Eurostat 주택가격지수(최신 분기, YoY)와 국가별(DE·FR·IT·ES·NL), 주택거래·건축허가, 주담대 금리 영향.
+8. 금융안정: ECB 금융안정보고서·ESRB 경고·거시건전성 조치(경기대응완충자본 등) 최신 사항.""",
+        "budget": "Q1~Q3 12회, Q4~Q5 10회, Q6~Q8 12회",
     },
-    "N06_external_energy": {
-        "title": "대외·에너지 — 미·EU 관세, 중국 무역, 러시아·우크라이나, 이란 전쟁·유가·가스",
+    "R06_politics_fr": {
+        "title": "프랑스 정치·재정 — 정부·의회 산술·예산안·불신임·49.3·등급·스프레드·대선 레이스",
+        "groups": ("FR",),
+        "geos": ("FR",),
+        "politics": True,
         "questions": """\
-1. 미·EU 무역: 자동차 25% 관세(5/1 발표, 협상 기한 7/4) 이후 8~9월 상태, 철강·알루미늄·\
-의약품·디지털세·232조 조사, EU 대응(보복 보류·협상), 7~8월 EU 대미 수출 통계.
-2. 중국: EU-중국 무역(EV 관세·희토류·과잉공급 'China Shock 2.0', BI 0.7% GDP 논지), 10월 \
-무역협상 전망, 7월 EU 대중 수입 급증 통계, 러시아 요인.
-3. 러시아·우크라이나: 8~9월 전황·휴전 협상·에너지 인프라 공격, EU 제재 패키지, 하이브리드 \
-공격(BI 'Hybrid Ops') 사건 목록(날짜).
-4. 이란 전쟁(6개월째): 호르무즈 상황·협상, 8~9월 Brent·WTI 추이(월평균·고저), 유럽 가스 TTF·\
-저장률(9월 초 %), 유럽 정제마진·연료 가격.
-5. 에너지 정책: EU 가스 저장 목표 완화, 러시아 LNG 단계적 금지 일정, 전기요금 대책(독일 등).
-6. 기후·물류: 라인강 저수위(BI 'Low River Levels') 산업 영향, 8월 이상기후.
-7. 이민·국경: 8월 이민 급증(BI 'Migrant Surge') 사실관계·정치 파급.""",
-        "budget": "Q1~Q2 12회, Q3~Q4 12회, Q5~Q7 8회",
+1. 행위자: 대통령·총리·경제재정장관·예산장관, 원내 주요 정파(범여권·공화당·RN·LFI·사회당·녹색·공산) 대표와 \
+원내대표 — 실명과 {window} 중 입장.
+2. 국민의회 산술: 577석 정파별 의석, 과반 289, 불신임안 가결 요건(재적 과반 찬성), 각 정파가 불신임에 찬성할 \
+조건, 상원 구도.
+3. 예산 절차: {next_year} 예산안(PLF)·사회보장재정법안(PLFSS) 제출일·국무회의·의회 심의 일정, 헌법상 심의 기한\
+(70일·50일), 49.3조 사용 여부와 그에 따른 불신임 표결 일정, 특별법·예산 지연 시 대안 절차.
+4. 예산 내용: 적자 목표(%GDP, {year}·{next_year}), 부채비율, 절감·증세 항목과 규모(€bn), 연금·부유세 등 쟁점, \
+고등재정위원회(HCFP) 의견.
+5. 사건 일지와 기간 중 정부 안정성 사건(개각·사임·불신임·해산 논의).
+6. 시장 전달경로: OAT–Bund 10y 스프레드(날짜별, bp)와 OAT–BTP 비교, CDS, 신용등급(S&P·Moody's·Fitch·DBRS)\
+현재 등급·전망과 **다음 평가 예정일**, 은행주 반응, ECB/TPI 관련 언급.
+7. 여론·대선 레이스: 차기 대선 후보군(RN·범여권·좌파·공화당) 지지율(조사기관·조사일), 정당 지지율 추세.
+8. 시나리오: 예산 통과 / 49.3+불신임 / 해산·조기총선 — 트리거 날짜, 확률(출처), 스프레드·등급 함의.""",
+        "budget": "Q1~Q3 12회, Q4~Q5 10회, Q6~Q8 14회",
     },
-    "N07_uk_periphery": {
-        "title": "영국·스위스·북유럽 주변부 — BOE·길트·SNB·Riksbank·Norges",
+    "R07_politics_de": {
+        "title": "독일 정치·재정 — 연정·연방의회/연방참사원 산술·예산·부채제동·특별기금·AfD·주선거",
+        "groups": ("DE",),
+        "geos": ("DE",),
+        "politics": True,
         "questions": """\
-1. BOE 8월(8/6)·9월(9/17 예정) 회의: 기준금리·표결·가이던스, 7월 CPI(8/19)·8월 CPI(9/16 예정) \
-컨센서스, 7월 고용·임금(8/12·9/15), 2Q GDP(8/14)·7월 월간 GDP(9/11 예정).
-2. 길트 매도: 30y 길트 8월 고점, 재정(11월 예산·Healey 재무장관 대응), OBR 논쟁(BI 'OBR Wrong?').
-3. 영국 PMI 8월·DMP 서베이, BI 'Two Charts Could Decide BOE' 논지 대조.
-4. 스위스: SNB 9월 회의 전망, CHF, 관세(미·스위스 39%) 후속.
-5. 스웨덴·노르웨이·덴마크: 8~9월 정책금리·CPI.
-6. 유럽 장표 맥락에서 영국이 유로존과 다른 점(인플레 3% 부근·재정 프리미엄) 1~2문단용 사실.""",
-        "budget": "Q1~Q2 14회, Q3 6회, Q4~Q6 10회",
+1. 행위자: 연방총리·부총리 겸 재무장관·경제장관, 연정 정당 대표·원내대표, AfD·녹색·좌파 지도부 — 실명과 \
+{window} 중 입장.
+2. 의회 산술: 연방의회(Bundestag) 정당별 의석·과반선·연정 의석, 헌법 개정 2/3 요건과 차단 소수(AfD+좌파), \
+연방참사원(Bundesrat) 표 분포(주정부 연정 구성별)와 동의법안 통과 조건.
+3. 재정: {next_year} 연방예산안 심의 일정·총지출·순차입, 부채제동(Schuldenbremse) 개혁 논의, 인프라 특별기금·\
+국방비 예외 조항 집행 실적(집행률), 중기 재정계획 공백(€bn), 사회보장(연금·건강보험) 재원 논쟁.
+4. 사건 일지: 연정 갈등·합의(날짜), 연금·징병·이민·에너지 정책 결정.
+5. AfD와 주선거: 최근·예정 주선거 결과/일정(날짜·득표율·의석), 연방 여론조사 정당 지지율(조사기관·조사일), \
+AfD 1위 여부, 방화벽(Brandmauer) 논쟁.
+6. 산업·에너지 정책: 전기요금 대책·산업전기요금·보조금, 자동차 산업 구조조정.
+7. 시장 전달경로: Bund 공급 증가·기간프리미엄, 재정 충격 규모(%GDP)와 성장 기여 추정(Bundesbank·연구소), \
+독일 주가·섹터 반응.
+8. 시나리오: 연정 안정 / 예산 교착 / 연정 붕괴 — 트리거·확률·시장 함의.""",
+        "budget": "Q1~Q3 12회, Q4~Q6 12회, Q7~Q8 10회",
     },
-    "N08_consensus_outlook": {
-        "title": "컨센서스·전망 — ECB 스태프 vs 설문 vs BI vs IB, 시나리오 재료",
+    "R08_politics_it_es_other": {
+        "title": "이탈리아·스페인·기타 회원국 정치·재정 — IT·ES·NL·PL 및 기간 중 선거·정부 구성 국가",
+        "groups": ("IT", "ES"),
+        "geos": ("IT", "ES", "NL", "PL", "BE", "PT", "AT"),
+        "politics": True,
         "questions": """\
-1. Bloomberg 이코노미스트 월간 설문(8월·9월): 유로존 2026·2027 GDP·HICP·DFR 경로 중앙값·분포.
-2. Consensus Economics/FocusEconomics 8~9월 유로존·독일·프랑스·이탈리아·스페인 전망 갱신.
-3. EU집행위 여름 전망(있으면)·IMF 7월 WEO 업데이트·OECD 9월 중간전망(9/9~9/23 예정 여부) 유로존 수치.
-4. 주요 IB 유로존 전망 8~9월 갱신(GS·JPM·MS·DB·UBS·Barclays·BNP·ING·Nordea): 성장·물가·ECB 최종금리.
-5. 리스크 시나리오 재료: 에너지 재충격(유가 $110+), 프랑스 정치 위기, 미·EU 관세 확전, \
-중국 수출 충격, 글로벌 채권 매도 — 각 시나리오에 대한 기관 추정 영향(GDP·HICP ppt).
-6. 유로존 9~12월 주요 일정: HICP flash·PMI·GDP·ECB 회의·EU 정상회의·등급 평가·선거 날짜 확정분.
-7. Bloomberg Intelligence 유로존 팀 8월 전망 논지(ECB 9월 인상 후 12월 초점, 임금 둔화, 3Q 견조)를 \
-공개 자료로 교차 확인.""",
-        "budget": "Q1~Q2 12회, Q3~Q4 12회, Q5~Q7 10회",
+1. 이탈리아: 총리·재무장관·연정 3당 대표, 양원 의석 산술, {next_year} 예산(DPB 제출일·적자 목표·주요 항목), \
+과다적자절차(EDP) 종료 전망, 등급 평가 일정·결과, BTP–Bund 스프레드, 지방선거·국민투표 일정, 여론조사.
+2. 스페인: 총리와 소수정부 지지 구조(연정·지지 정당 의석, 과반 176), {next_year} 예산 제출·통과 가능성, \
+부패 수사·사법 이슈, 조기총선 가능성, 카탈루냐 정당 입장, 여론조사, Bonos 스프레드·등급.
+3. 네덜란드: 최근 총선 결과(의석)·연정 협상 경과·정부 구성 일정, 재정·연금 개혁 함의.
+4. 폴란드·중부유럽: 대통령–정부 관계, 예산·국방비, 헝가리·체코·슬로바키아 등 EU 관계 쟁점.
+5. 기타: 벨기에·포르투갈·오스트리아·그리스 등 **조사 기간 중 선거·정부 구성·예산 위기가 있었던 모든 회원국** — \
+국가마다 행위자·의석·일정·재정 수치·스프레드.
+6. 공통: 각국 {next_year} 예산계획(DBP) 집행위 제출 일정(10월 중순)과 EU 재정규칙(순지출 경로) 준수 평가.""",
+        "budget": "Q1 12회, Q2 10회, Q3~Q6 14회",
     },
-    "N09_calendar_indicators": {
-        "title": "지표 실적 스냅샷·향후 1주 발표 일정 (부록용)",
+    "R09_eu_institutions_trade": {
+        "title": "EU 제도·통상 — MFF·방위(SAFE·NATO)·우크라이나 재원·러시아 자산·미–EU 관세·대중 무역방어",
+        "groups": ("EU_POLICY", "GLOBAL"),
+        "geos": ("EU", "US", "CN"),
+        "politics": True,
         "questions": """\
-1. **최근 4주 실적표**(기준 시점 직전 28일간 발표된 유로존·독일·프랑스·이탈리아·스페인·영국·스위스 주요 지표 전량): 발표일 | 국가 | 지표(참조 기간) | 실제 | 예상(컨센서스) | 이전 | 수정치 | 출처 URL. 대상: HICP/CPI(flash·final·코어), PPI, GDP(잠정·확정), PMI(flash·final, 제조·서비스·종합), Ifo·ZEW·INSEE·ISTAT 심리, 산업생산, 소매판매, 실업률·고용, 무역수지, 경상수지, 소비자신뢰(EC), M3·대출, ECB 협상임금, 영국 CPI·GDP·고용·소매, 중앙은행 결정. 최소 40행. 컨센서스는 Bloomberg/Reuters/Investing/ForexFactory 중 출처 표기.
-2. **향후 7일 발표 예정표**(기준 시점 익일부터 7일): 발표일·시간(CET 및 KST) | 국가 | 지표(참조 기간) | 컨센서스 | 이전 | 중요도(高/中/低) | 출처. ECB 위원 연설·EU 회의·국채 입찰·신용등급 평가일도 포함.
-3. **향후 8~30일 주요 일정**(월간 보고 이후 관전용): ECB 회의·HICP flash·PMI flash·GDP·EU 정상회의·주요국 예산 제출·등급 평가·선거.
-4. 각 표는 1차 출처(Eurostat 릴리스 캘린더, ECB 캘린더, 각국 통계청 캘린더, S&P Global PMI 캘린더)와 2차(Investing.com·ForexFactory·Trading Economics 캘린더)를 교차 확인하고 불일치는 note에 기록.
-5. 시간대 변환 규칙: CET(UTC+2 서머타임 기준, 9~10월은 CEST) → KST(UTC+9). 변환 오류 방지 위해 원문 시간대를 함께 표기.""",
-        "budget": "Q1 15회, Q2 10회, Q3~Q5 8회",
+1. 행위자: 집행위원장·통상담당·경제담당 집행위원, 유럽이사회 의장, 주요 회원국 정상의 입장 — 실명.
+2. MFF(다년도 재정체계) 차기 기간 협상: 총액(%GNI·€bn), 신규 자체재원, 회원국 입장, 의회·이사회 일정.
+3. 방위: SAFE 대출 배정(국가별 €bn)·집행, NATO 국방비 목표 이행(국가별 %GDP), 유럽 방위산업 조달, 재정규칙 \
+국방 예외 조항 활성화 국가.
+4. 우크라이나 재원: 러시아 동결자산 활용(배상 대출 등) 설계·법적 쟁점·반대 회원국, 지원 규모·일정, 제재 패키지.
+5. 미–EU 통상: 관세 합의 이행 상태(자동차·철강·의약품·반도체 세율), EU 측 입법 조치, 232조 조사, 디지털 규제 \
+갈등, 추가 관세 위협 — 날짜·세율·대상 교역액.
+6. 대중 무역방어: EV 관세·세이프가드·반덤핑 조사, 희토류·핵심광물 수출통제 영향, 중국산 수입 급증 통계.
+7. 경쟁력·규제: 옴니버스 간소화, 에너지·산업 정책, 자본시장동맹(저축·투자 연합) 진전.
+8. 일정: {horizon_to}까지 EU 정상회의·이사회·의회 표결·집행위 발표 일정표.""",
+        "budget": "Q1~Q4 16회, Q5~Q6 12회, Q7~Q8 6회",
+    },
+    "R10_external_energy": {
+        "title": "대외·에너지 — 중동 전쟁·원유·가스·TTF·저장률·러시아·우크라이나·중국 쇼크·미국 파급",
+        "groups": ("ENERGY_EXTERNAL", "GLOBAL"),
+        "geos": ("GLOBAL", "US", "CN", "RU", "UA"),
+        "questions": """\
+1. 중동(이란) 분쟁: 조사 기간 중 전황·호르무즈 해협 통항·협상 경과(날짜), 원유 공급 차질 규모(mb/d), OPEC+ 결정.
+2. 원유: Brent·WTI 기간 초·말·고저·월평균, 선물 곡선(백워데이션), 기관 유가 전망(EIA·IEA·IB).
+3. **가스**: TTF 기간 초·말·고저, 유럽 가스 저장률(AGSI+, 날짜별 %)과 목표, LNG 도입량·가격, 겨울 수급 전망. \
+유가 대비 가스 가격의 상대 흐름과 유럽 경제 영향이 더 큰 이유(전기요금 연동·산업 사용).
+4. 러시아·우크라이나: 전황·휴전 협상·에너지 인프라 공격·하이브리드 공격 사건(날짜), 러시아 에너지 수입 단계적 \
+금지 일정.
+5. 중국 쇼크: 중국의 대EU 수출 물량·가격(최신 월), 산업별 잠식(자동차·기계·화학), 기관의 유로존 GDP 영향 추정(%).
+6. 미국 파급: 연준 결정·경로, 미 국채금리·달러, 미국 성장이 유럽 수출에 미치는 경로.
+7. 에너지 → 물가·성장 전달 추정: 유가/가스 10% 충격의 유로존 HICP·GDP 영향(ECB·EC 민감도 수치).""",
+        "budget": "Q1~Q3 14회, Q4~Q5 10회, Q6~Q7 8회",
+    },
+    "R11_uk_periphery": {
+        "title": "영국·주변부 — BOE·길트·예산·영국 정치·SNB·Riksbank·Norges",
+        "groups": ("UK",),
+        "geos": ("UK", "CH", "SE", "NO"),
+        "politics": True,
+        "questions": """\
+1. BOE: 조사 기간 중 통화정책위원회 결정(Bank Rate·표결 분포·위원별)·가이던스, QT(국채 매각) 속도 결정, \
+통화정책보고서(해당 시). 다음 회의 일정과 시장 프라이싱.
+2. 영국 지표: CPI·코어·서비스(최신 월, 컨센서스), 임금·실업률, 월간 GDP·분기 GDP, PMI.
+3. 길트: 2y·10y·30y 수준과 고저, 재정 프리미엄 논의, DMO 발행 계획.
+4. 재정: 차기 예산(Budget) 일정, 재정 여유(headroom) 추정, 증세·지출 논쟁, OBR 전망 일정, 재무장관 발언.
+5. 영국 정치: 총리·노동당 내부 리더십 논쟁, Reform UK·보수당·자민당 지지율(조사기관·조사일), 보궐선거·지방선거 결과, \
+정부 안정성.
+6. SNB: 정책금리·환율 개입·CHF, 스위스 관세 협상. Riksbank·Norges Bank: 결정·물가.
+7. 유로존과의 차이: 물가·금리·재정 프리미엄 비교(수치)와 EUR/GBP 함의.""",
+        "budget": "Q1~Q3 14회, Q4~Q5 12회, Q6~Q7 8회",
+    },
+    "R12_calendar_consensus": {
+        "title": "지표 실적·향후 일정·기관 전망·시나리오 재료",
+        "groups": ("EA_MACRO", "ECB"),
+        "geos": (),
+        "questions": """\
+1. **최근 4주 실적표**({lookback_from} ~ {as_of} 발표분 전량): 발표일 | 국가 | 지표(참조 기간) | 실제 | 예상 | 이전 | \
+수정치 | 출처 URL. 대상: 유로존·독일·프랑스·이탈리아·스페인·영국·스위스의 HICP/CPI(속보·확정·코어), PPI, GDP, \
+PMI(속보·확정), Ifo·ZEW·INSEE·ISTAT·ESI·소비자신뢰, 산업생산, 소매판매, 실업률, 무역수지, 경상수지, M3·대출, \
+협상임금, 중앙은행 결정. **최소 40행.** 컨센서스 출처(Bloomberg·Reuters·Investing·ForexFactory) 표기.
+2. **향후 30일 일정**({horizon_from} ~ {horizon_to}): 발표일·시간(CET/CEST 및 KST) | 국가 | 지표·이벤트(참조 기간) | \
+컨센서스 | 이전 | 중요도(高/中/低). 경제지표 외에 **ECB 회의·의사록·위원 연설, 신용등급 평가일, 예산 제출·표결, \
+선거, EU 정상회의, 국채 입찰**을 포함.
+3. 기관 전망 비교표: ECB 스태프·EC·IMF·OECD·Consensus Economics/Bloomberg 설문의 유로존·DE·FR·IT·ES \
+{year}·{next_year} GDP·HICP (발표일 명시).
+4. 시나리오 재료: 에너지 재충격·정치 위기(프랑스 등)·관세 확전·중국 수출 충격·채권 매도 — 기관이 제시한 \
+시나리오별 GDP·HICP 영향(ppt)과 트리거.
+5. 교차 확인 규칙: 1차(Eurostat·ECB·각국 통계청·S&P Global 릴리스 캘린더) vs 2차(Investing·ForexFactory·\
+Trading Economics) 불일치는 note에. 시간대는 원문 표기 병기 후 KST 변환.""",
+        "budget": "Q1 15회, Q2 12회, Q3~Q5 10회",
     },
 }
 
+# 축 → BI 섹션 그룹(맥락 블록 구성용). 테스트·러너가 공유.
+AXIS_GROUPS: dict[str, tuple[str, ...]] = {
+    k: v["groups"] for k, v in RESEARCH_AXES.items()
+}
+
+
 # ---------------------------------------------------------------------------
-# 시계열 수집 에이전트 (차트용 JSON) — weekly_brief 계승·확장
+# 웹 시계열 (llm_web 등급) — contract §3 형식
 # ---------------------------------------------------------------------------
 
-SERIES_HEADER = """\
-당신은 유럽 거시경제 **시계열 데이터 수집** 전문가(Sonnet)입니다. 기준 시점 {as_of} (KST). \
-WebSearch·WebFetch만 사용해 아래 시계열을 수집하고 **JSON 한 덩어리**로 출력하십시오.
+WEB_SERIES_HEADER = """\
+유럽 거시경제 **시계열 수집** 과제(Sonnet). 기준 시점 {as_of} (KST). WebSearch·WebFetch만 사용해 아래 시계열을 \
+수집하고 **JSON 한 덩어리**로 출력할 것. 결과는 코드가 `llm_web` 등급으로 흡수하고 BI 원문·결정론 수치와 교차 검증한다.
 
-## 효율 지침
-- 월별 개별 검색 금지. 시계열 전체가 한 표에 있는 **종합 출처(Eurostat 데이터브라우저·ECB Data \
-Portal·Trading Economics·Investing.com·S&P Global 릴리스 아카이브)를 1~2회 WebFetch**로 받아 \
-파싱하는 것을 최우선. 검색 예산 25회 이내.
-- 값이 확인되지 않는 월은 `null`. 값을 추정·보간하지 말 것. 최신 월은 flash/final 구분을 note에.
-- 각 시리즈에 `source`(기관·URL)·`published`(최신 관측 발표일)·`unit`·`frequency`를 부착.
+## 효율·정확성 지침
+- 월별 개별 검색 금지. 시계열이 한 표에 있는 **종합 출처(S&P Global/HCOB 릴리스 아카이브·Investing.com 과거 발표·\
+Trading Economics·중앙은행 자료)를 WebFetch**로 받아 파싱하는 것을 최우선. 검색 예산 25~30회.
+- 확인되지 않은 기간은 `null`. 추정·보간 금지. x_labels는 결측 기간도 빠뜨리지 않고 연속 격자로.
+- 각 시리즈에 `source`(기관)·`url`·`published`(최신 관측 발표일)·`unit`·`frequency`·`note`를 부착.
+- `status` 배열(data와 같은 길이): 관측별 `final|flash|estimate|null`.
+
+## 이미 확인된 사실 (참고, 수치가 겹치면 이 값과 대조해 note에 불일치 기록)
+{known}
 
 ## 출력 형식 (엄수 — JSON 외 텍스트는 코드펜스 밖에 최소한으로)
 ```json
@@ -213,9 +479,9 @@ Portal·Trading Economics·Investing.com·S&P Global 릴리스 아카이브)를 
   "as_of": "{as_of}",
   "series": {{
     "<series_id>": {{
-      "title": "...", "unit": "%", "frequency": "M|Q|D",
-      "x_labels": ["2024-01", ...], "data": [2.8, ...],
-      "source": "Eurostat", "url": "...", "published": "YYYY-MM-DD", "note": "..."
+      "title": "...", "unit": "...", "frequency": "M|D|meeting",
+      "x_labels": ["..."], "data": [0.0, null], "status": ["final", null],
+      "source": "...", "url": "...", "published": "YYYY-MM-DD", "note": "..."
     }}
   }},
   "unresolved": ["..."]
@@ -223,40 +489,144 @@ Portal·Trading Economics·Investing.com·S&P Global 릴리스 아카이브)를 
 ```
 """
 
-SERIES_AGENTS: dict[str, str] = {
-    "S1_hicp": """\
-## 수집 대상 (월별, 2024-01 ~ 최신 flash)
-- `ea_hicp_headline_yoy`, `ea_hicp_core_yoy`(식품·에너지·주류·담배 제외), `ea_hicp_services_yoy`, \
-`ea_hicp_energy_yoy`, `ea_hicp_food_yoy`, `ea_hicp_neig_yoy`(비에너지 산업재)
-- 국가별 헤드라인 HICP YoY 2025-01~최신: `de_hicp_yoy`, `fr_hicp_yoy`, `it_hicp_yoy`, `es_hicp_yoy`
-- `ea_negotiated_wages_yoy`(ECB 협상임금, 분기 2022Q1~2026Q2)
-- `ea_ppi_yoy`(2024-01~최신)""",
-    "S2_activity": """\
+WEB_SERIES: dict[str, dict[str, str]] = {
+    "W1_pmi": {
+        "title": "HCOB PMI — 유로존·DE·FR·IT·ES 종합·제조·서비스",
+        "body": """\
+## 수집 대상 (월별, {series_start} ~ {as_of} 시점 최신 발표)
+- 지역 5개(유로존 `ea`·독일 `de`·프랑스 `fr`·이탈리아 `it`·스페인 `es`) × 지수 3개(`composite`·`manufacturing`·\
+`services`) = 15개 시리즈. id 규칙 `<geo>_pmi_<kind>` (예 `ea_pmi_composite`, `it_pmi_services`).
+- 이탈리아·스페인은 속보(flash)가 없으므로 확정치만. 유로존·독일·프랑스는 최신 월이 속보이면 `status`에 `flash`.
+- 확정치가 속보를 수정했으면 확정치를 쓰고 note에 `YYYY-MM flash x → final y` 형식으로 기록.
+- 제조업은 headline PMI(가중 합성지수)이며 생산지수(output index)와 구분할 것.""",
+    },
+    "W2_ois": {
+        "title": "€STR OIS 내재 ECB 예금금리(DFR) 경로 — 회의별, 두 시점",
+        "body": """\
 ## 수집 대상
-- PMI 월별 2024-01~2026-08(최종): `ea_pmi_composite`, `ea_pmi_manufacturing`, `ea_pmi_services`, \
-`de_pmi_composite`, `fr_pmi_composite`, `it_pmi_composite`, `es_pmi_composite`
-- GDP QoQ 분기 2023Q1~2026Q2(최신 추정): `ea_gdp_qoq`, `ea_gdp_yoy`, `de_gdp_qoq`, `fr_gdp_qoq`, \
-`it_gdp_qoq`, `es_gdp_qoq`
-- `ea_unemployment_rate` 월별 2024-01~2026-07, `ea_industrial_production_yoy` 2024-01~2026-07, \
-`ea_retail_sales_yoy` 2024-01~2026-07, `ea_consumer_confidence` 2024-01~2026-08, \
-`de_ifo_business_climate` 2024-01~2026-08, `de_zew_expectations` 2024-01~2026-08""",
-    "S3_rates_markets": """\
-## 수집 대상
-- ECB 정책금리 변경 이력 2022-07~2026-09(결정일·DFR·MRO·MLF): `ecb_dfr`, `ecb_mro`, `ecb_mlf` \
-(x_labels=결정 발효일)
-- 일별 또는 주별(금요일) 2026-01-02~{as_of}: `eurusd`, `de_bund_10y`, `de_bund_2y`, `fr_oat_10y`, \
-`it_btp_10y`, `es_bonos_10y`, `oat_bund_spread_bp`, `btp_bund_spread_bp`, `stoxx600`, `sx7e_banks`, \
-`sxap_autos`, `dax`, `cac40`, `brent_usd`, `ttf_gas_eur_mwh`
-- 월말 기준 2024-01~2026-08: `eurusd_monthly`, `de_bund_10y_monthly`, `stoxx600_monthly`
-- OIS 내재 DFR(가능하면) 2026-09-09 기준 회의별: `estr_ois_implied_dfr` (x_labels=회의월)""",
+- `ois_dfr_asof`: {as_of} 시점(또는 직전 영업일) 기준 ECB 회의별 내재 DFR(%) — x_labels는 **회의일**(YYYY-MM-DD), \
+{next_meeting} 회의부터 약 12개월 뒤 회의까지.
+- `ois_dfr_prev`: {ois_prev_date} 무렵(±3영업일, 실제 날짜 note) 같은 회의 격자의 내재 DFR.
+- `ois_cum_bp_asof`: 현재 DFR 대비 회의별 누적 변화(bp) — 출처가 bp로만 제시하면 이것을 우선 채우고 DFR 환산식을 note에.
+- 현재 DFR 값과 기준일을 note에 명시. 출처: Bloomberg WIRP·Reuters 보도·IB 리서치·ECB 위원 발언 보도 중 날짜가 \
+명시된 것만. 서로 다른 출처를 한 시리즈에 섞지 말 것(섞었다면 note에 관측별 출처).
+- 회의 일정은 ECB 공식 일정(ecb.europa.eu)으로 확인.""",
+    },
 }
 
-KNOWN_FACTS_FALLBACK = """\
-- ECB 2026-06-11 3대 정책금리 25bp 인상(DFR 2.25%·MRO 2.40%·MLF 2.65%, 6/17 발효) [확정]
-- ECB 2026-07-23 동결(DFR 2.25% 유지), 라가르드 "긴축 종료로 해석 금물", 회의별 접근 [확정]
-- Eurostat 2Q26 GDP 속보(7/30) 유로존 QoQ +0.4%·YoY +1.0%, EU +0.5%·+1.2%; 6월 실업률 6.3% [확정]
-- 유로존 6월 HICP 2.8%(5월 3.2%); 7월 HICP 확정 2.9%, 코어 2.5% [확정]
-- 미국 對EU 자동차 관세 25% 5/1 발표(15%→25%), 협상 기한 7/4 [보도]
-- 이란 전쟁 6개월째(2026-03 개전), Brent 9/1 $96.02(FRED) [확정]
-- 2026-08 주간 덱 마지막 유럽 장표는 8/10(ECB 7/23 동결·DFR 2.25%) — 이후 4주 유럽 장표 부재
+
+# ---------------------------------------------------------------------------
+# 보충 리서치(갭) 모드
+# ---------------------------------------------------------------------------
+
+GAP_HEADER = """\
+유럽 거시경제 월간 리포트({month_label}호, 보고일 {report_date}·{phase_ko}) 보충 리서치(Sonnet). 기준 시점 **{as_of} (KST)**, \
+조사 대상 기간 {window}. 집필·감사 과정에서 본문에 필요하지만 근거가 없던 질문 목록(라운드 {round_id}, 묶음 {n}).
+
+## 규약
+- 질문마다 **답(수치·날짜·행위자·원문 인용) + 1차 출처 URL + 발표일**을 제시할 것. 라벨 [확정]/[보도]/[추정]/[시장]/[미확인].
+- 공개 자료가 있는데 "확인 불가"로 끝내지 말 것. 1차 출처가 없으면 신뢰 가능한 2차 출처로 답하고 라벨로 구분.
+- 정말 **미공개**(예: 아직 발표 전, 비공개 회의)이면 `미공개`로 판정하고 ① 공개 예정일 ② 대체 근거(가장 가까운 공개 \
+수치·기관 추정) ③ 결론에 미치는 영향을 쓸 것.
+- 연도 혼동 금지({prev_year}년 vs {year}년), 상대 날짜 금지. 검색 예산 질문당 4~6회, 총 30회 이내.
+- 산출은 표준출력 마크다운. 한국어, 명사형 종결.
+
+## 이미 확인된 사실 (재조사 금지)
+{known}
+
+## 질문
+{questions}
+
+## 출력 형식 (엄수)
+```
+## <gap id> — <질문 요지>
+- 판정: 답변|부분|미공개
+- 답: (수치·날짜·행위자·원문 인용. 라벨)
+- 근거: (출처명 · 발표일 · URL)
+- 미공개 시: 공개 예정일 · 대체 근거 · 결론 영향
+
+(질문 수만큼 반복)
+
+## 수치 레코드
+| metric | value | unit | period | geo | label | source_name | url | published | gap_id |
+|---|---|---|---|---|---|---|---|---|---|
+```
 """
+
+
+# ---------------------------------------------------------------------------
+# 빌더
+# ---------------------------------------------------------------------------
+
+
+def resolve_axis(key: str) -> str:
+    """'R01' 또는 'R01_ecb' → 'R01_ecb'."""
+    for k in RESEARCH_AXES:
+        if k == key or k.split("_", 1)[0] == key:
+            return k
+    raise KeyError(f"unknown axis {key}")
+
+
+def resolve_web(key: str) -> str:
+    for k in WEB_SERIES:
+        if k == key or k.split("_", 1)[0] == key:
+            return k
+    raise KeyError(f"unknown web series {key}")
+
+
+def build_axis_prompt(key: str, ed: Any, known: str, bi_context: str) -> str:
+    full = resolve_axis(key)
+    spec = RESEARCH_AXES[full]
+    v = edition_vars(ed)
+    v.update(
+        known=known.strip() or KNOWN_PLACEHOLDER,
+        bi_context=bi_context.strip() or BI_PLACEHOLDER,
+        events=events_block(ed, spec.get("geos", ())),
+    )
+    parts = [RESEARCH_HEADER.format(**v)]
+    parts.append(f"\n## 축: {full} — {spec['title']}\n")
+    if spec.get("politics"):
+        parts.append(POLITICS_REQUIREMENTS.format(**v))
+    parts.append(f"\n## 조사 질문\n{spec['questions'].format(**v)}\n")
+    parts.append(f"\n## 검색 예산 배분 안내\n{spec['budget']}\n")
+    return "".join(parts)
+
+
+def build_web_series_prompt(key: str, ed: Any, known: str) -> str:
+    full = resolve_web(key)
+    v = edition_vars(ed)
+    v["known"] = known.strip() or KNOWN_PLACEHOLDER
+    spec = WEB_SERIES[full]
+    return (
+        WEB_SERIES_HEADER.format(**v)
+        + f"\n## 과제: {full} — {spec['title']}\n"
+        + spec["body"].format(**v)
+        + "\n"
+    )
+
+
+def build_gap_prompt(
+    round_id: str, n: int, items: list[dict], ed: Any, known: str
+) -> str:
+    v = edition_vars(ed)
+    lines = []
+    for it in items:
+        lines.append(f"### {it.get('id', '?')}\n- 질문: {it.get('question', '')}")
+        if it.get("context"):
+            lines.append(f"- 맥락: {it['context']}")
+    v.update(
+        known=known.strip() or KNOWN_PLACEHOLDER,
+        round_id=round_id,
+        n=str(n),
+        questions="\n".join(lines),
+    )
+    return GAP_HEADER.format(**v)
+
+
+def axis_catalog() -> str:
+    """사람이 읽는 축 목록(JSON)."""
+    return json.dumps(
+        {k: v["title"] for k, v in {**RESEARCH_AXES, **WEB_SERIES}.items()},
+        ensure_ascii=False,
+        indent=1,
+    )

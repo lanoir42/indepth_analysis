@@ -371,24 +371,36 @@ def build_parser() -> argparse.ArgumentParser:
         "-v", "--verbose", action="store_true", help="Enable verbose logging"
     )
 
-    # --- euro-macro-monthly-brief (v2: BI + WEEKLY index + Sonnet research) ---
+    # --- euro-macro-monthly-brief (v3: BI cards + deterministic data + research) ---
     mbrief = report_sub.add_parser(
         "euro-macro-monthly-brief",
-        help="Monthly European macro brief v2 — fetch/backbone/research stages",
+        help="Monthly European macro report v3 — intake/cards/data/research stages",
     )
     mbrief.add_argument("--month", required=True, help="Target month YYYY-MM")
     mbrief.add_argument(
-        "--as-of", default=None, help="Cut-off date YYYY-MM-DD (default: today)"
+        "--as-of", default=None, help="Data cut-off YYYY-MM-DD (edition init)"
+    )
+    mbrief.add_argument(
+        "--report-date", default=None, help="Report date YYYY-MM-DD (edition init)"
+    )
+    mbrief.add_argument(
+        "--phase",
+        default="preview",
+        choices=["preview", "interim", "final"],
+        help="Phase for edition init",
     )
     mbrief.add_argument(
         "--stage",
         nargs="+",
-        default=["fetch", "backbone"],
-        choices=["fetch", "backbone", "market", "research", "series"],
-        help="Deterministic/Sonnet stages (Opus stages run via 팀 Noir Workflow)",
+        default=["intake", "data"],
+        choices=["fetch", "intake", "cards", "data", "research", "workflow-args"],
+        help="Deterministic/Sonnet stages (Opus stages run via workflow/noir_v3.js)",
     )
     mbrief.add_argument(
-        "--axes", nargs="*", default=None, help="Research axes (prefixes, e.g. N02 N03)"
+        "--axes", nargs="*", default=None, help="Research axes (e.g. R01 R06)"
+    )
+    mbrief.add_argument(
+        "--web", nargs="*", default=None, help="Web series agents (e.g. W1 W2)"
     )
     mbrief.add_argument(
         "--root",
@@ -1370,6 +1382,9 @@ def _run_report(args: argparse.Namespace) -> None:
             stages=args.stage,
             axes=getattr(args, "axes", None),
             root=getattr(args, "root", None),
+            phase=args.phase,
+            report_date=args.report_date,
+            web=args.web,
         )
     elif args.report_type == "dev-welfare":
         collect_only = getattr(args, "collect_only", False)
