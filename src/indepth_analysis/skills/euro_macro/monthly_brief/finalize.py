@@ -210,7 +210,8 @@ def gate(
     if bad_refs:
         blocks.append(f"존재하지 않는 차트·표 참조 {len(bad_refs)}건 — {bad_refs[:5]}")
 
-    total = _chars_no_space(md)
+    # 분량은 독자 본문 기준(참고문헌 절 제외 — 2026-09 초안: 참고문헌 472건이 8만 자)
+    total = _chars_no_space("\n".join(ln for _, ln in lines))
     target = {"report": (50_000, 70_000), "explainer": (40_000, 50_000)}.get(kind)
     if target and not (target[0] * 0.85 <= total <= target[1] * 1.15):
         warns.append(f"분량 {total:,}자(공백 제외) — 목표 {target[0]:,}~{target[1]:,}")
