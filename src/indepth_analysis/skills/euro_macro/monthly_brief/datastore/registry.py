@@ -698,6 +698,12 @@ WEB_SERIES_MAP: dict[str, tuple[str, str, str]] = {
     "it_pmi_composite": ("pmi_composite_it", "이탈리아 종합 PMI", "index"),
     "es_pmi_composite": ("pmi_composite_es", "스페인 종합 PMI", "index"),
     "estr_ois_implied_dfr": ("ois_implied_dfr", "OIS 내재 DFR 경로", "%"),
+    # W2 프롬프트 id (2026-09-30 시험 실행에서 id 불일치 발견 → 매핑 추가)
+    "ois_dfr_asof": ("ois_implied_dfr", "OIS 내재 DFR(기준일)", "%"),
+    "ois_dfr_prev": ("ois_implied_dfr_prev", "OIS 내재 DFR(1개월 전)", "%"),
+    "ois_cum_bp_asof": ("ois_cum_bp", "OIS 내재 누적 변화(bp)", "bp"),
+    "sma_dfr_median": ("sma_dfr_median", "ECB 통화분석가 설문(SMA) DFR 중앙값", "%"),
+    "ois_hike_prob": ("ois_hike_prob", "회의별 인상 확률(시장 내재)", "%"),
 }
 # llm_web 계열 교차검증 허용오차 (concept → 절대값)
 XCHECK_TOL = {"pmi_manufacturing_ea": 0.3, "pmi_services_ea": 0.3}

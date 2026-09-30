@@ -44,12 +44,14 @@ M=indepth_analysis.skills.euro_macro.monthly_brief
 uv run python -m $M.edition init --month 2026-09 --phase preview \
   --as-of 2026-10-02 --report-date 2026-10-05 --ecb-last 2026-09-10 --ecb-next 2026-10-29
 
-# 1) 수집·카드·데이터 (멱등)
-uv run indepth report euro-macro-monthly-brief --month 2026-09 --stage fetch intake cards data
+# 1) 수집·카드·데이터·보조 맥락 (멱등)
+uv run indepth report euro-macro-monthly-brief --month 2026-09 --stage fetch intake cards data context
 #   fetch  : Mendeley EUROPE·WEEKLY 다운로드·텍스트화·주간덱 유럽 인덱스
 #   intake : 메타 파싱(발행시각·계열·국가)·sha16 중복(월 간 포함)·session.json·sections 스캐폴드
 #   cards  : 카드 없는 문서만 Sonnet 카드(key_numbers 원문 대조 검증) → scaffold 재실행
 #   data   : series_store(91 시리즈) → chart_pack·table_pack·facts → validate_pack
+#            + 수치 감사 참조 DB(data/macro_calendar.db) 중앙은행 금리 FRED 갱신
+#   context: research/D0_weekly_europe.md(주간 덱 유럽 장표)·K0_kcif_europe.md(KCIF 유럽 관련) — 결정론
 
 # 2) 웹 리서치 12축 + 웹 시계열(PMI·OIS) — Sonnet, 병렬 8, 축당 최대 30분
 uv run indepth report euro-macro-monthly-brief --month 2026-09 --stage research

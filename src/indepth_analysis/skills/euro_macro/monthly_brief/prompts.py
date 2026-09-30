@@ -498,7 +498,11 @@ WEB_SERIES: dict[str, dict[str, str]] = {
 `services`) = 15개 시리즈. id 규칙 `<geo>_pmi_<kind>` (예 `ea_pmi_composite`, `it_pmi_services`).
 - 이탈리아·스페인은 속보(flash)가 없으므로 확정치만. 유로존·독일·프랑스는 최신 월이 속보이면 `status`에 `flash`.
 - 확정치가 속보를 수정했으면 확정치를 쓰고 note에 `YYYY-MM flash x → final y` 형식으로 기록.
-- 제조업은 headline PMI(가중 합성지수)이며 생산지수(output index)와 구분할 것.""",
+- 제조업은 headline PMI(가중 합성지수)이며 생산지수(output index)와 구분할 것.
+- **이탈리아·스페인 종합 PMI**는 서비스 PMI 발표문(HCOB Italy/Spain Services PMI)에 `Composite PMI Output Index`로 함께 \
+실림. Investing.com "Italy/Spain Composite PMI"·"Services PMI" 과거 발표 표, Trading Economics 해당 페이지, S&P Global \
+PMI 릴리스 캘린더를 우선 확인(직전 시험에서 두 국가가 전 구간 null — 이번에는 최소 최근 12개월을 채울 것).
+- BI(Bloomberg Intelligence) 문서 카드·섹션에 인용된 PMI 수치가 "이미 확인된 사실"에 있으면 교차 확인에 사용.""",
     },
     "W2_ois": {
         "title": "€STR OIS 내재 ECB 예금금리(DFR) 경로 — 회의별, 두 시점",
@@ -510,7 +514,14 @@ WEB_SERIES: dict[str, dict[str, str]] = {
 - `ois_cum_bp_asof`: 현재 DFR 대비 회의별 누적 변화(bp) — 출처가 bp로만 제시하면 이것을 우선 채우고 DFR 환산식을 note에.
 - 현재 DFR 값과 기준일을 note에 명시. 출처: Bloomberg WIRP·Reuters 보도·IB 리서치·ECB 위원 발언 보도 중 날짜가 \
 명시된 것만. 서로 다른 출처를 한 시리즈에 섞지 말 것(섞었다면 note에 관측별 출처).
-- 회의 일정은 ECB 공식 일정(ecb.europa.eu)으로 확인.""",
+- 회의 일정은 ECB 공식 일정(ecb.europa.eu)으로 확인.
+- **대체 경로(회의별 표를 못 찾을 때 반드시 채울 것)** — 직전 시험에서 전 구간 null:
+  1. `ois_hike_prob`: 회의별 25bp 인상 확률(%) — Reuters·Bloomberg·FT·CNBC 기사에 "traders price/money markets price \
+X% chance of a hike in <회의>"로 인용된 값(기사 날짜·매체를 note에 관측별로). x_labels = 회의일.
+  2. `ois_cum_bp_asof`: "X bp of tightening priced by <회의>" 류 누적 가격 반영 보도값(해당 회의 격자 위치에).
+  3. `sma_dfr_median`: ECB **Survey of Monetary Analysts(SMA)** 최신 라운드(ecb.europa.eu → Statistics → \
+Surveys → SMA, 회의 직후 공개) 회의별 예금금리 중앙값. 1차 공개 자료이므로 최우선 확보.
+  4. 위 값으로 `ois_dfr_asof`를 환산할 수 있으면(현재 DFR + 누적 bp/100) 채우고 환산식을 note에.""",
     },
 }
 
@@ -561,7 +572,9 @@ PENDING_PROMPT = """유럽 거시경제 월간 리포트({month_label}호, 보�
 """
 
 ACTUALS_PROMPT = """유럽 거시경제 월간 리포트({month_label}호) **발표 대기 지표의 실제 발표치** 확인(Sonnet). 기준 시점 {as_of} (KST).
-아래 목록의 각 id에 대해 실제 발표치를 1차 출처(Eurostat·각국 통계청·S&P Global·ECB)로 확인할 것. 아직 발표 전이면 `actual: null`, `status: "not_released"`. 직전치가 수정됐으면 `prior_revised`. 컨센서스는 목록 값을 그대로 둔다.
+아래 목록의 각 id에 대해 실제 발표치를 1차 출처(Eurostat·각국 통계청·S&P Global·ECB)로 확인할 것. \
+발표 직전 최종 컨센서스(Bloomberg·Reuters 설문 중앙값)가 목록 값과 다르면 `consensus_latest`에 기록(초안 컨센서스는 출처별로 \
+갈렸음 — 패치는 최종 컨센서스 기준으로 상회·하회를 판정). 아직 발표 전이면 `actual: null`, `status: "not_released"`. 직전치가 수정됐으면 `prior_revised`. 컨센서스는 목록 값을 그대로 둔다.
 
 ## 목록
 {pending_list}
@@ -571,6 +584,7 @@ ACTUALS_PROMPT = """유럽 거시경제 월간 리포트({month_label}호) **발
 {{"as_of": "{as_of}", "releases": [
   {{"id": "...", "actual": 0.0, "status": "released|not_released", "prior_revised": null,
     "published_at": "YYYY-MM-DD HH:MM CET", "source": "...", "url": "...",
+    "consensus_latest": null, "consensus_latest_source": "발표 직전 최종 컨센서스(목록 값과 다르면 기록)",
     "vs_consensus": "above|below|inline|n/a", "detail": "구성 항목 등 한두 문장(예: 근원 x.x%, 서비스 x.x%)"}}
 ]}}
 ```

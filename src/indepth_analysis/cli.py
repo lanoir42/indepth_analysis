@@ -393,7 +393,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--stage",
         nargs="+",
         default=["intake", "data"],
-        choices=["fetch", "intake", "cards", "data", "research", "workflow-args"],
+        choices=[
+            "fetch",
+            "intake",
+            "cards",
+            "data",
+            "context",
+            "research",
+            "workflow-args",
+        ],
         help="Deterministic/Sonnet stages (Opus stages run via workflow/noir_v3.js)",
     )
     mbrief.add_argument(

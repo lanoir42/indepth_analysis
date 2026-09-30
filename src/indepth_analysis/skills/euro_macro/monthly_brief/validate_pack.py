@@ -89,7 +89,8 @@ def _lag(freq: str, last: str, as_of: str) -> int:
 
 def freshness_limit(concept: str, freq: str) -> int | None:
     if freq == "D":
-        return 5
+        # FRED 현물 Brent(DCOILBRENTEU)는 원천(EIA) 게시가 통상 1주 지연
+        return 12 if "dated" in concept else 5
     if freq == "M":
         return (
             2

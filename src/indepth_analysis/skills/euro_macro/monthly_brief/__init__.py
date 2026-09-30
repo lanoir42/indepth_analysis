@@ -16,13 +16,38 @@ import sys
 from pathlib import Path
 
 PKG = "indepth_analysis.skills.euro_macro.monthly_brief"
-STAGES = ("fetch", "intake", "cards", "data", "research", "workflow-args")
+STAGES = (
+    "fetch",
+    "intake",
+    "cards",
+    "data",
+    "context",
+    "research",
+    "workflow-args",
+)
 
 
 def _run(module: str, *argv: str) -> int:
     cmd = [sys.executable, "-m", f"{PKG}.{module}", *argv]
     print("$", " ".join(cmd[2:]))
     return subprocess.run(cmd, check=False).returncode
+
+
+def refresh_reference_rates(db: str = "data/macro_calendar.db") -> str:
+    """수치 감사(lint-numeric) 참조 DB의 중앙은행 금리를 FRED에서 갱신(비치명).
+
+    2026-09-30 시험 실행: 참조 DB가 8/5에 멈춰 DFR 2.25%(실제 2.50%)로 오탐 발생.
+    """
+    try:
+        from bgilib.macro.rate_fetcher import CentralBankRateFetcher
+        from bgilib.macro.storage import MacroStore
+
+        res = CentralBankRateFetcher(MacroStore(Path(db))).sync_all(lookback_months=3)
+        return ", ".join(
+            f"{k} {v[-1].rate_pct}({v[-1].date_utc})" for k, v in res.items() if v
+        )
+    except Exception as e:  # 네트워크·DB 부재 — 감사는 자문 단계라 계속
+        return f"skip: {e}"
 
 
 def run_stages(
@@ -86,6 +111,9 @@ def run_stages(
         rc["store"] = _run("datastore.store", "build", "--root", r, "--as-of", ed.as_of)
         rc["chart_pack"] = _run("chart_pack", "build", "--root", r)
         rc["validate"] = _run("validate_pack", "--root", r)
+        console.print(f"참조 금리 갱신: {refresh_reference_rates()}")
+    if "context" in stages:
+        rc["context"] = _run("context", "--root", r)
     if "research" in stages:
         # 축 미지정 시 12축 + 웹 시계열 2종 전량
         argv = ["--root", r, "--axes", *(axes or [f"R{i:02d}" for i in range(1, 13)])]
