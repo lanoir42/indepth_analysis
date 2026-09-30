@@ -24,6 +24,7 @@ if (!ROOT || !P) throw new Error('args.root, args.phase 필수')
 const CHAPTERS = A.chapters || []   // [{key,title,effort,target_chars,role,explainer:{key,title,target_chars}|null, base_draft}]
 const GROUPS = A.groups || []
 const MAX_ROUNDS = A.maxRounds || 2
+if (A.hasPending) log(`발표 대기 구간 ${A.pendingWindow.from}~${A.pendingWindow.to}: 컨센서스 선반영 초안 (data/pending_releases.json)`)
 const START = A.startRev || null    // 재개: {report:'preview_report_r2', explainer:'preview_explainer_r2', round:2}
 const MED = 'medium'
 const HIGH = 'high'
@@ -187,7 +188,7 @@ if (!harm || !harm.ok) throw new Error('Harmonizer 실패')
 const gateFix = (name, kind) => () => agent([
   `ROOT=${ROOT}`, `PHASE=${P}`,
   `결정론 게이트 수정 담당. ${ROLES}/_common.md 5절(금지 토큰)과 ${PKG}/STYLE_BRIEF.md 를 먼저 읽으십시오.`,
-  `Bash로 실행: cd ${PROJECT} && uv run python -m indepth_analysis.skills.euro_macro.monthly_brief.finalize gate --root ${ROOT} --file ${ROOT}/drafts/${name}.md --kind ${kind}`,
+  `Bash로 실행: cd ${PROJECT} && uv run python -m indepth_analysis.skills.euro_macro.monthly_brief.finalize gate --root ${ROOT} --file ${ROOT}/drafts/${name}.md --kind ${kind}${A.hasPending ? ' --allow-pending' : ''}`,
   `status 가 FAIL 이면 blocks 항목만 최소 수정(의미 보존: 금지 토큰은 독자용 표현으로 대체, 조사 라벨·파이프라인 용어 삭제, 상대 날짜는 절대 날짜로, 없는 차트·표 참조는 삭제)해 같은 파일을 제자리 수정하고 재실행 — PASS/WARN 이 될 때까지 최대 4회. 분량 WARN은 부족이 15%를 넘을 때만 기존 근거로 보강.`,
   `output 에 최종 status·잔존 WARN 기록.`,
 ].join('\n'), { label: `gate:${name}`, phase: 'Harmonize', effort: MED, schema: DONE_SCHEMA })

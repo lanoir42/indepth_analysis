@@ -516,6 +516,81 @@ WEB_SERIES: dict[str, dict[str, str]] = {
 
 
 # ---------------------------------------------------------------------------
+# 발표 대기(컨센서스 선반영) — W3 컨센서스 수집 · W4 실제치 수집
+# ---------------------------------------------------------------------------
+
+RELEASE_JOBS: dict[str, dict[str, str]] = {
+    "W3_pending": {
+        "title": "발표 대기 지표 컨센서스 — 초안 기준일 이후 보고 전 발표분",
+        "dest": "pending_releases.json",
+    },
+    "W4_actuals": {
+        "title": "발표 대기 지표 실제치 — 발표 후 확인",
+        "dest": "pending_actuals.json",
+    },
+}
+
+PENDING_PROMPT = """유럽 거시경제 월간 리포트({month_label}호, 보고일 {report_date}) **발표 대기 지표 컨센서스** 수집(Sonnet). 기준 시점 {as_of} (KST). 리포트 초안을 {as_of} 기준으로 먼저 쓰고, **{pending_from} ~ {pending_to}**(양끝 포함)에 발표되는 지표는 컨센서스를 기준점으로 서술한 뒤 발표 후 해당 부분만 고친다. 그 기준점을 수집하는 과제.
+
+## 대상
+- 위 기간에 발표 예정인 유로존·독일·프랑스·이탈리아·스페인·영국 주요 지표 **전부**: HICP/CPI 속보(헤드라인·근원·서비스), PMI(제조·서비스·종합, 속보·확정), 실업률, 소매판매, 산업생산, 심리지표(Ifo·ZEW·INSEE·EC), GDP, 무역, M3·대출, ECB 의사록(account), 중앙은행 결정. ECB 위원 연설·예산안 제출·신용등급 평가 등 비지표 이벤트도 포함(consensus null).
+- 항목마다: 발표일·시각(CET와 KST), 참조 기간, 컨센서스 중앙값과 출처(Bloomberg·Reuters 설문, Investing.com, ForexFactory, Trading Economics 중 명시), 예상 범위(있으면), 직전치(수정 전·후), 중요도(high|mid|low).
+- **해석 포인트**: 상회 시 의미(`above_means`)·하회 시 의미(`below_means`)를 각각 한 문장. 예: HICP 근원이 컨센서스를 상회하면 10월 회의 추가 인상 가능성 확대, 하회하면 연내 1회 인상 후 동결 경로 강화. 부합 시 의미(`inline_means`)도.
+- 발표일은 공식 캘린더(Eurostat 릴리스 캘린더, 각국 통계청, S&P Global, ECB)로 확인. 연도 혼동 금지({prev_year}년 vs {year}년).
+
+## 이미 확인된 사실 (참고)
+{known}
+
+## 출력 (JSON 하나, 코드펜스)
+```json
+{{
+  "as_of": "{as_of}",
+  "window": {{"from": "{pending_from}", "to": "{pending_to}"}},
+  "releases": [
+    {{"id": "ea_hicp_flash_headline_<참조월 YYYYMM>", "date": "YYYY-MM-DD", "time_cet": "11:00", "time_kst": "18:00",
+      "geo": "EA|DE|FR|IT|ES|UK", "kind": "data|central_bank|speech|politics|other",
+      "indicator": "HICP 속보 헤드라인", "period": "YYYY-MM", "unit": "% YoY",
+      "consensus": 0.0, "consensus_source": "...", "range_low": null, "range_high": null,
+      "prior": 0.0, "prior_revised": null, "importance": "high|mid|low",
+      "above_means": "...", "below_means": "...", "inline_means": "...",
+      "source_url": "...", "note": ""}}
+  ],
+  "unresolved": ["..."]
+}}
+```
+"""
+
+ACTUALS_PROMPT = """유럽 거시경제 월간 리포트({month_label}호) **발표 대기 지표의 실제 발표치** 확인(Sonnet). 기준 시점 {as_of} (KST).
+아래 목록의 각 id에 대해 실제 발표치를 1차 출처(Eurostat·각국 통계청·S&P Global·ECB)로 확인할 것. 아직 발표 전이면 `actual: null`, `status: "not_released"`. 직전치가 수정됐으면 `prior_revised`. 컨센서스는 목록 값을 그대로 둔다.
+
+## 목록
+{pending_list}
+
+## 출력 (JSON 하나, 코드펜스)
+```json
+{{"as_of": "{as_of}", "releases": [
+  {{"id": "...", "actual": 0.0, "status": "released|not_released", "prior_revised": null,
+    "published_at": "YYYY-MM-DD HH:MM CET", "source": "...", "url": "...",
+    "vs_consensus": "above|below|inline|n/a", "detail": "구성 항목 등 한두 문장(예: 근원 x.x%, 서비스 x.x%)"}}
+]}}
+```
+"""
+
+
+def build_release_prompt(key: str, ed: Any, known: str, pending: str = "") -> str:
+    v = edition_vars(ed)
+    pw = getattr(ed, "pending_window", None) or {"from": ed.as_of, "to": ed.as_of}
+    v.update(
+        known=known.strip() or KNOWN_PLACEHOLDER,
+        pending_from=pw["from"],
+        pending_to=pw["to"],
+        pending_list=pending or "(목록 없음)",
+    )
+    tmpl = PENDING_PROMPT if key == "W3_pending" else ACTUALS_PROMPT
+    return tmpl.format(**v)
+
+
+# ---------------------------------------------------------------------------
 # 보충 리서치(갭) 모드
 # ---------------------------------------------------------------------------
 
@@ -568,7 +643,7 @@ def resolve_axis(key: str) -> str:
 
 
 def resolve_web(key: str) -> str:
-    for k in WEB_SERIES:
+    for k in (*WEB_SERIES, *RELEASE_JOBS):
         if k == key or k.split("_", 1)[0] == key:
             return k
     raise KeyError(f"unknown web series {key}")
@@ -626,7 +701,10 @@ def build_gap_prompt(
 def axis_catalog() -> str:
     """사람이 읽는 축 목록(JSON)."""
     return json.dumps(
-        {k: v["title"] for k, v in {**RESEARCH_AXES, **WEB_SERIES}.items()},
+        {
+            k: v["title"]
+            for k, v in {**RESEARCH_AXES, **WEB_SERIES, **RELEASE_JOBS}.items()
+        },
         ensure_ascii=False,
         indent=1,
     )

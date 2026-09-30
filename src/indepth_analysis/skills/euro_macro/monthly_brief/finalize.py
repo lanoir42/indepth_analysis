@@ -92,7 +92,8 @@ STYLE_BANNED = [
     "와 관련하여",
 ]
 RELATIVE_DATES = (
-    r"어제|내일|지난달|이번 주|지난주|다음 주|이번 달|다음 달|올해 들어|최근 며칠"
+    r"(?<![가-힣])(?:어제|내일|지난달|이번 주|지난주|다음 주|이번 달|다음 달)"
+    r"|올해 들어|최근 며칠"
 )
 ANIRA = r"(?:가|이) 아니(?:라|고)"
 CHART_REF = re.compile(r"\[(차트|표):\s*([A-Za-z0-9_\-]+)\]")
@@ -150,12 +151,24 @@ def _pack_ids(ed: Edition) -> tuple[set[str], set[str]]:
     return charts, tables
 
 
-def gate(ed: Edition, path: Path, kind: str, run_lints: bool = True) -> dict:
+def gate(
+    ed: Edition,
+    path: Path,
+    kind: str,
+    run_lints: bool = True,
+    allow_pending: bool = False,
+) -> dict:
     """kind ∈ report|explainer. 반환 {status, blocks[], warns[], stats{}}."""
     md = path.read_text(encoding="utf-8")
     lines = _body_lines(md)
     blocks: list[str] = []
     warns: list[str] = []
+
+    pending = sorted(set(re.findall(r"<!-- PENDING:([\w\-]+) -->", md)))
+    if pending and not allow_pending:
+        blocks.append(
+            f"발표 대기 블록 잔존 {len(pending)}건 — {pending[:5]} (release_patch 필요)"
+        )
 
     h1 = next((ln for ln in md.splitlines() if ln.startswith("# ")), "")
     if not h1.startswith(f"# {ed.phase_tag}"):
@@ -252,7 +265,7 @@ def gate(ed: Edition, path: Path, kind: str, run_lints: bool = True) -> dict:
         "status": "FAIL" if blocks else ("WARN" if warns else "PASS"),
         "blocks": blocks,
         "warns": warns,
-        "stats": stats,
+        "stats": {**stats, "pending": pending},
     }
 
 
@@ -418,6 +431,9 @@ def main() -> int:
     g.add_argument("--file", required=True)
     g.add_argument("--kind", default="report", choices=["report", "explainer"])
     g.add_argument("--no-lint", action="store_true")
+    g.add_argument(
+        "--allow-pending", action="store_true", help="초안 단계 — 발표 대기 블록 허용"
+    )
     p = sub.add_parser("promote")
     p.add_argument("--root", required=True)
     p.add_argument(
@@ -435,7 +451,7 @@ def main() -> int:
     if a.cmd == "gate":
         f = Path(a.file)
         f = f if f.is_absolute() or f.exists() else ed.path(a.file)
-        r = gate(ed, f, a.kind, run_lints=not a.no_lint)
+        r = gate(ed, f, a.kind, run_lints=not a.no_lint, allow_pending=a.allow_pending)
         print(
             json.dumps(
                 {k: v for k, v in r.items() if k != "stats"},

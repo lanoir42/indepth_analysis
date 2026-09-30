@@ -77,6 +77,8 @@ def build(root: str, max_rounds: int = 2) -> dict:
         "chapters": chapters,
         "groups": groups,
         "maxRounds": max_rounds,
+        "hasPending": ed.has_pending,
+        "pendingWindow": ed.pending_window if ed.has_pending else None,
     }
 
 

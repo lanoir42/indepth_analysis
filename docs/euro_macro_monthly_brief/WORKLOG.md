@@ -75,3 +75,11 @@
 - 10/2(금) 오후(9월 HICP 속보 공개 후): `edition init`(as-of 10/2) → `--stage fetch intake cards data research` → `--stage data workflow-args` → Workflow `noir_v3.js` → `finalize promote --register` → 10/5 보고.
 - 확인 필요: 9월 HICP 속보 공개일(로컬 캘린더 10/2, 리서치로 확정), Brent dated(FRED) 지연 WARN.
 - 10/6~: v3.1 증분 모드(interim·final), delta_diff v3.
+
+## 2026-09-30 (수, 오후) — 컨센서스 선반영 초안·소규모 시험 실행
+
+- 사용자 제안 채택: 보고 직전 발표 지표는 컨센서스를 기준점으로 초안 → 발표 후 해당 블록만 패치(`release_patch`). 이 구조를 interim·final 증분 모드의 기반으로 삼음.
+- 구현: `edition.release_cutoff`, 리서치 W3(컨센서스)·W4(실제치), `roles/_common.md` 7절·`release_patch.md`, 게이트 `--allow-pending`, `workflow/release_patch.js`.
+- 리서치 실행(기준 9/30): 12축 + W1·W2·W3 전량 exit=0(440KB). 발표 대기 12건 — 9월 HICP 속보는 **10/2**(컨센서스 헤드라인 3.6%·근원 2.5%). OIS 회의별 경로는 유료 소스라 전 구간 null(추정 금지 준수) → 차트 생략.
+- 데이터 재빌드: 109시리즈(llm_web 18: PMI), 차트 32·표 9, 검증 FAIL 0(OIS 회의일 빈도 오분류 수정, 전 구간 결측 차트 생략 규칙 추가).
+- 소규모 시험(스크래치, 그룹 UK·장 ch08·1라운드): 22 에이전트 오류 0, 54분. KCIF 문체·실명·메커니즘·출처 품질 확인. 발견: 상대 날짜 정규식 '연내일' 오탐 → 한글 경계 추가. `lint-numeric` 참조 DB의 DFR 2.25%(실제 2.50%)가 낡음 — 자문이라 차단 없음.

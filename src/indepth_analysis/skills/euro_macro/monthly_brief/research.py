@@ -229,6 +229,46 @@ def plan_jobs(
         )
     for key in web:
         full = p3.resolve_web(key)
+        if full in p3.RELEASE_JOBS:
+            pending = ""
+            if full == "W4_actuals":
+                src = root / "data" / "pending_releases.json"
+                if not src.exists():
+                    raise SystemExit(
+                        "W4_actuals: data/pending_releases.json 없음(W3 먼저)"
+                    )
+                rel = json.loads(src.read_text(encoding="utf-8")).get("releases", [])
+                pending = json.dumps(
+                    [
+                        {
+                            k: r.get(k)
+                            for k in (
+                                "id",
+                                "date",
+                                "geo",
+                                "indicator",
+                                "period",
+                                "unit",
+                                "consensus",
+                                "prior",
+                            )
+                        }
+                        for r in rel
+                    ],
+                    ensure_ascii=False,
+                    indent=1,
+                )
+            prompt = p3.build_release_prompt(full, ed, known, pending)
+            jobs.append(
+                {
+                    "name": full,
+                    "prompt": prompt,
+                    "raw": root / "research" / f"{full}.md",
+                    "dest": root / "data" / p3.RELEASE_JOBS[full]["dest"],
+                    "kind": "web",
+                }
+            )
+            continue
         prompt = p3.build_web_series_prompt(full, ed, known)
         jobs.append(
             {
@@ -439,7 +479,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="월간 유럽 매크로 v3 리서치 러너")
     ap.add_argument("--root", required=True, help="회차 루트(edition.json 위치)")
     ap.add_argument("--axes", nargs="*", default=[], help="R01 … R12 (전체 키도 허용)")
-    ap.add_argument("--web", nargs="*", default=[], help="W1 W2")
+    ap.add_argument(
+        "--web", nargs="*", default=[], help="W1 W2 (시계열) · W3 컨센서스 · W4 실제치"
+    )
     ap.add_argument("--gaps", default=None, help="ROOT/_work/gaps_<round>.json")
     ap.add_argument(
         "--dry-run", action="store_true", help="프롬프트만 기록, 모델 호출 없음"

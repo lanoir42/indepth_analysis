@@ -1272,6 +1272,11 @@ def write_csv(chart: dict, path: Path) -> None:
                 )
 
 
+def _has_values(c: dict) -> bool:
+    """값이 하나라도 있는지(전 계열 전 구간 null 차트는 생략)."""
+    return any(v is not None for s in c.get("series", []) for v in s.get("values", []))
+
+
 def build(root: Path, charts: list[Chart] | None = None) -> dict:
     root = Path(root)
     store = load_store(root)
@@ -1297,6 +1302,9 @@ def build(root: Path, charts: list[Chart] | None = None) -> dict:
             continue
         if "_error" in c:
             skipped.append({"id": ch.id, "reason": c["_error"]})
+            continue
+        if not _has_values(c):
+            skipped.append({"id": ch.id, "reason": "전 계열 전 구간 결측"})
             continue
         write_csv(c, root / c["data_csv"])
         out.append(c)

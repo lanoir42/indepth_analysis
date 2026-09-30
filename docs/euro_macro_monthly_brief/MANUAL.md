@@ -60,6 +60,17 @@ uv run indepth report euro-macro-monthly-brief --month 2026-09 --stage research
 uv run indepth report euro-macro-monthly-brief --month 2026-09 --stage data workflow-args
 ```
 
+### 3-0. 컨센서스 선반영 초안 → 발표치 패치 (사용자 제안 2026-09-30, 표준 운영)
+
+보고 직전에 발표되는 지표를 기다리지 않고 초안을 먼저 만든다. 목적은 발표치 예측이 아니라 **컨센서스 대비 괴리의 해석**이다.
+
+1. 초안 기준일을 앞당기고 발표 대기 마감일을 둔다: `edition init … --as-of 2026-09-30 --release-cutoff 2026-10-02`
+2. 리서치에 `--web W3`(발표 대기 지표 컨센서스 → `data/pending_releases.json`: 발표일·컨센서스·범위·직전치·상회/하회/부합 시 의미)를 포함.
+3. Workflow 실행 — 해당 절에 `<!-- PENDING:<id> -->` 블록(컨센서스와 그 의미, 상회·하회·부합 시 해석)을 두고, 블록 밖 판단은 컨센서스 전제로 쓴다(`roles/_common.md` 7절). 게이트는 초안 단계에서 블록을 허용(`--allow-pending`).
+4. 발표 후: `edition init … --as-of 2026-10-02 --release-cutoff 2026-10-02` → `--stage data`(결정론 실제치 반영) → `research --web W4`(실제치 → `data/pending_actuals.json`) →
+   `Workflow(scriptPath=…/workflow/release_patch.js, args={root, phase, report:"<초안 stem>", explainer:"<초안 stem>"})` — 블록을 "컨센서스 X 대비 실제 Y(상회) → 초안의 상회 시 해석대로 ~ 재확인/수정" 서술로 교체, 블록 밖 충돌 문장만 수정, 교체 부분 수치 감사, 게이트(블록 잔존 시 FAIL).
+5. `finalize promote --report <stem>_rP --explainer <stem>_rP`.
+
 ### 3-1. Opus 단계 (Claude Code Workflow)
 
 Claude Code 세션에서:

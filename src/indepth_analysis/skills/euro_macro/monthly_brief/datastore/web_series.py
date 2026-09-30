@@ -48,7 +48,9 @@ def load(root: Path) -> tuple[dict[str, dict], dict[str, str]]:
             if len(labels) != len(data):
                 errors[sid] = f"{f.name}: x_labels {len(labels)} ≠ data {len(data)}"
                 continue
-            freq = (s.get("frequency") or "M").strip()[:1].upper()
+            raw_freq = (s.get("frequency") or "M").strip()
+            # 'meeting' 등 비정규 빈도는 이벤트(E) ('meeting'[:1]='M' 오분류 방지)
+            freq = raw_freq.upper() if raw_freq.upper() in ("D", "M", "Q", "A") else "E"
             concept, title, unit = WEB_SERIES_MAP.get(
                 sid, (f"web_{sid}", s.get("title") or sid, s.get("unit") or "")
             )

@@ -1,5 +1,10 @@
 # CHANGELOG — 유럽 매크로 월간 리포트
 
+## v3.1.0-pre — 2026-09-30 (컨센서스 선반영 초안)
+- 사용자 제안: 보고 직전 발표 지표는 컨센서스를 기준점으로 초안을 먼저 쓰고, 발표 후 해당 블록만 패치.
+- `edition.release_cutoff`·`pending_window`, 리서치 `W3_pending`(컨센서스·상회/하회/부합 해석)·`W4_actuals`(실제치), 역할 `release_patch.md`, `_common.md` 7절(PENDING 블록 규약), Advisor 배정 규칙, 게이트 `--allow-pending`(초안)·블록 잔존 FAIL(확정), `workflow/release_patch.js`.
+- 이 구조가 interim·final 증분 모드의 기반.
+
 ## v3.0.0 — 2026-09-30 (전면 개편, 첫 회차 2026-09호)
 8월호(v2.1) 감사 결과(정치 5%·메타 27%·산문 문체·장표 해설서·LLM 수집 시계열) 대응. 설계 `V3_PLAN.md`, 계약 `V3_CONTRACTS.md`.
 

@@ -99,3 +99,53 @@ def test_g7_not_flagged(tmp_path):
     f = tmp_path / "r.md"
     f.write_text("# [Preview] 제목\n\n- G7 국채 금리 상승함.\n", encoding="utf-8")
     assert finalize.gate(ed, f, "summary", run_lints=False)["status"] == "PASS"
+
+
+PENDING_DOC = """# [Preview] 제목
+
+## 3. 물가
+
+<!-- PENDING:ea_hicp_flash_headline_202609 -->
+- **(발표 예정: 9월 HICP 속보, 10/2)** 컨센서스는 3.6%(직전 3.2%)임.
+  - 상회 시: 10월 추가 인상 가능성 확대로 판단.
+<!-- /PENDING:ea_hicp_flash_headline_202609 -->
+"""
+
+
+def test_pending_blocks_gate(tmp_path):
+    ed = _edition(tmp_path)
+    f = tmp_path / "r.md"
+    f.write_text(PENDING_DOC, encoding="utf-8")
+    draft = finalize.gate(ed, f, "summary", run_lints=False, allow_pending=True)
+    assert draft["status"] == "PASS", draft["blocks"]
+    assert draft["stats"]["pending"] == ["ea_hicp_flash_headline_202609"]
+    final = finalize.gate(ed, f, "summary", run_lints=False)
+    assert final["status"] == "FAIL"
+
+
+def test_edition_pending_window(tmp_path):
+    ed = Edition(
+        month="2026-09",
+        phase="preview",
+        as_of="2026-09-30",
+        report_date="2026-10-05",
+        root=str(tmp_path),
+        release_cutoff="2026-10-02",
+    )
+    assert ed.has_pending
+    assert ed.pending_window == {"from": "2026-10-01", "to": "2026-10-02"}
+    ed.save()
+    assert load_edition(tmp_path).release_cutoff == "2026-10-02"
+    plain = Edition(
+        month="2026-09", phase="preview", as_of="2026-10-02", report_date="x"
+    )
+    assert not plain.has_pending
+
+
+def test_relative_date_word_boundary(tmp_path):
+    ed = _edition(tmp_path)
+    f = tmp_path / "r.md"
+    f.write_text("# [Preview] 제목\n\n- 첫 인상이 연내일 수 있음.\n", encoding="utf-8")
+    assert finalize.gate(ed, f, "summary", run_lints=False)["status"] == "PASS"
+    f.write_text("# [Preview] 제목\n\n- 내일 발표 예정임.\n", encoding="utf-8")
+    assert finalize.gate(ed, f, "summary", run_lints=False)["status"] == "FAIL"
