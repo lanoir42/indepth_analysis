@@ -1,3 +1,6 @@
+import httpx
+import pytest
+
 from indepth_analysis.data.kcif_client import KCIFScraper
 from indepth_analysis.data.scraper_base import ScraperResult
 
@@ -29,6 +32,87 @@ class TestScraperResult:
 
 
 class TestKCIFScraper:
+    @pytest.mark.parametrize("status", [401, 403])
+    def test_download_access_denied_returns_none(self, tmp_path, status):
+        scraper = KCIFScraper()
+        scraper._client = httpx.Client(transport=httpx.MockTransport(
+            lambda request: httpx.Response(status)
+        ))
+        result = ScraperResult(external_id="123", title="Restricted", url="https://example.com/view")
+        try:
+            assert scraper.download_file(result, tmp_path) is None
+            assert not list(tmp_path.iterdir())
+        finally:
+            scraper.close()
+
+    def test_download_permission_script_returns_none(self, tmp_path):
+        scraper = KCIFScraper()
+        scraper._client = httpx.Client(transport=httpx.MockTransport(
+            lambda request: httpx.Response(
+                200,
+                text=("<script>alert('권한이 필요한 서비스 입니다.'); "
+                      "history.back();</script>"),
+            )
+        ))
+        result = ScraperResult(
+            external_id="123", title="Restricted", url="https://example.com/view",
+            file_url="https://example.com/file",
+        )
+        try:
+            assert scraper.download_file(result, tmp_path) is None
+            assert not list(tmp_path.iterdir())
+        finally:
+            scraper.close()
+
+    @pytest.mark.parametrize("content", [
+        b"temporary failure", b"<html>" + b"unavailable " * 20 + b"</html>",
+    ])
+    def test_invalid_download_raises_for_failed_retry(self, tmp_path, content):
+        scraper = KCIFScraper()
+        scraper._client = httpx.Client(transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, content=content)
+        ))
+        result = ScraperResult(
+            external_id="123", title="Retry", url="https://example.com/view",
+            file_url="https://example.com/file",
+        )
+        try:
+            with pytest.raises(ValueError, match="KCIF download returned"):
+                scraper.download_file(result, tmp_path)
+            assert not list(tmp_path.iterdir())
+        finally:
+            scraper.close()
+
+    def test_view_server_error_is_not_access_restriction(self, tmp_path):
+        scraper = KCIFScraper()
+        scraper._client = httpx.Client(transport=httpx.MockTransport(
+            lambda request: httpx.Response(503)
+        ))
+        result = ScraperResult(external_id="123", title="Retry", url="https://example.com/view")
+        try:
+            with pytest.raises(httpx.HTTPStatusError):
+                scraper.download_file(result, tmp_path)
+        finally:
+            scraper.close()
+
+    @pytest.mark.parametrize("content", [
+        b"%PDF-1.7\n" + b"document " * 20, b"PK\x03\x04" + b"workbook " * 20,
+    ])
+    def test_normal_document_download_contract_preserved(self, tmp_path, content):
+        scraper = KCIFScraper()
+        scraper._client = httpx.Client(transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, content=content)
+        ))
+        result = ScraperResult(
+            external_id="123", title="Available", url="https://example.com/view",
+            file_url="https://example.com/file",
+        )
+        try:
+            downloaded = scraper.download_file(result, tmp_path)
+            assert downloaded.read_bytes() == content
+        finally:
+            scraper.close()
+
     def test_instance_creation(self) -> None:
         scraper = KCIFScraper()
         assert scraper.source_name == "KCIF"

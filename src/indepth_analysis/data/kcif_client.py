@@ -231,14 +231,22 @@ class KCIFScraper:
                 return None
             raise
 
-        # Verify we got actual file content
+        response_prefix = resp.content[:4096].lstrip().lower()
+        is_html = (
+            "text/html" in resp.headers.get("content-type", "").lower()
+            or response_prefix.startswith((b"<script", b"<!doctype html", b"<html"))
+        )
+        if is_html:
+            if "권한이 필요한 서비스" in resp.text:
+                logger.info("Restricted: %s", result.title)
+                return None
+            raise ValueError("KCIF download returned HTML instead of a document")
+
         if len(resp.content) < 100:
-            logger.warning(
-                "Tiny response for %s (%d bytes), skipping",
-                result.title,
-                len(resp.content),
+            raise ValueError(
+                "KCIF download returned an incomplete document "
+                f"({len(resp.content)} bytes)"
             )
-            return None
 
         filename = self._get_filename(resp, result)
         filepath = dest_dir / filename
@@ -252,9 +260,14 @@ class KCIFScraper:
         try:
             resp = self.client.get(view_url)
             resp.raise_for_status()
+        except httpx.HTTPStatusError as error:
+            if error.response.status_code in (401, 403):
+                return None
+            logger.warning("Failed to fetch: %s", view_url)
+            raise
         except httpx.HTTPError:
             logger.warning("Failed to fetch: %s", view_url)
-            return None
+            raise
 
         soup = BeautifulSoup(resp.text, "html.parser")
 

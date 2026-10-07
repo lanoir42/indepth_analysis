@@ -123,16 +123,58 @@ CREATE TABLE IF NOT EXISTS kcif_topic_evidence (
 
 # ── report texts ───────────────────────────────────────────────────────────
 
-def upsert_report_text(report_id: int, text: str) -> int:
+def initialize_daily_text_delivery() -> bool:
+    conn = get_conn()
+    if not _has_column(conn, "report_texts", "id"):
+        return False
+    conn.execute("CREATE TABLE IF NOT EXISTS kcif_daily_text_cursor (singleton INTEGER PRIMARY KEY, baseline_id INTEGER NOT NULL)")
+    conn.execute("CREATE TABLE IF NOT EXISTS kcif_daily_text_delivery (text_id INTEGER PRIMARY KEY, report_date TEXT NOT NULL)")
+    conn.execute("INSERT OR IGNORE INTO kcif_daily_text_cursor VALUES (1, (SELECT COALESCE(MAX(id), 0) FROM report_texts))")
+    conn.commit()
+    return True
+
+
+def pending_daily_texts(report_date: str, window_start: str, cap: int = 30) -> list[dict]:
+    conn = get_conn()
+    if not _has_column(conn, "kcif_daily_text_cursor", "baseline_id"):
+        return []
+    return [dict(row) for row in conn.execute(
+        "SELECT t.id AS text_id, t.text, r.id, r.title, r.category, r.md_path, r.published_date "
+        "FROM report_texts t JOIN reports r ON r.id=t.report_id "
+        "LEFT JOIN kcif_daily_text_delivery d ON d.text_id=t.id "
+        "WHERE t.id > (SELECT baseline_id FROM kcif_daily_text_cursor WHERE singleton=1) "
+        "AND COALESCE(r.published_date, '') != '' AND r.published_date < ? "
+        "AND (d.text_id IS NULL OR d.report_date=?) "
+        "ORDER BY t.id LIMIT ?", (window_start, report_date, cap)
+    ).fetchall()]
+
+
+def mark_daily_texts(report_date: str, report_ids: list[int], late_text_ids: list[int]) -> None:
+    conn = get_conn()
+    if not _has_column(conn, "kcif_daily_text_cursor", "baseline_id"):
+        return
+    text_ids = list(late_text_ids)
+    if report_ids:
+        marks = ",".join("?" for _ in report_ids)
+        text_ids.extend(row[0] for row in conn.execute(
+            f"SELECT id FROM report_texts WHERE report_id IN ({marks})", report_ids))
+    conn.executemany("INSERT OR IGNORE INTO kcif_daily_text_delivery VALUES (?, ?)",
+                     [(text_id, report_date) for text_id in text_ids])
+    conn.commit()
+
+
+def upsert_report_text(report_id: int, text: str, *, md_path: str | None = None) -> int:
     """본문 미러 적재. 재추출 시 새 id를 받아 토픽 스캔에 다시 노출된다(의도)."""
     conn = get_conn()
-    conn.execute("DELETE FROM report_texts WHERE report_id = ?", (report_id,))
-    cur = conn.execute(
-        "INSERT INTO report_texts (report_id, text, char_count, created_ts) "
-        "VALUES (?, ?, ?, ?)",
-        (report_id, text, len(text), time.time()),
-    )
-    conn.commit()
+    with conn:
+        conn.execute("DELETE FROM report_texts WHERE report_id = ?", (report_id,))
+        cur = conn.execute(
+            "INSERT INTO report_texts (report_id, text, char_count, created_ts) "
+            "VALUES (?, ?, ?, ?)",
+            (report_id, text, len(text), time.time()),
+        )
+        if md_path is not None:
+            conn.execute("UPDATE reports SET md_path = ? WHERE id = ?", (md_path, report_id))
     return int(cur.lastrowid)
 
 

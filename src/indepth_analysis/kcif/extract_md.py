@@ -74,11 +74,13 @@ def extract_report_md(report, pdf_path) -> str | None:
 
     out_path = md_path_for(report)
     body_parts: list[str] = []
+    has_text = False
     img_counter = [0]
     try:
         for i, page in enumerate(doc, start=1):
             text = (page.get_text("text") or "").strip()
             if text:
+                has_text = True
                 body_parts.append(text)
             img_lines = _extract_images(doc, page, str(report.external_id), i, img_counter)
             if img_lines:
@@ -87,7 +89,7 @@ def extract_report_md(report, pdf_path) -> str | None:
         doc.close()
 
     body = "\n\n".join(body_parts).strip()
-    if not body:
+    if not has_text:
         logger.warning("PDF empty text id=%s %s", report.id, pdf_path)
         return None
 
@@ -109,10 +111,7 @@ def extract_report_md(report, pdf_path) -> str | None:
 
     # DB 반영: md_path(프로젝트 루트 상대) + 본문 미러(FTS)
     rel = str(out_path.relative_to(PROJECT_ROOT))
-    conn = store.get_conn()
-    conn.execute("UPDATE reports SET md_path = ? WHERE id = ?", (rel, report.id))
-    conn.commit()
-    store.upsert_report_text(int(report.id), body)
+    store.upsert_report_text(int(report.id), body, md_path=rel)
     return str(out_path)
 
 
@@ -122,8 +121,10 @@ def backfill_all(db, source_id: int, *, limit: int | None = None) -> dict:
 
     conn = store.get_conn()
     rows = conn.execute(
-        "SELECT id FROM reports WHERE source_id = ? AND download_status = ? "
-        "AND (md_path IS NULL OR md_path = '') ORDER BY published_date ASC",
+        "SELECT r.id FROM reports r LEFT JOIN report_texts t ON t.report_id = r.id "
+        "WHERE r.source_id = ? AND r.download_status = ? "
+        "AND (r.md_path IS NULL OR r.md_path = '' OR t.report_id IS NULL "
+        "OR t.text IS NULL OR TRIM(t.text) = '') ORDER BY r.published_date ASC",
         (source_id, DownloadStatus.DOWNLOADED.value),
     ).fetchall()
     ids = [r["id"] for r in rows]

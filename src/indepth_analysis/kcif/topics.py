@@ -110,10 +110,26 @@ def update_topic(slug: str) -> dict:
         return {"slug": slug, "ok": True, "reason": "no_candidates",
                 "events_added": 0, "evidence_added": 0, "candidates": 0, "scanned": 0}
 
-    recent_events = store.timeline(slug)[-20:]
+    existing_events = store.timeline(slug)
+    recent_events = existing_events[-20:]
     timeline_txt = "\n".join(
         f"- {e['event_date']} — {e['headline']}" for e in recent_events) or "(없음)"
     cand_txt, included = _prompt_candidates(cands)
+    latest_event_date = max((event["event_date"] for event in recent_events), default="")
+    late_candidates = [candidate for candidate in included
+                       if candidate.get("published_date")
+                       and candidate["published_date"] < latest_event_date]
+    late_context = ""
+    if late_candidates:
+        late_context = (
+            "[늦게 확보된 과거 자료 처리]\n"
+            "후보에는 기존 최신 사건보다 과거에 발행된 자료가 포함됩니다. "
+            "본문 확보일은 사건일이 아닙니다. event_date는 반드시 인용 리포트의 원발행일로 "
+            "기록하고, 과거 자료는 당시 배경 보완으로만 사용하세요. "
+            "기존 최신 상황을 과거 전망이나 수치로 되돌리지 마세요. "
+            "summary에는 기존 최신 상황과 그 날짜를 유지하고 과거 보완 내용을 구분하세요.\n"
+            f"[기존 현재 상황]\n{topic.get('summary_text') or '(없음)'}\n\n"
+        )
 
     prompt = (
         f"토픽: {topic['title']} ({slug})\n"
@@ -121,6 +137,7 @@ def update_topic(slug: str) -> dict:
         f"키워드: {', '.join(topic.get('keywords') or [])}\n"
         f"오늘(KST): {_kst_today()}\n\n"
         f"[기존 타임라인 (최근)]\n{timeline_txt}\n\n"
+        f"{late_context}"
         f"[후보 리포트 {len(included)}건 — 관련 있는 것만 relevant_report_ids로]\n"
         f"{cand_txt}\n\n"
         '응답 형식: {"relevant_report_ids": [int], '
@@ -139,16 +156,34 @@ def update_topic(slug: str) -> dict:
                 "candidates": len(included), "scanned": len(cands)}
 
     by_id = {c["report_id"] for c in included}
+    if late_candidates:
+        publication_dates = {candidate["report_id"]: candidate.get("published_date")
+                             for candidate in included}
+        for event in (data.get("events") or []):
+            report_ids = event.get("report_ids") or []
+            cited_dates = {publication_dates[report_id] for report_id in report_ids
+                           if isinstance(report_id, int) and report_id in publication_dates}
+            if event.get("event_date") not in cited_dates:
+                return {"slug": slug, "ok": False, "reason": "late_event_date_mismatch",
+                        "events_added": 0, "evidence_added": 0,
+                        "candidates": len(included), "scanned": len(cands)}
     relevant = [int(r) for r in (data.get("relevant_report_ids") or [])
                 if isinstance(r, (int, float)) and int(r) in by_id]
     evidence_added = store.add_evidence(slug, relevant)
 
     events = []
+    seen_events = {(event["event_date"], re.sub(r"\s+", " ", event["headline"]).strip())
+                   for event in existing_events} if late_candidates else set()
     for e in (data.get("events") or []):
         head = str(e.get("headline") or "").strip()
         day = str(e.get("event_date") or "").strip()
         if not head or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
             continue
+        if late_candidates:
+            event_key = (day, re.sub(r"\s+", " ", head).strip())
+            if event_key in seen_events:
+                continue
+            seen_events.add(event_key)
         rids = [int(r) for r in (e.get("report_ids") or [])
                 if isinstance(r, (int, float)) and int(r) in by_id]
         ts = datetime.strptime(day, "%Y-%m-%d").replace(hour=12, tzinfo=KST).timestamp()

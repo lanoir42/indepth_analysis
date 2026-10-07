@@ -25,6 +25,8 @@ import re
 import time
 from datetime import date as date_cls
 from datetime import datetime, timedelta
+from pathlib import Path
+from urllib.parse import urlsplit
 
 from indepth_analysis.kcif import llm, store, topics as topics_mod
 from indepth_analysis.kcif.paths import (
@@ -57,8 +59,12 @@ def _crawl_and_ingest(status: dict, target: date_cls) -> None:
     from indepth_analysis.data.kcif_client import KCIFScraper
     from indepth_analysis.db import ReferenceDB
     from indepth_analysis.models.reference import DownloadStatus, Report
+    from indepth_analysis.kcif.download_retry import (
+        due_report_ids, ensure_schema, preserve_download, record_attempt,
+    )
 
     db = ReferenceDB(db_path=PROJECT_ROOT / "references" / "references.db")
+    ensure_schema(db.conn)
     scraper = KCIFScraper()
     source = db.get_or_create_source(scraper.source_name, scraper.base_url)
 
@@ -100,18 +106,24 @@ def _crawl_and_ingest(status: dict, target: date_cls) -> None:
     cur = db.conn.execute(
         "UPDATE reports SET download_status = 'pending', download_error = NULL "
         "WHERE source_id = ? AND download_status = 'failed' "
-        "AND COALESCE(published_date,'') >= ?", (source.id, cutoff))
+        "AND COALESCE(published_date,'') >= ? "
+        "AND id NOT IN (SELECT report_id FROM kcif_download_attempts "
+        "WHERE next_retry_ts > ?)", (source.id, cutoff, time.time()))
     db.conn.commit()
     if cur.rowcount:
         logger.info("kcif: FAILED %d건 → PENDING 리셋", cur.rowcount)
 
     # 다운로드: 최근 N일 PENDING만, 실행당 상한 — 과거 백로그 폭주 방지
     dl_cutoff = (target - timedelta(days=DOWNLOAD_RECENT_DAYS)).isoformat()
+    retry_ids = due_report_ids(db.conn, source.id, target)
     rows = db.conn.execute(
         "SELECT id FROM reports WHERE source_id = ? AND download_status = 'pending' "
         "AND COALESCE(published_date,'') >= ? ORDER BY published_date DESC LIMIT ?",
-        (source.id, dl_cutoff, DOWNLOAD_CAP_PER_RUN)).fetchall()
+        (source.id, dl_cutoff, DOWNLOAD_CAP_PER_RUN - len(retry_ids))).fetchall()
+    rows = list(rows) + [{"id": report_id} for report_id in retry_ids]
     downloaded = 0
+    restricted = 0
+    failed = 0
     from indepth_analysis.data.scraper_base import ScraperResult
     for row in rows:
         report = db.get_report_by_id(row["id"])
@@ -126,23 +138,37 @@ def _crawl_and_ingest(status: dict, target: date_cls) -> None:
             file_url=file_urls.get(report.external_id)
             or (fu_row["file_url"] if fu_row else None),
         )
+        if report.id in retry_ids:
+            sr.file_url = None
         try:
-            path = scraper.download_file(sr, PDF_DIR)
+            destination = (PDF_DIR / ".retry" / str(report.id)
+                           if report.id in retry_ids else PDF_DIR)
+            path = scraper.download_file(sr, destination)
             if path:
+                if report.id in retry_ids:
+                    path = preserve_download(path, report.external_id, PDF_DIR)
                 from indepth_analysis.data.kcif_client import file_hash
                 db.update_report_download(
                     report.id, status=DownloadStatus.DOWNLOADED,
                     file_name=path.name, file_size_bytes=path.stat().st_size,
                     file_hash=file_hash(path))
                 downloaded += 1
+                record_attempt(db.conn, report.id, "downloaded")
             else:
+                restricted += 1
                 db.update_report_download(report.id, status=DownloadStatus.RESTRICTED,
                                           error="no file url / restricted")
+                record_attempt(db.conn, report.id, "restricted")
         except Exception as e:
+            failed += 1
             db.update_report_download(report.id, status=DownloadStatus.FAILED,
                                       error=str(e)[:300])
+            record_attempt(
+                db.conn, report.id, "failed",
+                retry_after_days=None if report.id in retry_ids else 1,
+            )
         time.sleep(SLEEP_BASE_S + random.random() * 0.5)
-    status["download"] = f"성공 · {downloaded}건 다운로드"
+    status["download"] = f"다운로드 {downloaded}건 · 접근 제한/주소 미확인 {restricted}건 · 실패 {failed}건"
 
     # .md 추출 (md 미생성 + 다운로드 완료 전체 — 신규분과 밀린 분 함께)
     from indepth_analysis.kcif.extract_md import backfill_all
@@ -279,8 +305,13 @@ def collect_new_reports(day: date_cls) -> tuple[list[dict], str]:
     """하이라이트 대상 — 창 안 발행분 + 본문 요약 문단 + 반영된 토픽. 읽기 전용."""
     start = highlight_window_start(day)
     conn = store.get_conn()
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(reports)")}
+    extra = ", ".join(
+        f"r.{name}" if name in columns else f"NULL AS {name}"
+        for name in ("download_status", "file_name", "url")
+    )
     rows = [dict(r) for r in conn.execute(
-        "SELECT r.id, r.title, r.category, r.md_path, r.published_date, t.text "
+        f"SELECT r.id, r.title, r.category, r.md_path, r.published_date, t.text, {extra} "
         "FROM reports r LEFT JOIN report_texts t ON t.report_id = r.id "
         "WHERE COALESCE(r.published_date,'') >= ? AND COALESCE(r.published_date,'') <= ? "
         "ORDER BY r.published_date ASC, r.id ASC",
@@ -305,12 +336,41 @@ def collect_new_reports(day: date_cls) -> tuple[list[dict], str]:
     return rows, label
 
 
+def _missing_body_notice(report: dict) -> str:
+    return {
+        "restricted": "본문 미확보 — 접근 제한 또는 다운로드 주소 미확인. 내용은 요약·검토하지 못했습니다.",
+        "failed": "본문 미확보 — 다운로드 실패. 내용은 요약·검토하지 못했습니다.",
+        "pending": "본문 미확보 — 다운로드 대기. 내용은 요약·검토하지 못했습니다.",
+        "skipped": "본문 미확보 — 다운로드 제외. 내용은 요약·검토하지 못했습니다.",
+        "downloaded": "본문 미확보 — 파일은 확보했으나 텍스트 추출이 완료되지 않았습니다.",
+    }.get(str(report.get("download_status") or "").lower(), "(본문 추출 전)")
+
+
+def _catalog_link(report: dict) -> str | None:
+    url = str(report.get("url") or "")
+    try:
+        parsed = urlsplit(url)
+        if (parsed.scheme == "https" and parsed.netloc in ("kcif.or.kr", "www.kcif.or.kr")
+                and not any(char in url for char in "\r\n<>()[]\\")):
+            return f"[KCIF 자료 안내]({url})"
+    except ValueError:
+        pass
+    return None
+
+
 def _render_highlights(new_reports: list[dict], window_label: str = "") -> list[str]:
     lines = [f"## 오늘의 KCIF ({len(new_reports)}건)", ""]
     if window_label:
         lines += [f"주말·휴일에 쉰 날의 발행분을 함께 싣습니다 ({window_label}).", ""]
     if not new_reports:
         return lines + ["- 오늘 신규 리포트 없음", ""]
+    extracted = sum(report.get("extracted") is True for report in new_reports)
+    missing = sum(report.get("extracted") is False for report in new_reports)
+    unknown = len(new_reports) - extracted - missing
+    coverage = f"수록 범위: 발행 목록 {len(new_reports)}건 · 본문 확보 {extracted}건 · 본문 미확보 {missing}건"
+    if unknown:
+        coverage += f" · 확보 상태 미확인 {unknown}건"
+    lines += [coverage + ". 발행 목록 건수는 본문 검토 완료 건수가 아닙니다.", ""]
     for r in new_reports[:HIGHLIGHT_REPORT_CAP]:
         lines.append(f"### [{r.get('category') or '?'}] {r['title']}")
         lines.append("")
@@ -318,7 +378,15 @@ def _render_highlights(new_reports: list[dict], window_label: str = "") -> list[
         if highlights is None:            # 구 호출부(하이라이트 미수집) — 제목만
             highlights = []
         if r.get("extracted") is False:
-            lines.append("- (본문 추출 전)")
+            lines.append("- " + _missing_body_notice(r))
+            catalog_link = _catalog_link(r)
+            if catalog_link:
+                lines.append("- " + catalog_link + " — 원문 열람에는 해당 자료의 이용 권한이 필요할 수 있습니다.")
+        elif r.get("extracted") is True and not highlights:
+            if Path(str(r.get("file_name") or "")).suffix.lower() in (".xls", ".xlsx"):
+                lines.append("- 표·수치 중심 자료입니다. 발행처의 요약 문단이 없어 아래 원문에서 지표와 기준 시점을 확인해 주세요.")
+            else:
+                lines.append("- 본문은 확보했으나 발행처의 요약 문단을 찾지 못했습니다. 아래 원문에서 내용을 확인해 주세요.")
         for h in highlights:
             lines.append(f"- {h}")
         topics = r.get("topics") or []
@@ -338,7 +406,8 @@ def _date_minus(date_str: str, days: int) -> str:
 
 
 def render_daily(date_str: str, status: dict, dump_paths: dict[str, str],
-                 new_reports: list[dict], window_label: str = "") -> str:
+                 new_reports: list[dict], window_label: str = "",
+                 late_reports: list[dict] | None = None) -> str:
     """Daily topic report.
 
     2026-08-26 재구성 (사용자 요청): the Executive summary IS the report. It
@@ -365,6 +434,19 @@ def render_daily(date_str: str, status: dict, dump_paths: dict[str, str],
         "",
     ]
     lines += _render_highlights(new_reports, window_label)
+    if late_reports:
+        lines += [f"## 뒤늦게 확보된 KCIF 원문 ({len(late_reports)}건)", "",
+                  "이전 발행 자료의 본문이 새로 확보되었습니다. 아래 날짜는 원발행일이며 오늘 발생한 사건을 뜻하지 않습니다.", ""]
+        for report in late_reports:
+            lines += [f"### [{report.get('category') or '?'}] {report['title']}", "",
+                      f"- 원발행일: {report['published_date']}"]
+            highlights = lead_highlights(report.get("text"))
+            lines += [f"- {highlight}" for highlight in highlights]
+            if not highlights:
+                lines.append("- 발행처의 요약 문단을 찾지 못했습니다. 아래 원문에서 내용을 확인해 주세요.")
+            if report.get("md_path"):
+                lines.append(str(PROJECT_ROOT / report["md_path"]))
+            lines.append("")
     lines += [
         "## Executive summary",
         "",
@@ -558,6 +640,7 @@ def run_daily(date_str: str | None = None, *, skip_crawl: bool = False,
 
     status: dict = {}
     try:
+        store.initialize_daily_text_delivery()
         crawl_ok = False
         if skip_crawl:
             status["crawl"] = status["download"] = status["extract"] = "스킵 (--skip-crawl)"
@@ -571,7 +654,8 @@ def run_daily(date_str: str | None = None, *, skip_crawl: bool = False,
                 status.setdefault("download", "크롤 실패로 미실행")
                 status.setdefault("extract", "크롤 실패로 미실행")
 
-        if not force and crawl_ok and status.get("_new_count") == 0:
+        late_reports = store.pending_daily_texts(date_s, highlight_window_start(today).isoformat())
+        if not force and crawl_ok and status.get("_new_count") == 0 and not late_reports:
             n_today = store.get_conn().execute(
                 "SELECT COUNT(*) FROM reports WHERE published_date = ?", (date_s,)
             ).fetchone()[0]
@@ -587,8 +671,11 @@ def run_daily(date_str: str | None = None, *, skip_crawl: bool = False,
             ok = sum(1 for r in results if r["ok"])
             ev = sum(r["events_added"] for r in results)
             fallback = sum(1 for r in results if r["reason"] == "llm_failed")
+            invalid_dates = sum(1 for result in results if result["reason"] == "late_event_date_mismatch")
             status["topics"] = (f"성공 {ok}/{len(results)} · 신규 이벤트 {ev}건"
-                                + (f" · LLM 실패 {fallback}건(다음 실행 재시도)" if fallback else ""))
+                                + (f" · LLM 실패 {fallback}건(다음 실행 재시도)" if fallback else "")
+                                + (f" · 과거 자료 날짜 검증 실패 {invalid_dates}건(다음 실행 재시도)"
+                                   if invalid_dates else ""))
         except Exception as e:
             logger.exception("kcif topics stage failed")
             status["topics"] = f"실패 — {str(e)[:120]}"
@@ -613,8 +700,11 @@ def run_daily(date_str: str | None = None, *, skip_crawl: bool = False,
 
         REPORTS_OUT_DIR.mkdir(parents=True, exist_ok=True)
         out = REPORTS_OUT_DIR / f"{date_s}-kcif-topics.md"
-        out.write_text(render_daily(date_s, status, dump_paths, new_reports, window_label),
+        out.write_text(render_daily(date_s, status, dump_paths, new_reports, window_label, late_reports),
                        encoding="utf-8")
+        store.mark_daily_texts(date_s, [report["id"] for report in new_reports[:HIGHLIGHT_REPORT_CAP]
+                                      if report.get("extracted") is True and "id" in report],
+                               [report["text_id"] for report in late_reports])
         # 휴일로 쉬었다가 강제/재실행으로 리포트가 생기면 표지는 낡은 것이다.
         (SKIP_MARKER_DIR / f"{date_s}.json").unlink(missing_ok=True)
 

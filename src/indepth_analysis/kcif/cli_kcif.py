@@ -34,6 +34,11 @@ def register_kcif_parser(subparsers) -> None:
     e = sub.add_parser("extract-backfill", help="다운로드된 PDF 전체 → 텍스트 원본 .md 백필")
     e.add_argument("--limit", type=int, default=None)
 
+    retry = sub.add_parser(
+        "public-backfill", help="공개 전환 재확인·본문 백필 (LLM·보고서 생성 없음)",
+    )
+    retry.add_argument("--limit", type=int, default=10, help="1~117건, 기본 10건")
+
     t = sub.add_parser("topics", help="토픽 타임라인 관리")
     tsub = t.add_subparsers(dest="topics_cmd", required=True)
     ta = tsub.add_parser("add", help="토픽 등록 (+키워드 자동 확장)")
@@ -69,6 +74,12 @@ def run_kcif(args) -> int:
                         force=getattr(args, "force", False))
         print(json.dumps(res, ensure_ascii=False, indent=2))
         return 0
+
+    if args.kcif_cmd == "public-backfill":
+        from indepth_analysis.kcif.download_retry import run_public_backfill
+        result = run_public_backfill(limit=args.limit)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 1 if result["stopped"] else 0
 
     if args.kcif_cmd == "find":
         rows = store.search_texts(args.query, since=args.since, until=args.until,

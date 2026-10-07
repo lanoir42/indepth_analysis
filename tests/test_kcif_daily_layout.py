@@ -159,6 +159,74 @@ def test_render_legacy_rows_without_highlight_keys(fake_store):
     assert "### [미국] 제목" in md and "본문 추출 전" not in md
 
 
+@pytest.mark.parametrize("state,notice", [
+    ("restricted", "접근 제한 또는 다운로드 주소 미확인"),
+    ("failed", "다운로드 실패"),
+    ("pending", "다운로드 대기"),
+    ("skipped", "다운로드 제외"),
+    ("downloaded", "텍스트 추출이 완료되지 않았습니다"),
+])
+def test_missing_body_explains_state(fake_store, state, notice):
+    md = R.render_daily("2026-10-06", {}, {}, [
+        _new(extracted=False, highlights=[], md_path=None, download_status=state),
+    ])
+    assert notice in md
+    assert "본문 추출 전" not in md
+
+
+def test_coverage_and_table_are_not_claimed_as_reviewed(fake_store):
+    rows = [_new(), _new(highlights=[], file_name="indicators.xlsx")]
+    rows += [_new(extracted=False, highlights=[], download_status="restricted") for _ in range(4)]
+    md = R.render_daily("2026-10-06", {}, {}, rows)
+    assert "발행 목록 6건 · 본문 확보 2건 · 본문 미확보 4건" in md
+    assert "발행 목록 건수는 본문 검토 완료 건수가 아닙니다" in md
+    assert "표·수치 중심 자료" in md
+    assert md.count("접근 제한 또는 다운로드 주소 미확인") == 4
+
+
+def test_unclassified_document_does_not_claim_to_be_table(fake_store):
+    md = R.render_daily("2026-10-06", {}, {}, [_new(highlights=[])])
+    assert "발행처의 요약 문단을 찾지 못했습니다" in md
+    assert "표·수치 중심" not in md
+
+
+@pytest.mark.parametrize("url", [
+    "http://www.kcif.or.kr/report", "https://evil.example/report",
+    "https://www.kcif.or.kr.evil.example/report", "https://www.kcif.or.kr/report)bad",
+    "https://user@www.kcif.or.kr/report", "https://www.kcif.or.kr/report\ntext",
+])
+def test_catalog_link_rejects_unsafe_urls(url):
+    assert R._catalog_link({"url": url}) is None
+
+
+def test_catalog_link_preserves_public_kcif_url(fake_store):
+    url = "https://www.kcif.or.kr/chart/economyView?rpt_no=37574&mn=004002008"
+    md = R.render_daily("2026-10-06", {}, {}, [_new(
+        extracted=False, highlights=[], download_status="restricted", url=url)])
+    assert f"[KCIF 자료 안내]({url})" in md
+
+
+@pytest.mark.parametrize("with_status_columns", [False, True])
+def test_collect_supports_old_and_current_metadata(monkeypatch, with_status_columns):
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.execute("CREATE TABLE reports (id INTEGER, title TEXT, category TEXT, md_path TEXT, published_date TEXT)")
+    conn.execute("CREATE TABLE report_texts (report_id INTEGER, text TEXT)")
+    conn.execute("CREATE TABLE kcif_topic_events (topic_id INTEGER, report_ids_json TEXT)")
+    conn.execute("CREATE TABLE kcif_topics (id INTEGER, title TEXT)")
+    conn.execute("INSERT INTO reports VALUES (1, '제목', '채권', NULL, '2026-10-06')")
+    if with_status_columns:
+        conn.execute("ALTER TABLE reports ADD COLUMN download_status TEXT")
+        conn.execute("ALTER TABLE reports ADD COLUMN file_name TEXT")
+        conn.execute("UPDATE reports SET download_status='restricted'")
+    monkeypatch.setattr(R.store, "get_conn", lambda: conn)
+    rows, label = R.collect_new_reports(date(2026, 10, 6))
+    assert rows[0]["download_status"] == ("restricted" if with_status_columns else None)
+    assert rows[0]["extracted"] is False
+    assert label == ""
+    conn.close()
+
+
 # ── 주말/휴일 쉼 ───────────────────────────────────────────────────────────
 
 @pytest.fixture
@@ -199,6 +267,17 @@ def test_weekend_force_runs(pipeline):
     res = R.run_daily("2026-09-20", force=True)
     assert "skipped" not in res
     assert (reports / "2026-09-20-kcif-topics.md").exists()
+
+
+def test_late_event_date_failure_is_visible_in_daily_status(pipeline, monkeypatch):
+    monkeypatch.setattr(topics_mod, "update_all", lambda: [
+        {"ok": False, "events_added": 0, "reason": "late_event_date_mismatch"},
+    ])
+    result = R.run_daily("2026-10-07", force=True)
+    notice = "과거 자료 날짜 검증 실패 1건(다음 실행 재시도)"
+    assert notice in result["status"]["topics"]
+    reports, _ = pipeline["dirs"]
+    assert notice in (reports / "2026-10-07-kcif-topics.md").read_text()
 
 
 def test_holiday_skip_when_crawl_ok_and_zero_new(pipeline):
