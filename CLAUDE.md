@@ -272,7 +272,16 @@ uv run indepth report euro-macro-weekly --date 2026-05-29
 
 ---
 
-## 월간 유럽 브리프 v2 (monthly_brief, 2026-09-10)
+## 월간 유럽 리포트 v3 (monthly_brief, 2026-09-30) — 현행
+
+3회 보고(preview→interim→final) × {풀 리포트, 해설본, 허브} + PowerPoint용 `chart_pack.json`(+CSV)·`table_pack.json`. 장표 텍스트 없음.
+입력: Mendeley `EUROPE YYYYMM` BI → intake(발행시각 파싱·sha16 월간 중복)·Sonnet 카드·10그룹 섹션·`session.json`(SSR 계약 동형, Briefing EUROPE 탭 후속) /
+결정론 데이터 91시리즈(Eurostat HICP는 `prc_hicp_minr` — 구 manr·ECB ICP는 2025-12 정지) / Sonnet 리서치 12축 + PMI·OIS 웹 시계열.
+Opus 단계는 `workflow/noir_v3.js`(인자 `workflow/args.py`), 마감 `finalize.py promote`(차단 게이트). 문체 `STYLE_BRIEF.md`(KCIF식), 요건 `coverage.yaml`, 역할 `roles/`.
+CLI: `uv run indepth report euro-macro-monthly-brief --month YYYY-MM --stage fetch intake cards data research workflow-args`.
+매뉴얼 `docs/euro_macro_monthly_brief/MANUAL.md`(v2는 `MANUAL_v2.md`), 설계 `V3_PLAN.md`·`V3_CONTRACTS.md`. 증분 모드(interim·final)는 v3.1(10/6 이후).
+
+## 월간 유럽 브리프 v2 (monthly_brief, 2026-09-10) — 대체됨(v3)
 
 BI(Mendeley `EUROPE YYYYMM`)·주간 덱 유럽 인덱스·Sonnet 9축 리서치 → 팀 Noir(Opus 5 medium) →
 preview/spot/review 3단계 세트(허브·풀 리포트(산문)·해설서·장표(개조식)·`slide_data.json`).
@@ -503,6 +512,7 @@ revision으로 동시 편집을 막는다. 기존 요약·이력·watermark는 �
 활성 최대 12개, 새 토픽은 90일 이전 watermark로 시작한다. 구현 `kcif/settings.py`, 검증 `tests/test_kcif_settings.py`.
 추적: lanoir42/orchestrator#46. 이 연결은 indepth의 LLM 공급자 마이그레이션을 의미하지 않는다.
 
+
 ## W-a1 리포트 라우팅 — kcif.update_topic (2026-09-29)
 
 계약 정본: `~/projects/orchestrator/contracts/REPORT-ROUTING.md`. `kcif.update_topic`
@@ -525,3 +535,22 @@ revision으로 동시 편집을 막는다. 기존 요약·이력·watermark는 �
   전부 NULL).
 - **범위 밖**: earnings·telegram·TJAM 쪽 W-a1 작업은 각 저장소가 별도로 한다. 이 라운드가
   건드린 것은 indepth_analysis 하나뿐이다.
+
+## 리포트 폴백·효율·품질 개선 공동 계획 (2026-09-20)
+
+사용자 요청으로 Claude/Codex 공통 조사·계획을 작성했다. **아직 런타임 구현·배포하지 않았다.**
+- [폴백 계획](../agent-context/REPORT-FALLBACK-PLAN-2026-09-20.md)
+- [효율·품질 감사와 개선 제안](../agent-context/REPORT-QUALITY-AUDIT-2026-09-20.md)
+- [호출 후보 목록](../agent-context/REPORT-LLM-CALLS-2026-09-20.csv) — 실제 호출횟수/전수검증 완료 목록이 아님.
+결정: 기존 주 공급자 유지 + 상대 CLI 폴백, Telegram도 필수. NC/GB 격리·local-only 유지.
+시트 수치/원장은 코드가 처리하고 모델은 해설 단계만 맡는다. 백업/중복 생성/계측부터 보강.
+위 계획은 기존 운영 규칙을 일괄 대체하지 않는다. 구현 시 프로젝트별 이슈·커밋·검증을 분리하고,
+현재 사용자 변경을 보존한다. 이 링크를 승인없는 실호출·시트쓰기·재시작·발행의 근거로 삼지 않는다.
+
+### 전체 리포트 개발 진행 / 2026-09-20
+[공통 구현 현황·검증·미완료·활성화 조건](../agent-context/REPORT-FALLBACK-IMPLEMENTATION-2026-09-20.md).
+초기 조사-only 문구 이후의 최신 상태. 전체 구현/운영 활성화 완료가 아니며 기존 사용자 변경을 보존한다.
+
+## 연구 보고서 품질 회고 (2026-09-29 사용자 피드백)
+
+공통 영속 메모리: [REPORT-QUALITY-RETROSPECTIVE-2026-09-29.md](docs/agent-context/REPORT-QUALITY-RETROSPECTIVE-2026-09-29.md). 보고서 생성·수정 시 필수 적용. frontier_ai_security_2026_09_28의 ‘하지 않는다/아니다’·메타서술·출처 링크 중심 구성은 사용자가 거부했다. 사건과 기술을 본문에서 자세히 설명하고, 조사 결과에서 분석·결론이 도출되는 과정을 보여 준다. 작업 내역과 검증 통계는 부록/편집기록으로 분리한다. 기존 가독성 우선 문체 규칙을 유지하되 문체만 고쳐 품질 개선으로 간주하지 않는다.
