@@ -51,3 +51,6 @@ __pycache__/
 
 # 사용자 프롬프트 원문 모음 — 개인 기록, 저장소에 싣지 않는다
 prompt_history_summary.md
+
+# 매크로 캘린더 운영 DB — 정기 작업이 계속 갱신한다. 로컬 전용 (2026-10-07 사용자 결정)
+data/macro_calendar.db
