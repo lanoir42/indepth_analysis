@@ -1,0 +1,98 @@
+[
+  {
+    "id": "N01",
+    "source_id": "S10",
+    "numerator": 86,
+    "denominator": 226,
+    "formula": "numerator / denominator * 100",
+    "value": 38.05309734513274,
+    "unit": "percent_of_challenges_solved",
+    "generalization": "평가 과제 기준"
+  },
+  {
+    "id": "N02",
+    "source_id": "S10",
+    "numerator": 34,
+    "denominator": 226,
+    "formula": "numerator / denominator * 100",
+    "value": 15.04424778761062,
+    "unit": "percent_of_challenges_solved",
+    "generalization": "평가 과제 기준"
+  },
+  {
+    "id": "N03",
+    "source_id": "S10",
+    "numerator": 86,
+    "denominator": 34,
+    "formula": "numerator / denominator",
+    "value": 2.5294117647058822,
+    "unit": "ratio_of_solved_challenge_counts",
+    "generalization": "비용/속도 비율 아님"
+  },
+  {
+    "id": "N04",
+    "source_id": "S11",
+    "new": 67.6,
+    "old": 53.0,
+    "formula": "(new / old - 1) * 100",
+    "value": 27.54716981132075,
+    "unit": "percent_relative_change",
+    "generalization": "같은 보고의 하네스 기준"
+  },
+  {
+    "id": "N05",
+    "source_id": "S11",
+    "new": 67.6,
+    "old": 53.0,
+    "formula": "new - old",
+    "value": 14.599999999999994,
+    "unit": "percentage_points",
+    "generalization": "전체 실전 성공확률 아님"
+  },
+  {
+    "id": "N06",
+    "formula": "tp / (tp + fp) * 100",
+    "tp": 95,
+    "fp": 999,
+    "value": 8.683729433272395,
+    "unit": "percent",
+    "provenance": "synthetic_illustration",
+    "source_id": null,
+    "generalization": "렉처02 가상 예제; 관측 통계 아님"
+  },
+  {
+    "id": "N07",
+    "formula": "tp / (tp + fp) * 100",
+    "tp": 95,
+    "fp": 99.9,
+    "value": 48.7429451000513,
+    "unit": "percent",
+    "provenance": "synthetic_illustration",
+    "source_id": null,
+    "generalization": "렉처02 가상 예제; 기대값"
+  },
+  {
+    "id": "N08",
+    "formula": "(arrival - service) * days",
+    "arrival": 50,
+    "service": 40,
+    "days": 10,
+    "value": 100,
+    "unit": "items",
+    "provenance": "synthetic_illustration",
+    "source_id": null,
+    "generalization": "초기 적체 0; 일정 유입·수정"
+  },
+  {
+    "id": "N09",
+    "formula": "(arrival - service) * days",
+    "arrival": 100,
+    "service": 40,
+    "days": 10,
+    "value": 600,
+    "unit": "items",
+    "provenance": "synthetic_illustration",
+    "source_id": null,
+    "generalization": "초기 적체 0; 일정 유입·수정"
+  }
+]

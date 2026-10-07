@@ -1,0 +1,24 @@
+{
+  "parent_id": "312294e2c078803ea48ce8e853167b82",
+  "pages": {
+    "TECHNICAL-REPORT.md": {
+      "id": "3e9294e2-c078-814a-a8a0-e87517b1ff9c",
+      "url": "https://app.notion.com/p/20260929-NVIDIA-OpenShell-Sentry-AI-3e9294e2c078814aa8a0e87517b1ff9c",
+      "sha256": "0c21782ce6a5b2b6cd0f4b0b8aac71b8345b2b4efce92dc96ffe8c30f1b1edd1",
+      "upload_id": "3e9294e2-c078-8180-8110-00b2b75fa9ce",
+      "verified": true,
+      "blocks": 206,
+      "tables": 6
+    },
+    "LECTURE-NOTES.md": {
+      "id": "3e9294e2-c078-81c7-ba32-eba3a26627e5",
+      "url": "https://app.notion.com/p/20260929-OpenShell-Sentry-3e9294e2c07881c7ba32eba3a26627e5",
+      "sha256": "c466b74b6a78d26ec822006b4f28fbd6fe3a5ca69c8219db1fe576fb854a45d6",
+      "upload_id": "3e9294e2-c078-81d4-921d-00b2963041f0",
+      "verified": true,
+      "blocks": 85,
+      "tables": 2
+    }
+  },
+  "status": "verified"
+}

@@ -1,0 +1,33 @@
+{
+  "as_of": "2026-09-28",
+  "files": [
+    {
+      "file": "2026-09-28_apple_pcc_technical_explainer.md",
+      "sha256": "daed82726fa8a4f81c4e9cf5c2a30921a090b348106bd2518ffbc2dc36d00e7e",
+      "characters_including_references": 14759,
+      "whitespace_words": 2730,
+      "sections": 11,
+      "unique_references": 15,
+      "notion_body_blocks": 103,
+      "tables": 2
+    },
+    {
+      "file": "2026-09-28_meta_muse_agent_technical_explainer.md",
+      "sha256": "8a5b05a034cdec2c940cb451c7f920961958648fe7584a524e9209edfb9a57f8",
+      "characters_including_references": 16322,
+      "whitespace_words": 3283,
+      "sections": 14,
+      "unique_references": 13,
+      "notion_body_blocks": 125,
+      "tables": 3
+    }
+  ],
+  "temporal_high": 0,
+  "temporal_medium_review": "Muse WhatsApp 2025 URL and historical reference; no claim that the separate system is Muse current protection.",
+  "not_executed": [
+    "VRE or production penetration tests",
+    "Muse exploit",
+    "independent latency benchmarks",
+    "paid model calls"
+  ]
+}

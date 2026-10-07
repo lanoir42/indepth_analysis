@@ -1,0 +1,125 @@
+[
+  {
+    "incident_id": "I01",
+    "label": "OpenAI–Hugging Face",
+    "family": "HF-2026-07",
+    "observed_start": "2026-07-08",
+    "observed_end": "2026-07-13",
+    "detected_date": "2026-07-19",
+    "disclosed_date": "2026-07-21",
+    "source_ids": [
+      "S01",
+      "S02",
+      "S03",
+      "S04",
+      "S13"
+    ],
+    "boundary_class": "technical_containment_bypass_and_external_intrusion",
+    "note": "개별 관찰창 상이. 발견일은 OpenAI 발표 기준, 피해기관 전체 발견일 아님",
+    "status": "first_pass",
+    "missing": [
+      "최종 피해 규모",
+      "실행별 전체 로그"
+    ]
+  },
+  {
+    "incident_id": "I02",
+    "label": "Anthropic Opus4.7",
+    "family": "IRREGULAR-ENV",
+    "observed_start": null,
+    "observed_end": null,
+    "detected_date": null,
+    "disclosed_date": "2026-07-30",
+    "source_ids": [
+      "S05",
+      "S06",
+      "S07"
+    ],
+    "boundary_class": "unintended_egress_and_scope_violation",
+    "note": "동일 표적4실행",
+    "status": "first_pass",
+    "missing": [
+      "최종 피해 규모",
+      "실행별 전체 로그"
+    ]
+  },
+  {
+    "incident_id": "I03",
+    "label": "Anthropic Mythos5",
+    "family": "IRREGULAR-ENV",
+    "observed_start": null,
+    "observed_end": null,
+    "detected_date": null,
+    "disclosed_date": "2026-07-30",
+    "source_ids": [
+      "S05",
+      "S06"
+    ],
+    "boundary_class": "unintended_egress_and_supply_chain_effect",
+    "note": "1실행; 다른 공개와 사건별 매핑 미확정",
+    "status": "first_pass",
+    "missing": [
+      "최종 피해 규모",
+      "실행별 전체 로그"
+    ]
+  },
+  {
+    "incident_id": "I04",
+    "label": "Anthropic research model",
+    "family": "IRREGULAR-ENV",
+    "observed_start": null,
+    "observed_end": null,
+    "detected_date": null,
+    "disclosed_date": "2026-07-30",
+    "source_ids": [
+      "S05",
+      "S06"
+    ],
+    "boundary_class": "unintended_egress_and_external_intrusion",
+    "note": "1실행",
+    "status": "first_pass",
+    "missing": [
+      "최종 피해 규모",
+      "실행별 전체 로그"
+    ]
+  },
+  {
+    "incident_id": "I05",
+    "label": "Anthropic early Opus4.6",
+    "family": "IRREGULAR-ENV",
+    "observed_start": null,
+    "observed_end": null,
+    "detected_date": null,
+    "disclosed_date": "2026-09-09",
+    "source_ids": [
+      "S06"
+    ],
+    "boundary_class": "unintended_egress_and_external_access",
+    "note": "추가1실행; 깊이 있는 후속 분석 미확보",
+    "status": "first_pass",
+    "missing": [
+      "최종 피해 규모",
+      "실행별 전체 로그"
+    ]
+  },
+  {
+    "incident_id": "I06",
+    "label": "UK AISI",
+    "family": "AISI-2026-07",
+    "observed_start": "2026-07-25",
+    "observed_end": "2026-07-28",
+    "detected_date": "2026-07-28",
+    "disclosed_date": null,
+    "source_ids": [
+      "S08",
+      "S09"
+    ],
+    "boundary_class": "authorized_egress_unauthorized_actions",
+    "note": "10/122실행;19행동. 독립 사고19건으로 세지 않음",
+    "status": "first_pass",
+    "missing": [
+      "최종 피해 규모",
+      "실행별 전체 로그"
+    ]
+  }
+]

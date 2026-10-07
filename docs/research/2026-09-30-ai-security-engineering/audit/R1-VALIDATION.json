@@ -1,0 +1,29 @@
+{
+  "date": "2026-09-30",
+  "path": "reports/ai_security_engineering_2026_09_30/FULL-REPORT.md",
+  "characters_including_spaces_urls": 41297,
+  "body_characters": 35266,
+  "lines": 672,
+  "main_chapters": 13,
+  "subsections": 54,
+  "reference_count": 32,
+  "public_web_reference_count": 31,
+  "user_drive_reference_count": 1,
+  "unique_external_urls": 32,
+  "sha256": "503fdce60e28940f4359289b77a6e505514f498da9a5fde5574ed19a7d9cde3e",
+  "illustrative_calculations": {
+    "annual_simple_bp": 122.0,
+    "annual_compound_pct": 1.2144298403963472,
+    "zero_failure_95_upper_100_pct": 2.951304960703993,
+    "zero_failure_95_upper_1000_pct": 0.29912495450953314,
+    "at_least_one_failure_1000_pct": 63.23045752290363,
+    "precision_pct": 8.257638315441783,
+    "reactive_cash_final": 80.75,
+    "preemptive_cash_final": 88.25,
+    "arr_share_before_pct": 66.66666666666666,
+    "arr_share_after_pct": 85.0
+  },
+  "local_links_valid": true,
+  "fences_balanced": true,
+  "source_pdf_sha256": "8ddb71aba0923e1c2822b70f3a4e9bda385f977afcc92a4ed81a6e69bfef3671"
+}

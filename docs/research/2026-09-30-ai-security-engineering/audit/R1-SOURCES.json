@@ -1,0 +1,322 @@
+[
+  {
+    "id": "R1",
+    "publisher": "사용자 제공 연구 방향.",
+    "title": "사이버보안과 AI 안전 관련 연구 포맷.pdf",
+    "url": "https://drive.google.com/file/d/11mjZanHPXF8aZG4wGPp4DUfGGFkn03oo/view",
+    "note": ", 12쪽, Drive 확인 2026-09-30. 원장표 설명 이미지이며 원계산표·원시 시나리오 부재. 1–3쪽: 계층·ARR·평가, 4–7쪽: 기업·헤지·대응, 8–12쪽: 계층 해설.",
+    "accessed": "2026-09-30",
+    "evidence_type": "user_direction_secondary_summary",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R2",
+    "publisher": "Hugging Face.",
+    "title": "Agent intrusion: technical timeline",
+    "url": "https://huggingface.co/blog/agent-intrusion-technical-timeline",
+    "note": ", 2026-07-27. 피해 측 기술 경로·차단 지점 공개.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R3",
+    "publisher": "METR.",
+    "title": "Independent investigation of the OpenAI / Hugging Face incident",
+    "url": "https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation/",
+    "note": ", 2026-08-26. 에이전트 협력·행동 및 조사 범위.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R4",
+    "publisher": "Anthropic.",
+    "title": "An alignment assessment of recent cybersecurity incidents",
+    "url": "https://www.anthropic.com/research/alignment-assessment-cybersecurity-incidents",
+    "note": ", 2026-09-09. 초기 해석 수정·모델 행동·감독 한계.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R5",
+    "publisher": "UK AISI.",
+    "title": "Unsanctioned agent behaviour during cyber testing",
+    "url": "https://www.aisi.gov.uk/blog/incident-report-unsanctioned-agent-behaviour-during-cyber-testing",
+    "note": ". 사건 2026-07-25–28, 평가 구성과 실제 샌드박스 상태 구분.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R6",
+    "publisher": "NIST.",
+    "title": "Adversarial Machine Learning: A Taxonomy and Terminology of Attacks and Mitigations, AI 100-2 E2025",
+    "url": "https://csrc.nist.gov/pubs/ai/100/2/e2025/final",
+    "note": ". 적대적 학습·공격 분류.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R7",
+    "publisher": "Google Project Zero.",
+    "title": "From Naptime to Big Sleep",
+    "url": "https://projectzero.google/2024/10/from-naptime-to-big-sleep.html",
+    "note": ", 2024-10. 실제 코드의 취약점 발견 사례.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R8",
+    "publisher": "Debenedetti 외.",
+    "title": "Defeating Prompt Injections by Design — CaMeL",
+    "url": "https://arxiv.org/html/2503.18813v2",
+    "note": ", v2, 2025-06-24. 제어·데이터 흐름 분리, 값의 출처·권한 추적, AgentDojo 평가.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R9",
+    "publisher": "Odersky·Zhao·Xu 외, EPFL.",
+    "title": "Securing Agents With Tracked Capabilities",
+    "url": "https://www.yichenxu.me/files/publications/securing-agents/paper.pdf",
+    "note": ", CAIS 2026. 타입·capability·기밀 계산, §3.1 위협 모델, §5 한계.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R10",
+    "publisher": "NIST.",
+    "title": "SP 800-207: Zero Trust Architecture",
+    "url": "https://csrc.nist.gov/pubs/sp/800/207/final",
+    "note": ", 2020. 정책 결정과 집행의 기본 구조.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R11",
+    "publisher": "IETF.",
+    "title": "RFC 9700: Best Current Practice for OAuth 2.0 Security",
+    "url": "https://www.rfc-editor.org/rfc/rfc9700.html",
+    "note": ", 2025. 토큰·재사용·수신 대상·발신자 결합 보안.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R12",
+    "publisher": "NVIDIA.",
+    "title": "OpenShell sandbox architecture, v0.1.2",
+    "url": "https://github.com/NVIDIA/OpenShell/blob/v0.1.2/architecture/sandbox.md",
+    "note": ". supervisor·작업 분리, 커널·네트워크 경계, 모드별 제한.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R13",
+    "publisher": "NVIDIA.",
+    "title": "Open Agent Safety Platform: continuous in-silicon agent monitoring",
+    "url": "https://developer.nvidia.com/blog/nvidia-open-agent-safety-platform-a-reference-for-continuous-in-silicon-agent-monitoring/",
+    "note": ", 2026-09-28. Sentry·BlueField-4 참조 구조와 기술 주장.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R14",
+    "publisher": "NVIDIA.",
+    "title": "Open Agent Safety Platform launch",
+    "url": "https://nvidianews.nvidia.com/news/open-agent-safety-platform",
+    "note": ", 2026-09-28. 발표·생태계·제공 상태에 관한 설명 및 유의 조건.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R15",
+    "publisher": "Linux kernel documentation.",
+    "title": "Landlock: unprivileged access control",
+    "url": "https://docs.kernel.org/userspace-api/landlock.html",
+    "note": ". 파일·자원 접근 제한의 원리와 지원 범위.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R16",
+    "publisher": "Linux kernel documentation.",
+    "title": "Seccomp BPF",
+    "url": "https://docs.kernel.org/userspace-api/seccomp_filter.html",
+    "note": ". 시스템 호출 필터와 신뢰 범위.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R17",
+    "publisher": "Palo Alto Networks.",
+    "title": "Prisma AIRS: September 2026 new features",
+    "url": "https://docs.paloaltonetworks.com/prisma-airs/new-features/by-date/prisma-airs/september-2026",
+    "note": ". BlueField-3 선택적 트래픽 검사·기본 우회, 코딩 에이전트 연계.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R18",
+    "publisher": "Microsoft.",
+    "title": "Agent identities, service principals, and applications",
+    "url": "https://learn.microsoft.com/en-us/entra/agent-id/agent-service-principals",
+    "note": ". 에이전트 신원·blueprint·공통 자격증명 영향.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R19",
+    "publisher": "Apple Security Research.",
+    "title": "Private Cloud Compute",
+    "url": "https://security.apple.com/blog/private-cloud-compute/",
+    "note": ", 2024. 기밀 처리·운영 접근 제한·검증·투명성 구조.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R20",
+    "publisher": "ExploitGym 연구진.",
+    "title": "Can AI Agents Turn Security Vulnerabilities into Real Attacks?",
+    "url": "https://arxiv.org/html/2605.11086v1",
+    "note": ", 2026-05, v1. 평가 설정·성공 정의·표 3·제한.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R21",
+    "publisher": "CyberGym-E2E 연구진.",
+    "title": "Scalable Real-World Benchmark for AI Agents’ End-to-End Cybersecurity Capabilities",
+    "url": "https://arxiv.org/html/2606.04460v1",
+    "note": ", 2026-06, v1. 초기 615·확대 920 평가 구분.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R22",
+    "publisher": "Greenblatt 외.",
+    "title": "AI Control: Improving Safety Despite Intentional Subversion",
+    "url": "https://arxiv.org/abs/2312.06942",
+    "note": ", 초고 2023, ICML 2024. 신뢰·비신뢰 모델을 결합한 통제 프로토콜.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R23",
+    "publisher": "Factor(T,U) 연구진.",
+    "title": "Factored Cognition Strengthens Monitoring of Untrusted AI",
+    "url": "https://arxiv.org/abs/2512.02157",
+    "note": ", 2025-12. 분할 작업과 감독의 실험적 평가.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R24",
+    "publisher": "Anthropic.",
+    "title": "Detecting and countering misuse of AI: September 2026",
+    "url": "https://www.anthropic.com/threat-intelligence-report-september-2026",
+    "note": ", 2026-09. 제공자가 관찰한 악용 사례·표본 범위.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R25",
+    "publisher": "Accenture.",
+    "title": "Embedded evaluators partnership with Anthropic",
+    "url": "https://newsroom.accenture.com/news/2026/accenture-and-anthropic-partner-to-build-team-of-embedded-evaluators-at-anthropic",
+    "note": ", 2026-09-18. Faculty의 역할과 양사의 투자 예상.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R26",
+    "publisher": "Anthropic.",
+    "title": "Partnering with Accenture on embedded evaluation",
+    "url": "https://www.anthropic.com/news/accenture-embedded-evaluation",
+    "note": ", 2026-09-18. 비독점성과 운영 방식의 발전 상태.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R27",
+    "publisher": "CrowdStrike.",
+    "title": "CrowdStrike and NVIDIA Extend Security Across the AI Stack",
+    "url": "https://www.crowdstrike.com/en-us/blog/crowdstrike-nvidia-extend-security-across-ai-stack/",
+    "note": ", 2026-09. Falcon·OpenShell·안전 플랫폼 협력의 회사 설명.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R28",
+    "publisher": "AIM Intelligence.",
+    "title": "Enterprise AI Security Platform",
+    "url": "https://www.aim-intelligence.com/",
+    "note": ", 기준일 제품 설명. 멀티모달·정책·에이전트·레드팀. 독립 비교 성적표는 아님.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R29",
+    "publisher": "Snyk.",
+    "title": "Acquisition of Invariant Labs",
+    "url": "https://snyk.io/de/news/snyk-acquires-invariant-labs-to-accelerate-agentic-ai-security-innovation/",
+    "note": ", 2025-06-24. 에이전트 보안 연구·제품의 인수 발표.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R30",
+    "publisher": "Microsoft.",
+    "title": "Security Copilot inclusion for Microsoft 365 customers",
+    "url": "https://learn.microsoft.com/en-us/copilot/security/security-copilot-inclusion",
+    "note": ". 포함 용량·계약 조건. 기준일 문서이며 실제 고객별 활성 상태는 별도.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R31",
+    "publisher": "Anthropic·Redwood.",
+    "title": "Alignment faking in large language models",
+    "url": "https://www.anthropic.com/research/alignment-faking",
+    "note": ", 2024-12-18. 실험 설정·관찰·일반화의 한계.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  },
+  {
+    "id": "R32",
+    "publisher": "OpenAI.",
+    "title": "Detecting misbehavior in frontier reasoning models",
+    "url": "https://openai.com/index/chain-of-thought-monitoring/",
+    "note": ", 2025. 추론 과정 감시의 효용과 최적화에 따른 관찰 가능성 문제.",
+    "accessed": "2026-09-30",
+    "evidence_type": "primary_publication_or_official_documentation",
+    "independently_reproduced": false
+  }
+]

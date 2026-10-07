@@ -1,0 +1,134 @@
+[
+  {
+    "relationship_id": "R01",
+    "from_entity": "Accenture",
+    "to_entity": "Faculty",
+    "relationship_type": "acquisition",
+    "status": "completed",
+    "announced_or_verified_date": "2026-03-16",
+    "source_ids": [
+      "S22"
+    ],
+    "limits": "가격·독립 손익 미공개"
+  },
+  {
+    "relationship_id": "R02",
+    "from_entity": "Accenture",
+    "to_entity": "Anthropic",
+    "relationship_type": "embedded_evaluation",
+    "status": "announced_partnership",
+    "announced_or_verified_date": "2026-09-18",
+    "source_ids": [
+      "S23"
+    ],
+    "limits": "계약 대가·공개권 미확인"
+  },
+  {
+    "relationship_id": "R03",
+    "from_entity": "Accenture",
+    "to_entity": "Anthropic",
+    "relationship_type": "enterprise_distribution_and_training",
+    "status": "announced_partnership",
+    "announced_or_verified_date": "2025-12-09",
+    "source_ids": [
+      "S24"
+    ],
+    "limits": "교육 인원은 고객 수 아님"
+  },
+  {
+    "relationship_id": "R04",
+    "from_entity": "Microsoft",
+    "to_entity": "OpenAI",
+    "relationship_type": "IP_cloud_revenue_share",
+    "status": "amended_terms",
+    "announced_or_verified_date": "2026-04-27",
+    "source_ids": [
+      "S21"
+    ],
+    "limits": "최신 지분율 미확인"
+  },
+  {
+    "relationship_id": "R05",
+    "from_entity": "Amazon",
+    "to_entity": "Anthropic",
+    "relationship_type": "investment",
+    "status": "current_and_conditional_future_commitments",
+    "announced_or_verified_date": "2026-04-20",
+    "source_ids": [
+      "S26"
+    ],
+    "limits": "상한 전액 납입 가정 금지"
+  },
+  {
+    "relationship_id": "R06",
+    "from_entity": "Anthropic",
+    "to_entity": "AWS",
+    "relationship_type": "compute_purchase",
+    "status": "long_term_commitment",
+    "announced_or_verified_date": "2026-04-20",
+    "source_ids": [
+      "S26"
+    ],
+    "limits": "지출 약정과 가동 용량 구분"
+  },
+  {
+    "relationship_id": "R07",
+    "from_entity": "Microsoft",
+    "to_entity": "Anthropic",
+    "relationship_type": "investment",
+    "status": "up_to_commitment",
+    "announced_or_verified_date": "2025-11-18",
+    "source_ids": [
+      "S25"
+    ],
+    "limits": "납입·최신 지분율 미확인"
+  },
+  {
+    "relationship_id": "R08",
+    "from_entity": "NVIDIA",
+    "to_entity": "Anthropic",
+    "relationship_type": "investment_and_engineering",
+    "status": "up_to_commitment_and_partnership",
+    "announced_or_verified_date": "2025-11-18",
+    "source_ids": [
+      "S25"
+    ],
+    "limits": "투자와 하드웨어 매출 중복 계산 금지"
+  },
+  {
+    "relationship_id": "R09",
+    "from_entity": "Anthropic",
+    "to_entity": "Microsoft Azure",
+    "relationship_type": "compute_purchase",
+    "status": "commitment",
+    "announced_or_verified_date": "2025-11-18",
+    "source_ids": [
+      "S25"
+    ],
+    "limits": "구매 약정·실집행 구분"
+  },
+  {
+    "relationship_id": "R10",
+    "from_entity": "Google",
+    "to_entity": "Wiz",
+    "relationship_type": "acquisition",
+    "status": "completed",
+    "announced_or_verified_date": "2026-03-11",
+    "source_ids": [
+      "S27"
+    ],
+    "limits": "통합 완료·중립성 실증 아님"
+  },
+  {
+    "relationship_id": "R11",
+    "from_entity": "Palo Alto Networks",
+    "to_entity": "CyberArk",
+    "relationship_type": "acquisition",
+    "status": "completed",
+    "announced_or_verified_date": "2026-02-11",
+    "source_ids": [
+      "S28"
+    ],
+    "limits": "에이전트 매출 분리 미확인"
+  }
+]

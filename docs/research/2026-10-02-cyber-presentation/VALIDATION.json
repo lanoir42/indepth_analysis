@@ -1,0 +1,20 @@
+{
+  "sha256": "d7994d3eff014974d811609dab0cc1f918d1de3e282521abc4fee89060684f81",
+  "characters": 48990,
+  "source_pages": 19,
+  "speech_sections": 16,
+  "speech_characters": 13067,
+  "qa_count": 34,
+  "unique_references": 40,
+  "tables": 11,
+  "temporal_lint": {
+    "high": 0,
+    "medium": 0,
+    "low": 21
+  },
+  "arithmetic": "passed; source-data availability remains qualified in article",
+  "source_pdf_unchanged": true,
+  "actual_rehearsal": false,
+  "product_performance_testing": false,
+  "investment_workbook_validated": false
+}

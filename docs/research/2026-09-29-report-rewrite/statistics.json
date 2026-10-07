@@ -1,0 +1,85 @@
+{
+  "files": [
+    {
+      "file": "00-EXECUTIVE-REPORT.md",
+      "title": "프론티어 AI와 안전·보안 산업: 경영진 종합 보고서",
+      "characters_including_spaces": 2996,
+      "body_chars_excluding_external_urls": 2711,
+      "sections": 6,
+      "sha256": "77a85130a5ec973fb7942c0ab66ae4c4ffb14b8217b1bc19550d6d2b935e6d37"
+    },
+    {
+      "file": "01-INCIDENTS-AND-LEGACY.md",
+      "title": "1. 프론티어 AI가 실제 시스템을 침해하는 과정과 레거시 위험",
+      "characters_including_spaces": 5833,
+      "body_chars_excluding_external_urls": 5144,
+      "sections": 5,
+      "sha256": "2233b70b2dcc29b1a7cbf157cdc1e4bc0409066b26c167370d9ec6bff8782fd4"
+    },
+    {
+      "file": "02-CAPABILITY-AND-ECONOMICS.md",
+      "title": "2. 공격 능력과 방어 생산성 — 무엇이 빨라지고, 어디서 비용이 남는가",
+      "characters_including_spaces": 4424,
+      "body_chars_excluding_external_urls": 4216,
+      "sections": 6,
+      "sha256": "93f58528c762bbec3114666893488c410204202168cc68d930e8297552ed2365"
+    },
+    {
+      "file": "03-SAFETY-AND-EXPERT-DEBATE.md",
+      "title": "3. AI Safety와 전문가 논쟁 — 목표를 달성하는 시스템을 어떻게 통제하는가",
+      "characters_including_spaces": 6833,
+      "body_chars_excluding_external_urls": 6356,
+      "sections": 9,
+      "sha256": "e26d5579621387b08b40141fb751f3ebeb4fc904bbf2f04dce765d9d7a9fa06d"
+    },
+    {
+      "file": "04-SECURITY-ARCHITECTURE.md",
+      "title": "4. 에이전트 보안의 기술 구조 — 읽기에서 실행까지 신뢰를 연결하기",
+      "characters_including_spaces": 4982,
+      "body_chars_excluding_external_urls": 4547,
+      "sections": 6,
+      "sha256": "97f7c7bc77c30da241e3618b5a6d7f1262a2d8316d0acc72ccf4f4ffad2ba3d2"
+    },
+    {
+      "file": "05-LANDSCAPE-AND-POLICY.md",
+      "title": "5. 여섯 분야의 산업 지형과 국가·시민사회의 대응",
+      "characters_including_spaces": 5056,
+      "body_chars_excluding_external_urls": 4386,
+      "sections": 6,
+      "sha256": "b63ea491576286b9220b698eda710fb4a8be583a887445e436c85ae028c735a0"
+    },
+    {
+      "file": "06-COMPANIES-AND-VALUE-CAPTURE.md",
+      "title": "6. 기업 간 관계와 가치의 귀속 — 좋은 보안 기술이 매출과 이익이 되는 조건",
+      "characters_including_spaces": 6338,
+      "body_chars_excluding_external_urls": 5336,
+      "sections": 7,
+      "sha256": "9fcb9172f5af87e715734ac63252df00955a6c76ccc10c90e00d93c05a41d1f6"
+    },
+    {
+      "file": "07-FINANCIAL-TRANSMISSION.md",
+      "title": "7. 금융기관은 위험과 수익 기회를 어떻게 해석하는가",
+      "characters_including_spaces": 4032,
+      "body_chars_excluding_external_urls": 3457,
+      "sections": 6,
+      "sha256": "880f4a774ae5a92e167d387e8820bb909cc3f5981b055084142318a89583743c"
+    },
+    {
+      "file": "08-SCENARIOS-AND-DECISIONS.md",
+      "title": "8. 앞으로의 시나리오와 경영·투자 대응",
+      "characters_including_spaces": 3879,
+      "body_chars_excluding_external_urls": 3879,
+      "sections": 8,
+      "sha256": "49cbcddbe993ed0918ff7660f76e48b30cf376c03000f8ed39906989561c2ead"
+    },
+    {
+      "file": "09-LECTURE-NOTES.md",
+      "title": "해설서 — 사고의 기술 구조에서 기업 손익까지 직접 따라가기",
+      "characters_including_spaces": 4803,
+      "body_chars_excluding_external_urls": 4803,
+      "sections": 7,
+      "sha256": "459548af9d4bfeede09ac059dfa8205efaa410da8bba952c83eff379992cae40"
+    }
+  ],
+  "unique_external_sources": 50
+}

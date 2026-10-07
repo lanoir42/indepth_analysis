@@ -1,0 +1,31 @@
+{
+  "as_of": "2026-09-28",
+  "parent_id": "312294e2c078803ea48ce8e853167b82",
+  "pages": {
+    "2026-09-28_apple_pcc_technical_explainer.md": {
+      "id": "3e9294e2-c078-81b9-b8a1-f596c9a37556",
+      "url": "https://app.notion.com/p/20260928-Apple-Private-Cloud-Compute-AI-3e9294e2c07881b9b8a1f596c9a37556",
+      "title": "20260928 Apple Private Cloud Compute 기술 분석 해설서 — 검증 가능한 클라우드 AI의 구조와 한계",
+      "sha256": "daed82726fa8a4f81c4e9cf5c2a30921a090b348106bd2518ffbc2dc36d00e7e",
+      "upload_id": "3e9294e2-c078-8193-a702-00b28df008f3",
+      "appended_through": 104,
+      "verified": true,
+      "verified_blocks": 104,
+      "verified_tables": 2,
+      "source_attachment": true
+    },
+    "2026-09-28_meta_muse_agent_technical_explainer.md": {
+      "id": "3e9294e2-c078-8119-ab49-c7496131de15",
+      "url": "https://app.notion.com/p/20260928-Meta-Muse-Agent-3e9294e2c0788119ab49c7496131de15",
+      "title": "20260928 Meta Muse Agent 기술 분석 해설서 — 개인 에이전트의 권한·기억·실행 보안",
+      "sha256": "8a5b05a034cdec2c940cb451c7f920961958648fe7584a524e9209edfb9a57f8",
+      "upload_id": "3e9294e2-c078-81f4-a88f-00b2f92e31c4",
+      "appended_through": 126,
+      "verified": true,
+      "verified_blocks": 126,
+      "verified_tables": 3,
+      "source_attachment": true
+    }
+  },
+  "status": "verified"
+}

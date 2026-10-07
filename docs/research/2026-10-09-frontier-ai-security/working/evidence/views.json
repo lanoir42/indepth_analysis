@@ -1,0 +1,66 @@
+[
+  {
+    "view_id": "V01",
+    "organization": "Anthropic",
+    "before_source": "S05",
+    "after_source": "S06",
+    "status": "revised_interpretation",
+    "topic": "환경에 대한 모델 발언에서 믿음을 추정하는 방법",
+    "verification": "두 시점 원문 직접 대조"
+  },
+  {
+    "view_id": "V02",
+    "organization": "Dario Amodei",
+    "source_ids": [
+      "S30"
+    ],
+    "status": "conditional_risk_position",
+    "statement_date": "2026-01",
+    "topic": "불확실성과 비례적 개입",
+    "verification": "earlier_later_pair_not_verified"
+  },
+  {
+    "view_id": "V03",
+    "organization": "Yoshua Bengio / LawZero",
+    "source_ids": [
+      "S31"
+    ],
+    "status": "research_program_position",
+    "statement_date": "2025-06-03",
+    "topic": "비행동형 감독 연구",
+    "verification": "earlier_shift_self_report_only"
+  },
+  {
+    "view_id": "V04",
+    "organization": "Arvind Narayanan / Sayash Kapoor",
+    "source_ids": [
+      "S32"
+    ],
+    "status": "institutional_diffusion_position",
+    "statement_date": "2025-04-15",
+    "topic": "발명·응용·확산 시간차",
+    "verification": "later_revision_not_verified"
+  },
+  {
+    "view_id": "V05",
+    "organization": "Morgan Stanley / Meta Marshall",
+    "source_ids": [
+      "S40"
+    ],
+    "status": "financial_forecast",
+    "statement_date": "2026-09-01",
+    "topic": "에이전트 신원 시장 기회",
+    "verification": "comparable_prior_forecast_not_obtained"
+  },
+  {
+    "view_id": "V06",
+    "organization": "Goldman Sachs / Gabriela Borges",
+    "source_ids": [
+      "S41"
+    ],
+    "status": "financial_interpretation",
+    "statement_date": "2026-04-23",
+    "topic": "보안업체 적응·M&A와 과거 배수 프리미엄",
+    "verification": "comparable_prior_forecast_not_obtained"
+  }
+]

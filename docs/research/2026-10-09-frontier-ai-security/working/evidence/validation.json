@@ -1,0 +1,115 @@
+{
+  "as_of": "2026-09-28",
+  "checks": "PASS: references/dates/calculations/local_links",
+  "limitations": "출처 내용의 진실성·인과·재현 검증이나 최종 출하 승인 아님. 문자수는 URL·표·마크다운 포함.",
+  "manuscripts": [
+    {
+      "file": "P01-INCIDENTS.md",
+      "characters_including_spaces_and_markup": 6231,
+      "lines": 93,
+      "words_whitespace_split": 1300,
+      "headings": 10
+    },
+    {
+      "file": "P02-CAPABILITY.md",
+      "characters_including_spaces_and_markup": 4977,
+      "lines": 89,
+      "words_whitespace_split": 1074,
+      "headings": 10
+    },
+    {
+      "file": "P03-SAFETY.md",
+      "characters_including_spaces_and_markup": 4277,
+      "lines": 67,
+      "words_whitespace_split": 952,
+      "headings": 9
+    },
+    {
+      "file": "P04-SECURITY-FOR-AI.md",
+      "characters_including_spaces_and_markup": 4303,
+      "lines": 79,
+      "words_whitespace_split": 1012,
+      "headings": 8
+    },
+    {
+      "file": "P05-AI-FOR-SECURITY.md",
+      "characters_including_spaces_and_markup": 2666,
+      "lines": 55,
+      "words_whitespace_split": 603,
+      "headings": 7
+    },
+    {
+      "file": "P06-EXPERT-DEBATE.md",
+      "characters_including_spaces_and_markup": 3672,
+      "lines": 57,
+      "words_whitespace_split": 821,
+      "headings": 7
+    },
+    {
+      "file": "P07-POLICY-RESPONSE.md",
+      "characters_including_spaces_and_markup": 3866,
+      "lines": 59,
+      "words_whitespace_split": 807,
+      "headings": 7
+    },
+    {
+      "file": "P08-COMPANY-RELATIONSHIPS.md",
+      "characters_including_spaces_and_markup": 5665,
+      "lines": 75,
+      "words_whitespace_split": 1084,
+      "headings": 8
+    },
+    {
+      "file": "P09-ECONOMICS-FINANCIAL-VIEWS.md",
+      "characters_including_spaces_and_markup": 4454,
+      "lines": 85,
+      "words_whitespace_split": 978,
+      "headings": 13
+    },
+    {
+      "file": "P10-SCENARIOS-PLAYBOOK.md",
+      "characters_including_spaces_and_markup": 3665,
+      "lines": 80,
+      "words_whitespace_split": 859,
+      "headings": 8
+    },
+    {
+      "file": "LECTURE-01-TRUST-BOUNDARIES.md",
+      "characters_including_spaces_and_markup": 4465,
+      "lines": 101,
+      "words_whitespace_split": 1081,
+      "headings": 12
+    },
+    {
+      "file": "LECTURE-02-FROM-CAPABILITY-TO-VALUE.md",
+      "characters_including_spaces_and_markup": 3775,
+      "lines": 82,
+      "words_whitespace_split": 886,
+      "headings": 7
+    },
+    {
+      "file": "EXECUTIVE-BRIEF.md",
+      "characters_including_spaces_and_markup": 2514,
+      "lines": 37,
+      "words_whitespace_split": 546,
+      "headings": 4
+    }
+  ],
+  "total_manuscript_characters": 54530,
+  "source_documents": 46,
+  "claim_records": 34,
+  "incident_records_not_independent_event_count": 6,
+  "view_records": 6,
+  "verified_view_change_pairs": 1,
+  "relationships": 11,
+  "scenarios": 4,
+  "calculations": 9,
+  "excluded_from_manuscript_count": [
+    "RESEARCH-PLAN.md",
+    "README.md",
+    "evidence/*",
+    "handoff",
+    "READING-COPY.md",
+    "HTML/PDF duplicates"
+  ]
+}

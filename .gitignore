@@ -42,3 +42,12 @@ presentations/
 # Local subscription report transport state
 /data/report_inference.db*
 /data/report-fallback.enabled
+
+# 연구 작업 폴더의 원본 자료(사내 장표 PDF·추출 텍스트)·제3자 코드 사본·바이트코드 — 로컬 전용 (2026-10-07)
+docs/research/*/source/
+docs/research/2026-09-29-nvidia-agent-safety/LICENSE
+docs/research/2026-09-29-nvidia-agent-safety/*.rs
+__pycache__/
+
+# 사용자 프롬프트 원문 모음 — 개인 기록, 저장소에 싣지 않는다
+prompt_history_summary.md

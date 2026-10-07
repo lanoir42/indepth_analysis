@@ -1,0 +1,30 @@
+{
+  "http_status": 200,
+  "total": 2,
+  "matches": [
+    {
+      "doc_id": "O2InYDybPHag7X1f",
+      "project": "indepth_analysis/ai_security_explainers_2026_09",
+      "filename": "2026-09-28_meta_muse_agent_technical_explainer.md",
+      "date": "2026-09-28",
+      "status": "unread",
+      "read_at": null,
+      "size": 33522,
+      "note_ids": [],
+      "summary3": null,
+      "scope": "general"
+    },
+    {
+      "doc_id": "UGpU87lg-nZjcD43",
+      "project": "indepth_analysis/ai_security_explainers_2026_09",
+      "filename": "2026-09-28_apple_pcc_technical_explainer.md",
+      "date": "2026-09-28",
+      "status": "unread",
+      "read_at": null,
+      "size": 29279,
+      "note_ids": [],
+      "summary3": null,
+      "scope": "general"
+    }
+  ]
+}

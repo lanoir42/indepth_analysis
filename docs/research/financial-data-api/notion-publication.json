@@ -1,0 +1,60 @@
+{
+  "parent_id": "312294e2c078803ea48ce8e853167b82",
+  "pages": {
+    "README.md": {
+      "id": "3e9294e2-c078-81c2-9034-d530f3607cd9",
+      "url": "https://app.notion.com/p/20260929-Bloomberg-API-3e9294e2c07881c29034d530f3607cd9",
+      "sha256": "9e8323cc1d6a668ad40d7fc3bcfec9c739a59f6b358ac48fe4b1a581abe42463",
+      "upload_id": "3e9294e2-c078-8182-b748-00b2a5482a52",
+      "verified": true,
+      "blocks": 9,
+      "tables": 0
+    },
+    "REPORT.md": {
+      "id": "3e9294e2-c078-81e8-8fe2-d887bd0cbacf",
+      "url": "https://app.notion.com/p/20260929-Bloomberg-API-Transcript-3e9294e2c07881e88fe2d887bd0cbacf",
+      "sha256": "5759081339aebb0dc9a9fcbdbeca5a126c1e8d49744b2cb8887611dd7f1cb0c7",
+      "upload_id": "3e9294e2-c078-81dd-865e-00b220b0d136",
+      "verified": true,
+      "blocks": 134,
+      "tables": 5
+    },
+    "RFP-AND-PILOT.md": {
+      "id": "3e9294e2-c078-81ae-bf44-f976b8db5a43",
+      "url": "https://app.notion.com/p/20260929-API-3e9294e2c07881aebf44f976b8db5a43",
+      "sha256": "b84a5ff04f972b0248a5777e0b49192fd1f595021c974e9894ca53435380f363",
+      "upload_id": "3e9294e2-c078-81a7-a005-00b279288141",
+      "verified": true,
+      "blocks": 88,
+      "tables": 2
+    },
+    "SOURCES.md": {
+      "id": "3e9294e2-c078-81df-8c43-c15cbfb118d2",
+      "url": "https://app.notion.com/p/20260929-Financial-Data-API-3e9294e2c07881df8c43c15cbfb118d2",
+      "sha256": "404d2ae4ce25ba60bba799403c6eff6a91ba6a039c9c7b6d21b23ecb5eb6995f",
+      "upload_id": "3e9294e2-c078-81d2-95a2-00b2b5c87e2a",
+      "verified": true,
+      "blocks": 37,
+      "tables": 0
+    },
+    "VALIDATION.md": {
+      "id": "3e9294e2-c078-8192-8fb4-fb61e431a02c",
+      "url": "https://app.notion.com/p/20260929-3e9294e2c07881928fb4fb61e431a02c",
+      "sha256": "331999d0f9f4a68f5edc9e39fe3d60e1888d8909d6d2bda044eb2295d42778ed",
+      "upload_id": "3e9294e2-c078-8187-8c24-00b258bf3eac",
+      "verified": true,
+      "blocks": 16,
+      "tables": 0
+    },
+    "COST-MODEL.csv": {
+      "id": "3e9294e2-c078-81ac-b8e7-edcf6471f538",
+      "url": "https://app.notion.com/p/20260929-Bloomberg-API-3e9294e2c07881acb8e7edcf6471f538",
+      "sha256": "ec1d13f4eb990bb2bb1fc8268bb754824799cac922c86c758a2e09523fd0cc80",
+      "upload_id": "3e9294e2-c078-81c1-bcaf-00b2be6ed910",
+      "verified": true,
+      "blocks": 4,
+      "tables": 1
+    }
+  },
+  "status": "verified"
+}

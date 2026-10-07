@@ -1,0 +1,61 @@
+[
+  {
+    "scenario_id": "SC01",
+    "title": "방어 적응",
+    "claim_type": "Conditional research scenario",
+    "confirmation_signal": "중요 자산의 수정시간·손실 감소",
+    "falsification_signal": "재작업·잔여 위험·오류 비용 증가",
+    "source_ids": [
+      "S34",
+      "S35"
+    ],
+    "probability": null,
+    "exclusive": false,
+    "status": "analyst_framework_not_prediction_or_trade"
+  },
+  {
+    "scenario_id": "SC02",
+    "title": "발견 대비 수정 병목",
+    "claim_type": "Conditional research scenario",
+    "confirmation_signal": "같은 자산 분모에서 적체·미수정 기간 증가",
+    "falsification_signal": "미수정 기간·손실 지속 감소",
+    "source_ids": [
+      "S34",
+      "S35"
+    ],
+    "probability": null,
+    "exclusive": false,
+    "status": "analyst_framework_not_prediction_or_trade"
+  },
+  {
+    "scenario_id": "SC03",
+    "title": "권한 에이전트 연쇄 실패",
+    "claim_type": "Conditional research scenario",
+    "confirmation_signal": "독립 로그로 확인한 승인 범위 이탈·피해",
+    "falsification_signal": "격리 후 독립 재현에서 차단·운영 안정",
+    "source_ids": [
+      "S01",
+      "S04",
+      "S06"
+    ],
+    "probability": null,
+    "exclusive": false,
+    "status": "analyst_framework_not_prediction_or_trade"
+  },
+  {
+    "scenario_id": "SC04",
+    "title": "플랫폼 흡수",
+    "claim_type": "Conditional research scenario",
+    "confirmation_signal": "별도 SKU 중단·번들 전환·할인 확대",
+    "falsification_signal": "중립 제품 유료 유지·가격 지속",
+    "source_ids": [
+      "S21",
+      "S27",
+      "S28",
+      "S40"
+    ],
+    "probability": null,
+    "exclusive": false,
+    "status": "analyst_framework_not_prediction_or_trade"
+  }
+]

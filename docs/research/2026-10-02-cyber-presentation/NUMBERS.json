@@ -1,0 +1,330 @@
+{
+  "as_of": "2026-10-02",
+  "role": "Team Noir Research+Quant",
+  "scope": "User slides 11-17; no new investment advice or private workbook validation",
+  "scenario_matrix": {
+    "source": "source/page-12.png",
+    "method": "manual visual transcription; black origin, gray propagation, red harm; green control markers excluded",
+    "rows": [
+      {
+        "scenario": "S1",
+        "origin": "L3",
+        "propagation": [
+          "L4"
+        ],
+        "harm": "L1",
+        "origin_target": true,
+        "path_target": true,
+        "harm_l1_l2": true
+      },
+      {
+        "scenario": "S2",
+        "origin": "L4",
+        "propagation": [],
+        "harm": "L2",
+        "origin_target": true,
+        "path_target": true,
+        "harm_l1_l2": true
+      },
+      {
+        "scenario": "S3",
+        "origin": "ID",
+        "propagation": [
+          "L4"
+        ],
+        "harm": "L2",
+        "origin_target": true,
+        "path_target": true,
+        "harm_l1_l2": true
+      },
+      {
+        "scenario": "S4",
+        "origin": "L4",
+        "propagation": [],
+        "harm": "L5",
+        "origin_target": true,
+        "path_target": true,
+        "harm_l1_l2": false
+      },
+      {
+        "scenario": "S5",
+        "origin": "L4",
+        "propagation": [],
+        "harm": "L1",
+        "origin_target": true,
+        "path_target": true,
+        "harm_l1_l2": true
+      },
+      {
+        "scenario": "S6",
+        "origin": "ID",
+        "propagation": [
+          "L2"
+        ],
+        "harm": "L1",
+        "origin_target": true,
+        "path_target": true,
+        "harm_l1_l2": true
+      },
+      {
+        "scenario": "S7",
+        "origin": "L3",
+        "propagation": [
+          "L4",
+          "L2"
+        ],
+        "harm": "L1",
+        "origin_target": true,
+        "path_target": true,
+        "harm_l1_l2": true
+      },
+      {
+        "scenario": "S8",
+        "origin": "L0",
+        "propagation": [
+          "L3",
+          "L4"
+        ],
+        "harm": "L2",
+        "origin_target": false,
+        "path_target": true,
+        "harm_l1_l2": true
+      },
+      {
+        "scenario": "S9",
+        "origin": "L1",
+        "propagation": [],
+        "harm": "L2",
+        "origin_target": false,
+        "path_target": false,
+        "harm_l1_l2": true
+      },
+      {
+        "scenario": "S10",
+        "origin": "L5",
+        "propagation": [
+          "ID"
+        ],
+        "harm": "L5",
+        "origin_target": false,
+        "path_target": true,
+        "harm_l1_l2": false
+      }
+    ],
+    "counts": {
+      "origin_target": 7,
+      "path_target": 9,
+      "harm_l1_l2": 8
+    },
+    "denominator": 10,
+    "limitation": "Counts among ten selected types, not empirical frequency or loss weights"
+  },
+  "calculations": [
+    {
+      "id": "GARTNER-49.5",
+      "slide": 13,
+      "source_url": "https://www.gartner.com/en/newsroom/press-releases/2023-09-28-gartner-forecasts-global-security-and-risk-management-spending-to-grow-14-percent-in-2024",
+      "publication_date": "2023-09-28",
+      "reference_period": "2024 forecast",
+      "source_section": "Table 1",
+      "units": "USD million",
+      "inputs": {
+        "network_security_equipment": 24360.1,
+        "infrastructure_protection": 33319.6,
+        "total": 214953.7,
+        "security_services": 89996.7,
+        "consumer_security": 8406.7
+      },
+      "numerator": 57679.7,
+      "enterprise_product_denominator": 116550.3,
+      "formula": "(network+infra)/(total-services-consumer)*100",
+      "result_percent": 49.4891047041492,
+      "total_denominator_result_percent": 26.833546014792955,
+      "status": "Reconstructed from primary source; author original mapping/workbook not provided",
+      "correction": "49.5% excludes services and consumer; total-budget wording incorrect"
+    },
+    {
+      "id": "BI-ARR",
+      "slide": 13,
+      "source": "source/page-13.png",
+      "inputs": {
+        "early": [
+          41.1,
+          27.5,
+          21.2,
+          10.3
+        ],
+        "late": [
+          58.2,
+          26.9,
+          12.2,
+          2.6
+        ]
+      },
+      "labels": [
+        "L1",
+        "L2",
+        "ID",
+        "Exposure"
+      ],
+      "early_l1_l2_percent": 68.6,
+      "late_l1_l2_percent": 85.1,
+      "change_pp": 16.5,
+      "early_sum": 100.1,
+      "late_sum": 99.9,
+      "same_position_window_gap_years": 4,
+      "status": "Slide arithmetic verified only; Bloomberg source data unavailable",
+      "limitation": "Sample vendor net ARR change shares cannot be equated to worldwide customer budget shares"
+    },
+    {
+      "id": "STAUFER-519",
+      "slide": 14,
+      "claimed_denominator": 519,
+      "claimed_percent": 14.7,
+      "percent_if_76": 14.64354527938343,
+      "percent_if_77": 14.836223506743737,
+      "integer_numerators_rounding_to_claim": [],
+      "status": "Original paper not identified; incompatible with simple integer count ratio rounded to 1dp",
+      "needed": "Paper title/version/URL, count unit, weighted/unweighted definition, exact denominator"
+    },
+    {
+      "id": "METR-71",
+      "slide": 14,
+      "source_url": "https://metr.org/blog/2026-08-14-funding-update/",
+      "publication_date": "2026-08-14",
+      "source_section": "opening paragraph",
+      "value_usd_million": 71,
+      "period": "commitments raised in preceding 6 months",
+      "status": "Verified issuer statement",
+      "limitation": "Fundraising commitments, not 6 month expenditure or industry budget"
+    },
+    {
+      "id": "GARTNER-213",
+      "slide": 14,
+      "source_url": "https://www.gartner.com/en/newsroom/press-releases/2025-07-29-gartner-forecasts-worldwide-end-user-spending-on-information-security-to-total-213-billion-us-dollars-in-2025",
+      "publication_date": "2025-07-29",
+      "source_section": "Figure 1",
+      "reference_period": "2025 forecast",
+      "value_usd_million": 213025,
+      "rounded_slide_usd_billion": 213,
+      "categories": [
+        "Network Security",
+        "Security Services",
+        "Security Software"
+      ],
+      "status": "Verified primary table",
+      "limitation": "AI security is not separately observable in three-category public summary; no zero spending inference"
+    },
+    {
+      "id": "INVALID-METR-MARKET-SHARE",
+      "formula": "71/213000*100",
+      "result_percent": 0.03333333333333333,
+      "status": "Arithmetic only; economically invalid market share denominator comparison"
+    },
+    {
+      "id": "STAUFER-TABLE6",
+      "slide": 15,
+      "claimed_shares_percent": {
+        "Faculty-Anthropic": 100,
+        "Deloitte-Anthropic": 88.9,
+        "Irregular-OpenAI": 80,
+        "Browserbase-Google": 100
+      },
+      "status": "Original table unavailable; all numeric values unverified",
+      "definition_in_slide": "Share of largest citing developer among non-internal citations",
+      "correction": "citation concentration does not establish legal exclusivity"
+    },
+    {
+      "id": "GRAYSWAN-40",
+      "slide": 15,
+      "value_usd_million": 40,
+      "source_url": "https://www.grayswan.ai/news/gray-swan-announces-series-a",
+      "publication_date": "2026-05-28",
+      "status": "Series A verified; four-lab citation count not independently reproduced"
+    },
+    {
+      "id": "IRREGULAR-80",
+      "slide": 15,
+      "value_usd_million": 80,
+      "source_url": "https://www.irregular.com/news/introducing-frontier-ai-security",
+      "publication_date": "2025-09-17",
+      "status": "Funding issuer statement verified; 450M valuation not confirmed by retrieved primary statement"
+    },
+    {
+      "id": "CROWDSTRIKE-DATE",
+      "slide": 16,
+      "incorrect_date": "2024-03",
+      "event_date": "2024-07-19",
+      "source_url": "https://www.crowdstrike.com/wp-content/uploads/2024/08/Executive-Summary_Root-Cause-Analysis_Channel-File-291.pdf",
+      "publication_date": "2024-08-06",
+      "source_section": "Introduction; What Happened",
+      "status": "Primary RCA verified",
+      "stock_return_approx_minus11": "Unverified; period and price definition absent"
+    },
+    {
+      "id": "PREMIUM-ANNUAL",
+      "slide": 16,
+      "input_quarterly_bp": [
+        30,
+        50
+      ],
+      "formula": "quarterly_bp * 4 / 100",
+      "annual_simple_percent": [
+        1.2,
+        2.0
+      ],
+      "four_quarters_asset_reduction_percent": [
+        1.194610791899997,
+        1.9850499375000052
+      ],
+      "status": "Arithmetic verified, quarterly net premium assumption unverified",
+      "assumptions": [
+        "same NAV denominator",
+        "four equal quarterly net costs",
+        "no claim payouts or residual values",
+        "transaction and financing costs excluded"
+      ]
+    },
+    {
+      "id": "VIX-SHORT-CALL-EXAMPLE",
+      "slide": 16,
+      "source_url": "https://www.cboe.com/tradable-products/vix/vix-options/specifications",
+      "source_section": "Multiplier and Settlement",
+      "illustrative_inputs": {
+        "strike": 30,
+        "premium_points": 1,
+        "settlement": 60,
+        "multiplier": 100,
+        "contracts": 1
+      },
+      "formula": "100*(1-max(60-30,0))",
+      "profit_usd": -2900,
+      "status": "Hypothetical arithmetic; not actual quote or proposed trade"
+    },
+    {
+      "id": "WORKBOOK-RETURN",
+      "slides": [
+        16,
+        17
+      ],
+      "claimed_values": {
+        "DeepSeek_excess_return_percent": -3.4,
+        "E4_median_return_percent": 1.4,
+        "entry_rule": "after +1d reaction",
+        "reclassification_rule": "5 trading days of weakness"
+      },
+      "status": "Private workbook unavailable; returns and strategy advantage not validated",
+      "required_inputs": [
+        "universe at event date",
+        "entry timestamp",
+        "return horizon",
+        "benchmark",
+        "excluded securities",
+        "price basis",
+        "bid ask cost",
+        "hedge quantity and expiries",
+        "look ahead control"
+      ]
+    }
+  ]
+}

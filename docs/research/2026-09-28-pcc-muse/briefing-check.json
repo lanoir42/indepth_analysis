@@ -1,0 +1,36 @@
+[
+  {
+    "file": "2026-09-28_meta_muse_agent_technical_explainer.md",
+    "doc_id": "O2InYDybPHag7X1f",
+    "project": "indepth_analysis/ai_security_explainers_2026_09",
+    "status": 200,
+    "full_body_equal": true,
+    "characters": 16322,
+    "sha256": "8a5b05a034cdec2c940cb451c7f920961958648fe7584a524e9209edfb9a57f8",
+    "slice": {
+      "offset": 0,
+      "limit": null,
+      "returned": 33522,
+      "total": 33522,
+      "truncated": false
+    },
+    "server_time": "2026-09-28T12:51:44+09:00"
+  },
+  {
+    "file": "2026-09-28_apple_pcc_technical_explainer.md",
+    "doc_id": "UGpU87lg-nZjcD43",
+    "project": "indepth_analysis/ai_security_explainers_2026_09",
+    "status": 200,
+    "full_body_equal": true,
+    "characters": 14759,
+    "sha256": "daed82726fa8a4f81c4e9cf5c2a30921a090b348106bd2518ffbc2dc36d00e7e",
+    "slice": {
+      "offset": 0,
+      "limit": null,
+      "returned": 29279,
+      "total": 29279,
+      "truncated": false
+    },
+    "server_time": "2026-09-28T12:51:44+09:00"
+  }
+]

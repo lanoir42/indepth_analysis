@@ -1,0 +1,461 @@
+[
+  {
+    "claim_id": "C01",
+    "claim_type": "Fact",
+    "claim": "격리 경계 우회와 인터넷 허용 평가를 구분해야 할 서로 다른 공개 사건이 있다",
+    "support_source_ids": [
+      "S01",
+      "S08"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "P01",
+    "status": "cross_account_comparison",
+    "confidence": "표시된 출처와 범위에서 확인",
+    "limits": "원문 설명의 확인과 현실 일반화는 별개"
+  },
+  {
+    "claim_id": "C02",
+    "claim_type": "Evidence",
+    "claim": "Hugging Face 침해의 데이터 처리·권한 전개",
+    "support_source_ids": [
+      "S03",
+      "S13"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "P01",
+    "status": "primary_accounts_compared_not_independently_reproduced",
+    "confidence": "표시된 출처와 범위에서 확인",
+    "limits": "원문 설명의 확인과 현실 일반화는 별개"
+  },
+  {
+    "claim_id": "C03",
+    "claim_type": "Evidence",
+    "claim": "공유 게시판을 통한 비승인 협력이 조사됨",
+    "support_source_ids": [
+      "S02",
+      "S04"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "P01",
+    "status": "independent_review_limited_scope",
+    "confidence": "표시된 출처와 범위에서 확인",
+    "limits": "원문 설명의 확인과 현실 일반화는 별개"
+  },
+  {
+    "claim_id": "C04",
+    "claim_type": "Fact",
+    "claim": "Anthropic 최초 설명과 후속 평가 사이 해석 변경 존재",
+    "support_source_ids": [
+      "S05",
+      "S06"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "P01",
+    "status": "version_comparison",
+    "confidence": "표시된 출처와 범위에서 확인",
+    "limits": "원문 설명의 확인과 현실 일반화는 별개"
+  },
+  {
+    "claim_id": "C05",
+    "claim_type": "Evidence",
+    "claim": "AISI 무단 행동 집계는 실행 수와 행동 수가 다름",
+    "support_source_ids": [
+      "S08"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "P01",
+    "status": "primary_blog_only",
+    "confidence": "표시된 출처와 범위에서 확인",
+    "limits": "원문 설명의 확인과 현실 일반화는 별개"
+  },
+  {
+    "claim_id": "C06",
+    "claim_type": "Evidence",
+    "claim": "동일 FrontierCyber 스냅샷 해결 과제 수86대34, 분모226",
+    "support_source_ids": [
+      "S10"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "P02",
+    "status": "reported_numbers_recomputed",
+    "confidence": "표시된 출처와 범위에서 확인",
+    "limits": "원문 설명의 확인과 현실 일반화는 별개"
+  },
+  {
+    "claim_id": "C07",
+    "claim_type": "Evidence",
+    "claim": "동일 보고의 CyScenarioBench 평균67.6%대53.0%",
+    "support_source_ids": [
+      "S11"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "P02",
+    "status": "reported_numbers_recomputed",
+    "confidence": "표시된 출처와 범위에서 확인",
+    "limits": "원문 설명의 확인과 현실 일반화는 별개"
+  },
+  {
+    "claim_id": "C08",
+    "claim_type": "Fact",
+    "claim": "시간 지평은 인간 기준 과업 난도의 성공확률 지표",
+    "support_source_ids": [
+      "S12"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "P02",
+    "status": "method_definition",
+    "confidence": "표시된 출처와 범위에서 확인",
+    "limits": "원문 설명의 확인과 현실 일반화는 별개"
+  },
+  {
+    "claim_id": "C09",
+    "claim_type": "Inference",
+    "claim": "모델 행동·도구 권한·독립 감사는 각각 검증해야 한다",
+    "support_source_ids": [
+      "S02",
+      "S03",
+      "S06",
+      "S08"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "LECTURE-01",
+    "status": "author_synthesis",
+    "confidence": "조건부·추론",
+    "limits": "원문 설명의 확인과 현실 일반화는 별개"
+  },
+  {
+    "claim_id": "C10",
+    "claim_type": "Investment hypothesis",
+    "claim": "통제 수요가 독립 보안 매출로 전환되는지는 별도 검증 필요",
+    "support_source_ids": [
+      "S03",
+      "S08"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "P01/P02",
+    "status": "unvalidated_commercial_link",
+    "confidence": "조건부·추론",
+    "limits": "원문 설명의 확인과 현실 일반화는 별개"
+  },
+  {
+    "claim_id": "C11",
+    "claim_type": "Evidence",
+    "claim": "보상 해킹에 취약한 학습 환경의 실험은 특정 부정렬의 일반화를 보임",
+    "support_source_ids": [
+      "S14"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "P03",
+    "status": "experimental_model_not_production_incident_causality",
+    "confidence": "출처가 해당 내용을 기술함; 일반화 별도",
+    "limits": "원문 열람 범위 sources.locator 참고"
+  },
+  {
+    "claim_id": "C12",
+    "claim_type": "Fact",
+    "claim": "Anthropic의 격리·모니터링 개선 조치 발표",
+    "support_source_ids": [
+      "S15"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "P03",
+    "status": "company_reported_controls_not_independent_assurance",
+    "confidence": "출처가 해당 내용을 기술함; 일반화 별도",
+    "limits": "원문 열람 범위 sources.locator 참고"
+  },
+  {
+    "claim_id": "C13",
+    "claim_type": "Fact",
+    "claim": "NIST 분류와 에이전트 신원 논의의 범위",
+    "support_source_ids": [
+      "S16",
+      "S17"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "P04",
+    "status": "primary_scope_read",
+    "confidence": "출처가 해당 내용을 기술함; 일반화 별도",
+    "limits": "원문 열람 범위 sources.locator 참고"
+  },
+  {
+    "claim_id": "C14",
+    "claim_type": "Evidence",
+    "claim": "출시 전 SQLite 취약점 발견·수정 사례",
+    "support_source_ids": [
+      "S18"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "P05",
+    "status": "developer_case_not_universal_performance",
+    "confidence": "출처가 해당 내용을 기술함; 일반화 별도",
+    "limits": "원문 열람 범위 sources.locator 참고"
+  },
+  {
+    "claim_id": "C15",
+    "claim_type": "Evidence",
+    "claim": "피싱 분류 RCT 논문 초록의 생산성 개선 주장",
+    "support_source_ids": [
+      "S19"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "P05",
+    "status": "abstract_only_full_methods_pending",
+    "confidence": "출처가 해당 내용을 기술함; 일반화 별도",
+    "limits": "원문 열람 범위 sources.locator 참고"
+  },
+  {
+    "claim_id": "C16",
+    "claim_type": "Fact",
+    "claim": "Faculty 인수는 완료 상태이며 대가 미공개",
+    "chapter": "P08",
+    "support_source_ids": [
+      "S22"
+    ],
+    "contradiction_source_ids": [],
+    "status": "first_pass_primary_source_or_explicit_analysis",
+    "confidence": "본문에 표시한 범위에 한정",
+    "limits": "인수 완료가 제품 통합·수익성 증명은 아님"
+  },
+  {
+    "claim_id": "C17",
+    "claim_type": "Fact",
+    "claim": "안전 투자 계획과 평가 계약 매출을 구분",
+    "chapter": "P08",
+    "support_source_ids": [
+      "S23"
+    ],
+    "contradiction_source_ids": [],
+    "status": "first_pass_primary_source_or_explicit_analysis",
+    "confidence": "본문에 표시한 범위에 한정",
+    "limits": "공표 투자 의향을 납입/매출로 환산 금지"
+  },
+  {
+    "claim_id": "C18",
+    "claim_type": "Fact",
+    "claim": "Microsoft–OpenAI 관계의 후속 계약 변경 확인",
+    "chapter": "P08",
+    "support_source_ids": [
+      "S21"
+    ],
+    "contradiction_source_ids": [],
+    "status": "first_pass_primary_source_or_explicit_analysis",
+    "confidence": "본문에 표시한 범위에 한정",
+    "limits": "최신 지분율 미확인"
+  },
+  {
+    "claim_id": "C19",
+    "claim_type": "Evidence",
+    "claim": "금융회사들이 발견 대비 수정 능력의 지연을 보고",
+    "chapter": "P07",
+    "support_source_ids": [
+      "S34"
+    ],
+    "contradiction_source_ids": [],
+    "status": "first_pass_primary_source_or_explicit_analysis",
+    "confidence": "본문에 표시한 범위에 한정",
+    "limits": "표본 원자료 미확보; 전체 산업 일반화 금지"
+  },
+  {
+    "claim_id": "C20",
+    "claim_type": "Fact",
+    "claim": "FSB 자료는 협의안이며 새 국제 강행 기준이 아님",
+    "chapter": "P07",
+    "support_source_ids": [
+      "S33"
+    ],
+    "contradiction_source_ids": [],
+    "status": "first_pass_primary_source_or_explicit_analysis",
+    "confidence": "본문에 표시한 범위에 한정",
+    "limits": "최종 문서·후속 정책 재확인 필요"
+  },
+  {
+    "claim_id": "C21",
+    "claim_type": "Forecast",
+    "claim": "Morgan Stanley의 에이전트 신원 시장 기회 전망",
+    "chapter": "P09",
+    "support_source_ids": [
+      "S40"
+    ],
+    "contradiction_source_ids": [],
+    "status": "first_pass_primary_source_or_explicit_analysis",
+    "confidence": "본문에 표시한 범위에 한정",
+    "limits": "관측 매출 아님; 공개 요약만 확인"
+  },
+  {
+    "claim_id": "C22",
+    "claim_type": "Fact",
+    "claim": "Goldman Sachs 24%는 배수 프리미엄",
+    "chapter": "P09",
+    "support_source_ids": [
+      "S41"
+    ],
+    "contradiction_source_ids": [],
+    "status": "first_pass_primary_source_or_explicit_analysis",
+    "confidence": "본문에 표시한 범위에 한정",
+    "limits": "주가 초과수익 아님; 과거 기준일"
+  },
+  {
+    "claim_id": "C23",
+    "claim_type": "Evidence",
+    "claim": "기업 전체 실적에서 AI 보안 기여를 분리할 수 없음",
+    "chapter": "P09",
+    "support_source_ids": [
+      "S38",
+      "S39"
+    ],
+    "contradiction_source_ids": [],
+    "status": "first_pass_primary_source_or_explicit_analysis",
+    "confidence": "본문에 표시한 범위에 한정",
+    "limits": "해당 실적 표 범위; 전체 공시를 통한 추가 식별 필요"
+  },
+  {
+    "claim_id": "C24",
+    "claim_type": "Inference",
+    "claim": "통제 수요 확대가 독립 공급자의 가격 결정력으로 연결되지는 않음",
+    "chapter": "P10",
+    "support_source_ids": [
+      "S21",
+      "S27",
+      "S28",
+      "S40"
+    ],
+    "contradiction_source_ids": [],
+    "status": "first_pass_primary_source_or_explicit_analysis",
+    "confidence": "본문에 표시한 범위에 한정",
+    "limits": "연구자 가설; 계약·유료 부착률로 검증"
+  },
+  {
+    "claim_id": "C25",
+    "claim_type": "Inference",
+    "claim": "모델 평가 접근과 평가 독립성을 별도로 판단해야 함",
+    "chapter": "P08",
+    "support_source_ids": [
+      "S23",
+      "S24"
+    ],
+    "contradiction_source_ids": [],
+    "status": "first_pass_primary_source_or_explicit_analysis",
+    "confidence": "본문에 표시한 범위에 한정",
+    "limits": "계약의 비공개 조항·실제 영향 미확인"
+  },
+  {
+    "claim_id": "C26",
+    "claim_type": "Fact",
+    "claim": "AIM의 제품 기능은 회사 설명으로 확인",
+    "chapter": "P08",
+    "support_source_ids": [
+      "S29"
+    ],
+    "contradiction_source_ids": [],
+    "status": "first_pass_primary_source_or_explicit_analysis",
+    "confidence": "본문에 표시한 범위에 한정",
+    "limits": "독립 성능·매출·유료 고객 수 미확인"
+  },
+  {
+    "claim_id": "C27",
+    "claim_type": "Inference",
+    "claim": "전문가 차이는 능력·채택·적응 속도의 전제 비교로 해석",
+    "chapter": "P06",
+    "support_source_ids": [
+      "S30",
+      "S31",
+      "S32"
+    ],
+    "contradiction_source_ids": [],
+    "status": "first_pass_primary_source_or_explicit_analysis",
+    "confidence": "본문에 표시한 범위에 한정",
+    "limits": "전체 학계 대표성 없음; 동일 인물 시계열 미완료"
+  },
+  {
+    "claim_id": "C28",
+    "claim_type": "Fact",
+    "claim": "EU GPAI FAQ는 모델 출시 시점에 따른 전환 규정을 구별",
+    "chapter": "P07",
+    "support_source_ids": [
+      "S36"
+    ],
+    "contradiction_source_ids": [],
+    "status": "first_pass_primary_source_or_explicit_analysis",
+    "confidence": "본문에 표시한 범위에 한정",
+    "limits": "후속 개정 통합 법률 검토 미완료"
+  },
+  {
+    "claim_id": "C29",
+    "claim_type": "Fact",
+    "claim": "GOLD EAGLE은 활동 개시를 발표",
+    "chapter": "P07",
+    "support_source_ids": [
+      "S37"
+    ],
+    "contradiction_source_ids": [],
+    "status": "first_pass_primary_source_or_explicit_analysis",
+    "confidence": "본문에 표시한 범위에 한정",
+    "limits": "성과의 독립 검증 아님"
+  },
+  {
+    "claim_id": "C30",
+    "claim_type": "Evidence",
+    "claim": "과제 판본·분모·패치 조건에 따라 평가 의미가 달라짐",
+    "support_source_ids": [
+      "S43"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "P02",
+    "status": "primary_text_in_stated_scope",
+    "confidence": "시험 범위 한정",
+    "limits": "시험 성능을 실전 위험률로 일반화 금지"
+  },
+  {
+    "claim_id": "C31",
+    "claim_type": "Fact",
+    "claim": "ExploitBench 만점은 종합 평가 지표",
+    "support_source_ids": [
+      "S46"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "P02",
+    "status": "primary_text_in_stated_scope",
+    "confidence": "시험 범위 한정",
+    "limits": "다회 시도·오염 가능성·채점 변경"
+  },
+  {
+    "claim_id": "C32",
+    "claim_type": "Evidence",
+    "claim": "추론 기록 감시와 전체 문맥 감시의 차이",
+    "support_source_ids": [
+      "S44",
+      "S46"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "P03",
+    "status": "primary_text_in_stated_scope",
+    "confidence": "시험 범위 한정",
+    "limits": "특정 실험의 결과이며 보편적인 탐지 보장 아님"
+  },
+  {
+    "claim_id": "C33",
+    "claim_type": "Evidence",
+    "claim": "정렬 위장 실험은 위험의 필연성을 입증하지 않음",
+    "support_source_ids": [
+      "S45"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "P03",
+    "status": "primary_text_in_stated_scope",
+    "confidence": "시험 범위 한정",
+    "limits": "요약·한계 읽음; 독립 재현 미실행"
+  },
+  {
+    "claim_id": "C34",
+    "claim_type": "Evidence",
+    "claim": "CaMeL 판본별 성능·정책 집행과 한계",
+    "support_source_ids": [
+      "S42"
+    ],
+    "contradiction_source_ids": [],
+    "chapter": "P04",
+    "status": "primary_text_in_stated_scope",
+    "confidence": "시험 범위 한정",
+    "limits": "업무 효용과 보안 보장을 구분; 운영 검증 미실행"
+  }
+]

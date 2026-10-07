@@ -1,0 +1,74 @@
+{
+  "sources": [
+    {
+      "file": "00-EXECUTIVE-REPORT.md",
+      "sha256": "77a85130a5ec973fb7942c0ab66ae4c4ffb14b8217b1bc19550d6d2b935e6d37",
+      "assembled_section_sha256": "2db72a6dcae9e40f506dc71b06159475d28e084148925042cb84d38572dc97e1",
+      "included": true
+    },
+    {
+      "file": "01-INCIDENTS-AND-LEGACY.md",
+      "sha256": "2233b70b2dcc29b1a7cbf157cdc1e4bc0409066b26c167370d9ec6bff8782fd4",
+      "assembled_section_sha256": "cc3b9a04b955662b5704d39ab338ef3ced9f00586afbe323d5dc3a2291127647",
+      "included": true
+    },
+    {
+      "file": "02-CAPABILITY-AND-ECONOMICS.md",
+      "sha256": "93f58528c762bbec3114666893488c410204202168cc68d930e8297552ed2365",
+      "assembled_section_sha256": "0d57050e11a6561782194202682331462723a45a681624cac491eea25bb6c576",
+      "included": true
+    },
+    {
+      "file": "03-SAFETY-AND-EXPERT-DEBATE.md",
+      "sha256": "e26d5579621387b08b40141fb751f3ebeb4fc904bbf2f04dce765d9d7a9fa06d",
+      "assembled_section_sha256": "f8bb1a6603e8a752ce44f54ab23d1fc45b3d134f91e05ab642c5d4fd202f44fd",
+      "included": true
+    },
+    {
+      "file": "04-SECURITY-ARCHITECTURE.md",
+      "sha256": "97f7c7bc77c30da241e3618b5a6d7f1262a2d8316d0acc72ccf4f4ffad2ba3d2",
+      "assembled_section_sha256": "d4343429b2cf0833a07072dc14fedee10f7fdebb27b96f532c195bbe79bc5f37",
+      "included": true
+    },
+    {
+      "file": "05-LANDSCAPE-AND-POLICY.md",
+      "sha256": "b63ea491576286b9220b698eda710fb4a8be583a887445e436c85ae028c735a0",
+      "assembled_section_sha256": "23716de89b3ecbfdd75679ae88cb7423828354e4f2297c6dbfeb17c1f7434dc2",
+      "included": true
+    },
+    {
+      "file": "06-COMPANIES-AND-VALUE-CAPTURE.md",
+      "sha256": "9fcb9172f5af87e715734ac63252df00955a6c76ccc10c90e00d93c05a41d1f6",
+      "assembled_section_sha256": "131fc712bca427df352287958a86f30741c7b5b99e1133de2a157132beba9b09",
+      "included": true
+    },
+    {
+      "file": "07-FINANCIAL-TRANSMISSION.md",
+      "sha256": "880f4a774ae5a92e167d387e8820bb909cc3f5981b055084142318a89583743c",
+      "assembled_section_sha256": "7021210fe408038a2ca30bbcec5dbe310a4c12d7410a0466175eb495f318b182",
+      "included": true
+    },
+    {
+      "file": "08-SCENARIOS-AND-DECISIONS.md",
+      "sha256": "49cbcddbe993ed0918ff7660f76e48b30cf376c03000f8ed39906989561c2ead",
+      "assembled_section_sha256": "0c43ca9de0835298686c803cab3d6210641350a33f10c93e37a16eb5e2f950d1",
+      "included": true
+    },
+    {
+      "file": "09-LECTURE-NOTES.md",
+      "sha256": "459548af9d4bfeede09ac059dfa8205efaa410da8bba952c83eff379992cae40",
+      "assembled_section_sha256": "f459083034684f7685f8030cae31433f12b961b230cb8594b8b24ae7e6f620f3",
+      "included": true
+    },
+    {
+      "file": "REFERENCES.md",
+      "sha256": "b375dff74f80fd44ba825b34a852b412751addb5392fa060a21b37be869c772f",
+      "assembled_section_sha256": "507aec2404820f8b9f2748e83af6307fd98df4363de67cc9bc812f01d79e0395",
+      "included": true
+    }
+  ],
+  "output": "FULL-REPORT.md",
+  "characters": 54939,
+  "sha256": "f9fac33df70635a2a578895c7d1a44dc95aba373f61babe5ef57f0b75b85080d",
+  "assembly": "Full source bodies preserved; headings/date preambles and reference chapter labels normalized."
+}

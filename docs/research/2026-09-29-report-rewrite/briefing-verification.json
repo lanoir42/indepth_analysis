@@ -1,0 +1,104 @@
+{
+  "checked_at": "2026-09-29",
+  "checks": [
+    {
+      "name": "00-EXECUTIVE-REPORT.md",
+      "folder": "indepth_analysis_2026_09_29",
+      "doc_id": "EVxvXLdlJcQ-jMGX",
+      "body_matches": true,
+      "journal_contains_id": true
+    },
+    {
+      "name": "01-INCIDENTS-AND-LEGACY.md",
+      "folder": "indepth_analysis_2026_09_29",
+      "doc_id": "8JRwRaEyE-UQiPvW",
+      "body_matches": true,
+      "journal_contains_id": true
+    },
+    {
+      "name": "02-CAPABILITY-AND-ECONOMICS.md",
+      "folder": "indepth_analysis_2026_09_29",
+      "doc_id": "zzZIMuvGzy_RuKGh",
+      "body_matches": true,
+      "journal_contains_id": true
+    },
+    {
+      "name": "03-SAFETY-AND-EXPERT-DEBATE.md",
+      "folder": "indepth_analysis_2026_09_29",
+      "doc_id": "kQlAHkvrkFuImYzI",
+      "body_matches": true,
+      "journal_contains_id": true
+    },
+    {
+      "name": "04-SECURITY-ARCHITECTURE.md",
+      "folder": "indepth_analysis_2026_09_29",
+      "doc_id": "wGhcZZGSCVky0Ccu",
+      "body_matches": true,
+      "journal_contains_id": true
+    },
+    {
+      "name": "05-LANDSCAPE-AND-POLICY.md",
+      "folder": "indepth_analysis_2026_09_29",
+      "doc_id": "AfPUyEw3jPiR9U5-",
+      "body_matches": true,
+      "journal_contains_id": true
+    },
+    {
+      "name": "06-COMPANIES-AND-VALUE-CAPTURE.md",
+      "folder": "indepth_analysis_2026_09_29",
+      "doc_id": "nZi4ebVOApgQsOrF",
+      "body_matches": true,
+      "journal_contains_id": true
+    },
+    {
+      "name": "07-FINANCIAL-TRANSMISSION.md",
+      "folder": "indepth_analysis_2026_09_29",
+      "doc_id": "BvVnpypezdPuDBiM",
+      "body_matches": true,
+      "journal_contains_id": true
+    },
+    {
+      "name": "08-SCENARIOS-AND-DECISIONS.md",
+      "folder": "indepth_analysis_2026_09_29",
+      "doc_id": "x4RZ_87waLvKXV7c",
+      "body_matches": true,
+      "journal_contains_id": true
+    },
+    {
+      "name": "09-LECTURE-NOTES.md",
+      "folder": "indepth_analysis_2026_09_29",
+      "doc_id": "VClXBRPIrPuzJFYH",
+      "body_matches": true,
+      "journal_contains_id": true
+    },
+    {
+      "name": "01-PCC-MUSE-NVIDIA-CASES.md",
+      "folder": "2026-09-29_recent_report_revisions",
+      "doc_id": "goRvd4JSxVwCs4lD",
+      "body_matches": true,
+      "journal_contains_id": true
+    },
+    {
+      "name": "02-FINANCIAL-API-WORKFLOW.md",
+      "folder": "2026-09-29_recent_report_revisions",
+      "doc_id": "yiBAvTAgi3Kg6ENi",
+      "body_matches": true,
+      "journal_contains_id": true
+    },
+    {
+      "name": "03-HEDGE-READER.md",
+      "folder": "2026-09-29_recent_report_revisions",
+      "doc_id": "I3NyLfW-2LkiDcSs",
+      "body_matches": true,
+      "journal_contains_id": true
+    },
+    {
+      "name": "04-INDUSTRY-READER.md",
+      "folder": "2026-09-29_recent_report_revisions",
+      "doc_id": "Kl20Dx_19kedi8_k",
+      "body_matches": true,
+      "journal_contains_id": true
+    }
+  ],
+  "method": "Read-only authenticated local API. Device UI not tested."
+}

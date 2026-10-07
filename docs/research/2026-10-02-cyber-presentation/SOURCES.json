@@ -1,0 +1,162 @@
+[
+  {
+    "title": "NIST 구조 설명",
+    "url": "https://pages.nist.gov/zero-trust-architecture/VolumeB/architecture.html"
+  },
+  {
+    "title": "Hugging Face 타임라인",
+    "url": "https://huggingface.co/blog/agent-intrusion-technical-timeline"
+  },
+  {
+    "title": "METR 조사",
+    "url": "https://metr.org/blog/2026-08-26-openai-hugging-face-incident-investigation/"
+  },
+  {
+    "title": "Anthropic 사후 평가",
+    "url": "https://www.anthropic.com/research/alignment-assessment-cybersecurity-incidents"
+  },
+  {
+    "title": "AISI 사건 보고",
+    "url": "https://www.aisi.gov.uk/blog/incident-report-unsanctioned-agent-behaviour-during-cyber-testing"
+  },
+  {
+    "title": "Spotlighting 연구",
+    "url": "https://arxiv.org/html/2403.14720v1"
+  },
+  {
+    "title": "CaMeL v2",
+    "url": "https://arxiv.org/html/2503.18813v2"
+  },
+  {
+    "title": "tacit 논문",
+    "url": "https://www.yichenxu.me/files/publications/securing-agents/paper.pdf"
+  },
+  {
+    "title": "tacit 공개 구현",
+    "url": "https://github.com/lampepfl/tacit"
+  },
+  {
+    "title": "MCP 보안 지침",
+    "url": "https://modelcontextprotocol.io/docs/2025-11-25/tutorials/security/security_best_practices"
+  },
+  {
+    "title": "OAuth 보안 권고 RFC 9700",
+    "url": "https://www.rfc-editor.org/rfc/rfc9700.html"
+  },
+  {
+    "title": "OpenShell v0.1.2",
+    "url": "https://github.com/NVIDIA/OpenShell/blob/v0.1.2/architecture/sandbox.md"
+  },
+  {
+    "title": "NVIDIA 참조 구조 설명",
+    "url": "https://developer.nvidia.com/blog/nvidia-open-agent-safety-platform-a-reference-for-continuous-in-silicon-agent-monitoring/"
+  },
+  {
+    "title": "Apple PCC",
+    "url": "https://security.apple.com/blog/private-cloud-compute/"
+  },
+  {
+    "title": "Invariant Guardrails",
+    "url": "https://invariantlabs.ai/blog/guardrails"
+  },
+  {
+    "title": "MemoryGraft",
+    "url": "https://arxiv.org/html/2512.16962v1"
+  },
+  {
+    "title": "CC++",
+    "url": "https://arxiv.org/html/2601.04603v1"
+  },
+  {
+    "title": "AI Control",
+    "url": "https://arxiv.org/html/2312.06942v3"
+  },
+  {
+    "title": "NeMo 구조",
+    "url": "https://docs.nvidia.com/nemo/guardrails/about-nemo-guardrails-library/how-it-works"
+  },
+  {
+    "title": "Entra Agent ID",
+    "url": "https://learn.microsoft.com/en-us/entra/agent-id/agent-service-principals"
+  },
+  {
+    "title": "AIRS API",
+    "url": "https://docs.paloaltonetworks.com/prisma-airs/ai-runtime-security/airs-api"
+  },
+  {
+    "title": "모델 파일 검사",
+    "url": "https://docs.paloaltonetworks.com/prisma-airs/ai-supply-chain-security/ai-supply-chain-security/model-security-to-secure-your-ai-models/understanding-ai-model-security-rules"
+  },
+  {
+    "title": "CrowdStrike 조사 에이전트",
+    "url": "https://www.crowdstrike.com/en-us/blog/inside-crowdstrikes-science-backed-approach-to-building-soc-agents/"
+  },
+  {
+    "title": "Stinger",
+    "url": "https://www.aim-intelligence.com/stinger"
+  },
+  {
+    "title": "Starfort",
+    "url": "https://www.aim-intelligence.com/starfort"
+  },
+  {
+    "title": "COMPASS 연구",
+    "url": "https://arxiv.org/html/2601.01836v1"
+  },
+  {
+    "title": "Gartner 2023-09-28, 표 1",
+    "url": "https://www.gartner.com/en/newsroom/press-releases/2023-09-28-gartner-forecasts-global-security-and-risk-management-spending-to-grow-14-percent-in-2024"
+  },
+  {
+    "title": "Anthropic 공식 발표",
+    "url": "https://www.anthropic.com/news/accenture-embedded-evaluation"
+  },
+  {
+    "title": "METR 공시",
+    "url": "https://metr.org/blog/2026-08-14-funding-update/"
+  },
+  {
+    "title": "Gartner 2025-07-29",
+    "url": "https://www.gartner.com/en/newsroom/press-releases/2025-07-29-gartner-forecasts-worldwide-end-user-spending-on-information-security-to-total-213-billion-us-dollars-in-2025"
+  },
+  {
+    "title": "PANW–CyberArk",
+    "url": "https://www.paloaltonetworks.com/company/press/2026/palo-alto-networks-completes-acquisition-of-cyberark-to-secure-the-ai-era"
+  },
+  {
+    "title": "PANW–Protect AI",
+    "url": "https://investors.paloaltonetworks.com/news-releases/news-release-details/palo-alto-networks-completes-acquisition-protect-ai"
+  },
+  {
+    "title": "Google–Wiz",
+    "url": "https://blog.google/innovation-and-ai/infrastructure-and-cloud/google-cloud/wiz-acquisition/"
+  },
+  {
+    "title": "Check Point 3Q25",
+    "url": "https://www.checkpoint.com/downloads/investor/check-point-software-third-quarter-2025-financial-results.pdf?v=1.1"
+  },
+  {
+    "title": "Snyk–Invariant",
+    "url": "https://snyk.io/news/snyk-acquires-invariant-labs-to-accelerate-agentic-ai-security-innovation/"
+  },
+  {
+    "title": "Cboe VIX 옵션 명세",
+    "url": "https://www.cboe.com/tradable-products/vix/vix-options/specifications"
+  },
+  {
+    "title": "CrowdStrike 원인 분석",
+    "url": "https://www.crowdstrike.com/wp-content/uploads/2024/08/Executive-Summary_Root-Cause-Analysis_Channel-File-291.pdf"
+  },
+  {
+    "title": "Gray Swan 조달 발표",
+    "url": "https://www.grayswan.ai/news/gray-swan-announces-series-a"
+  },
+  {
+    "title": "Irregular 발표",
+    "url": "https://www.irregular.com/news/introducing-frontier-ai-security"
+  },
+  {
+    "title": "Scale 발표",
+    "url": "https://scale.com/blog/scale-ai-announces-next-phase-of-company-evolution"
+  }
+]

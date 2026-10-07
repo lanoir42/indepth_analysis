@@ -1,0 +1,27 @@
+{
+  "doc_id": "_rYWEH0ceTi0Mtp3",
+  "finder_openable": true,
+  "body_matches": true,
+  "body_field": "md",
+  "journal_date": "2026-10-02",
+  "journal_matches": [
+    {
+      "section": "/reports/today/6",
+      "item": {
+        "doc_id": "_rYWEH0ceTi0Mtp3",
+        "project": "indepth_analysis/cyber_presentation_2026_10_06",
+        "filename": "FULL-ARTICLE.md",
+        "date": "2026-10-02",
+        "status": "unread",
+        "read_at": null,
+        "size": 100376,
+        "note_ids": [],
+        "summary3": null,
+        "scope": "general",
+        "rating": null
+      }
+    }
+  ],
+  "sha256": "d7994d3eff014974d811609dab0cc1f918d1de3e282521abc4fee89060684f81",
+  "device_ui_tested": false
+}

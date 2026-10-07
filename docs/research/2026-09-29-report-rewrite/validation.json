@@ -1,0 +1,191 @@
+{
+  "checked_at": "2026-09-29",
+  "files": [
+    {
+      "file": "reports/indepth_analysis_2026_09_29/00-EXECUTIVE-REPORT.md",
+      "sha256": "77a85130a5ec973fb7942c0ab66ae4c4ffb14b8217b1bc19550d6d2b935e6d37",
+      "lint-temporal": {
+        "returncode": 0,
+        "log": "00-EXECUTIVE-REPORT-lint-temporal.txt"
+      },
+      "lint-numeric": {
+        "returncode": 0,
+        "log": "00-EXECUTIVE-REPORT-lint-numeric.txt"
+      }
+    },
+    {
+      "file": "reports/indepth_analysis_2026_09_29/01-INCIDENTS-AND-LEGACY.md",
+      "sha256": "2233b70b2dcc29b1a7cbf157cdc1e4bc0409066b26c167370d9ec6bff8782fd4",
+      "lint-temporal": {
+        "returncode": 0,
+        "log": "01-INCIDENTS-AND-LEGACY-lint-temporal.txt"
+      },
+      "lint-numeric": {
+        "returncode": 0,
+        "log": "01-INCIDENTS-AND-LEGACY-lint-numeric.txt"
+      }
+    },
+    {
+      "file": "reports/indepth_analysis_2026_09_29/02-CAPABILITY-AND-ECONOMICS.md",
+      "sha256": "93f58528c762bbec3114666893488c410204202168cc68d930e8297552ed2365",
+      "lint-temporal": {
+        "returncode": 0,
+        "log": "02-CAPABILITY-AND-ECONOMICS-lint-temporal.txt"
+      },
+      "lint-numeric": {
+        "returncode": 0,
+        "log": "02-CAPABILITY-AND-ECONOMICS-lint-numeric.txt"
+      }
+    },
+    {
+      "file": "reports/indepth_analysis_2026_09_29/03-SAFETY-AND-EXPERT-DEBATE.md",
+      "sha256": "e26d5579621387b08b40141fb751f3ebeb4fc904bbf2f04dce765d9d7a9fa06d",
+      "lint-temporal": {
+        "returncode": 0,
+        "log": "03-SAFETY-AND-EXPERT-DEBATE-lint-temporal.txt"
+      },
+      "lint-numeric": {
+        "returncode": 0,
+        "log": "03-SAFETY-AND-EXPERT-DEBATE-lint-numeric.txt"
+      }
+    },
+    {
+      "file": "reports/indepth_analysis_2026_09_29/04-SECURITY-ARCHITECTURE.md",
+      "sha256": "97f7c7bc77c30da241e3618b5a6d7f1262a2d8316d0acc72ccf4f4ffad2ba3d2",
+      "lint-temporal": {
+        "returncode": 0,
+        "log": "04-SECURITY-ARCHITECTURE-lint-temporal.txt"
+      },
+      "lint-numeric": {
+        "returncode": 0,
+        "log": "04-SECURITY-ARCHITECTURE-lint-numeric.txt"
+      }
+    },
+    {
+      "file": "reports/indepth_analysis_2026_09_29/05-LANDSCAPE-AND-POLICY.md",
+      "sha256": "b63ea491576286b9220b698eda710fb4a8be583a887445e436c85ae028c735a0",
+      "lint-temporal": {
+        "returncode": 0,
+        "log": "05-LANDSCAPE-AND-POLICY-lint-temporal.txt"
+      },
+      "lint-numeric": {
+        "returncode": 0,
+        "log": "05-LANDSCAPE-AND-POLICY-lint-numeric.txt"
+      }
+    },
+    {
+      "file": "reports/indepth_analysis_2026_09_29/06-COMPANIES-AND-VALUE-CAPTURE.md",
+      "sha256": "9fcb9172f5af87e715734ac63252df00955a6c76ccc10c90e00d93c05a41d1f6",
+      "lint-temporal": {
+        "returncode": 0,
+        "log": "06-COMPANIES-AND-VALUE-CAPTURE-lint-temporal.txt"
+      },
+      "lint-numeric": {
+        "returncode": 0,
+        "log": "06-COMPANIES-AND-VALUE-CAPTURE-lint-numeric.txt"
+      }
+    },
+    {
+      "file": "reports/indepth_analysis_2026_09_29/07-FINANCIAL-TRANSMISSION.md",
+      "sha256": "880f4a774ae5a92e167d387e8820bb909cc3f5981b055084142318a89583743c",
+      "lint-temporal": {
+        "returncode": 0,
+        "log": "07-FINANCIAL-TRANSMISSION-lint-temporal.txt"
+      },
+      "lint-numeric": {
+        "returncode": 0,
+        "log": "07-FINANCIAL-TRANSMISSION-lint-numeric.txt"
+      }
+    },
+    {
+      "file": "reports/indepth_analysis_2026_09_29/08-SCENARIOS-AND-DECISIONS.md",
+      "sha256": "49cbcddbe993ed0918ff7660f76e48b30cf376c03000f8ed39906989561c2ead",
+      "lint-temporal": {
+        "returncode": 0,
+        "log": "08-SCENARIOS-AND-DECISIONS-lint-temporal.txt"
+      },
+      "lint-numeric": {
+        "returncode": 0,
+        "log": "08-SCENARIOS-AND-DECISIONS-lint-numeric.txt"
+      }
+    },
+    {
+      "file": "reports/indepth_analysis_2026_09_29/09-LECTURE-NOTES.md",
+      "sha256": "459548af9d4bfeede09ac059dfa8205efaa410da8bba952c83eff379992cae40",
+      "lint-temporal": {
+        "returncode": 0,
+        "log": "09-LECTURE-NOTES-lint-temporal.txt"
+      },
+      "lint-numeric": {
+        "returncode": 0,
+        "log": "09-LECTURE-NOTES-lint-numeric.txt"
+      }
+    },
+    {
+      "file": "reports/2026-09-29_recent_report_revisions/01-PCC-MUSE-NVIDIA-CASES.md",
+      "sha256": "fa28ea8c906314f01145624b3761b3d6d76d789e90bb0baa4aaf27b94bdf1486",
+      "lint-temporal": {
+        "returncode": 0,
+        "log": "01-PCC-MUSE-NVIDIA-CASES-lint-temporal.txt"
+      },
+      "lint-numeric": {
+        "returncode": 0,
+        "log": "01-PCC-MUSE-NVIDIA-CASES-lint-numeric.txt"
+      }
+    },
+    {
+      "file": "reports/2026-09-29_recent_report_revisions/02-FINANCIAL-API-WORKFLOW.md",
+      "sha256": "b0eb3929da0f00870cd69456cf292b4f268ae93bd61917c6750063e2a2e9f63a",
+      "lint-temporal": {
+        "returncode": 0,
+        "log": "02-FINANCIAL-API-WORKFLOW-lint-temporal.txt"
+      },
+      "lint-numeric": {
+        "returncode": 0,
+        "log": "02-FINANCIAL-API-WORKFLOW-lint-numeric.txt"
+      }
+    },
+    {
+      "file": "reports/2026-09-29_recent_report_revisions/03-HEDGE-READER.md",
+      "sha256": "d92634423fed6c72e84d3b7eab6a47295fe51f98f28adc856971344eaad2116a",
+      "lint-temporal": {
+        "returncode": 0,
+        "log": "03-HEDGE-READER-lint-temporal.txt"
+      },
+      "lint-numeric": {
+        "returncode": 0,
+        "log": "03-HEDGE-READER-lint-numeric.txt"
+      }
+    },
+    {
+      "file": "reports/2026-09-29_recent_report_revisions/04-INDUSTRY-READER.md",
+      "sha256": "4393968120180afd9a3069933454e2a65e67097697bb283950c04e8d694e4ba7",
+      "lint-temporal": {
+        "returncode": 0,
+        "log": "04-INDUSTRY-READER-lint-temporal.txt"
+      },
+      "lint-numeric": {
+        "returncode": 0,
+        "log": "04-INDUSTRY-READER-lint-numeric.txt"
+      }
+    }
+  ],
+  "missing_local_links": [],
+  "calculations": {
+    "cost_per_success": 50.0,
+    "soc_hours": 1166.6666666666667,
+    "soc_capacity_value": 70000.0,
+    "soc_break_even_realization": 0.5,
+    "alert_ppv_1pct": 0.08264462809917356,
+    "alert_ppv_01pct": 0.4739336492890995,
+    "crwd_gaap_margin": -2.2585034013605445,
+    "crwd_adjusted_margin": 25.27891156462585,
+    "panw_gaap_margin": 5.043988269794721,
+    "panw_adjusted_margin": 29.32551319648094,
+    "eps_mean": 1.3333333333333333,
+    "eps_surprise_mean": 5.000000000000004,
+    "eps_surprise_median": 16.666666666666675,
+    "valuation_example": 840
+  },
+  "note": "Lint is temporal screening and macro numeric advisory; not a research completeness/quality guarantee."
+}

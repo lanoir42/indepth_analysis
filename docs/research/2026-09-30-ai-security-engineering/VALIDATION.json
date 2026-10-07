@@ -1,0 +1,49 @@
+{
+  "date": "2026-09-30",
+  "path": "reports/ai_security_engineering_2026_09_30/FULL-REPORT.md",
+  "scope": "technical_scientific_engineering_company_technologies",
+  "characters_including_spaces_urls": 59603,
+  "body_characters": 49639,
+  "lines": 795,
+  "main_chapters": 13,
+  "subsections": 60,
+  "reference_count": 55,
+  "unique_external_urls": 62,
+  "sha256": "d6f813e0163a988a71ab9e2f5ed2d08f7b20853b585bb74626dc64d9e60092c5",
+  "local_links_valid": true,
+  "fences_balanced": true,
+  "illustrative_calculations": {
+    "zero_failure_95_upper_100_pct": 2.951304960703993,
+    "zero_failure_95_upper_1000_pct": 0.29912495450953314,
+    "at_least_one_failure_1000_pct": 63.23045752290363,
+    "precision_pct": 8.257638315441783
+  },
+  "temporal_lint": {
+    "exit_code": 2,
+    "high": 2,
+    "medium": 0,
+    "low": 19,
+    "manual_disposition": "Two HIGH flags are historical experiment descriptions (2024 alignment faking; 2023-generation GPT in Spotlighting). Present/current words describe experimental premise or explicitly limit generalization. No correction to year warranted; automated gate remains flagged."
+  },
+  "numeric_lint": {
+    "exit_code": 0,
+    "result": "clean",
+    "scope": "macro registry only; not AI experiment validation"
+  },
+  "source_pdf_sha256": "8ddb71aba0923e1c2822b70f3a4e9bda385f977afcc92a4ed81a6e69bfef3671",
+  "independent_audits": [
+    "audit/TECHNICAL-R3.md",
+    "audit/EVIDENCE-R2.md",
+    "audit/READER-R2.md"
+  ],
+  "product_benchmarks_reproduced": false,
+  "external_publication_verified": false,
+  "reader_final_review": {
+    "verdict": "PASS for core technical explanation",
+    "questions": 48,
+    "sufficient": 34,
+    "partial": 13,
+    "absent": 1,
+    "scope_limit": "Not full commercial benchmarking; reviewer contributed some section 7.4 text; see READER-R2.md"
+  }
+}

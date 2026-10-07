@@ -1,0 +1,18 @@
+{
+  "checked_at": "2026-09-29",
+  "checks": [
+    {
+      "name": "REPORT.md",
+      "doc_id": "wbaaKVH4lITArOaV",
+      "body_matches": true,
+      "journal_contains_id": true
+    },
+    {
+      "name": "RFP-AND-PILOT.md",
+      "doc_id": "wY2weq8y-mZSRK08",
+      "body_matches": true,
+      "journal_contains_id": true
+    }
+  ],
+  "method": "Authenticated read-only local API; no device UI test"
+}

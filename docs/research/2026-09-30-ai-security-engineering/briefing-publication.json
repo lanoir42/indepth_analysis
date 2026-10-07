@@ -1,0 +1,27 @@
+{
+  "doc_id": "MOYigm1tcqU_1Q8r",
+  "finder_openable": true,
+  "body_matches": true,
+  "body_field": "md",
+  "journal_date": "2026-09-30",
+  "journal_matches": [
+    {
+      "section": "/reports/today/0",
+      "item": {
+        "doc_id": "MOYigm1tcqU_1Q8r",
+        "project": "indepth_analysis/ai_security_engineering_2026_09_30",
+        "filename": "FULL-REPORT.md",
+        "date": "2026-09-30",
+        "status": "unread",
+        "read_at": null,
+        "size": 119404,
+        "note_ids": [],
+        "summary3": null,
+        "scope": "general",
+        "rating": null
+      }
+    }
+  ],
+  "sha256": "d6f813e0163a988a71ab9e2f5ed2d08f7b20853b585bb74626dc64d9e60092c5",
+  "device_ui_tested": false
+}

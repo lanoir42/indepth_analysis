@@ -1,0 +1,30 @@
+{
+  "project": "indepth_analysis",
+  "path": "ai_security_explainers_2026_09",
+  "parent": "",
+  "dirs": [],
+  "files": [
+    {
+      "name": "2026-09-28_apple_pcc_technical_explainer.md",
+      "rel": "ai_security_explainers_2026_09/2026-09-28_apple_pcc_technical_explainer.md",
+      "ext": "md",
+      "size": 29279,
+      "mtime": "2026-09-28T12:44:37+09:00",
+      "doc_id": "UGpU87lg-nZjcD43",
+      "openable": true,
+      "in_manifest": true
+    },
+    {
+      "name": "2026-09-28_meta_muse_agent_technical_explainer.md",
+      "rel": "ai_security_explainers_2026_09/2026-09-28_meta_muse_agent_technical_explainer.md",
+      "ext": "md",
+      "size": 33522,
+      "mtime": "2026-09-28T12:48:56+09:00",
+      "doc_id": "O2InYDybPHag7X1f",
+      "openable": true,
+      "in_manifest": true
+    }
+  ],
+  "truncated": false,
+  "server_time": "2026-09-28T12:49:57+09:00"
+}
