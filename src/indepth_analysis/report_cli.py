@@ -71,7 +71,8 @@ def command(provider, model, web):
     if provider == 'claude':
         tools = 'WebSearch,WebFetch' if web else ''
         return ['claude', '-p', '--model', model, '--output-format', 'json',
-                '--no-session-persistence', '--tools', tools, '--allowedTools', tools]
+                '--no-session-persistence', '--strict-mcp-config',
+                '--tools', tools, '--allowedTools', tools]
     cmd = ['codex', 'exec', '--ignore-user-config', '--ephemeral', '--skip-git-repo-check',
            '--sandbox', 'read-only', '--json', '--model', model]
     for setting in ['forced_login_method="chatgpt"', 'approval_policy="never"',
